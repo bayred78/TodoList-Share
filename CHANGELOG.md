@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-02-24 02:54 — 페이지수정창 fullscreen-editor 전환 + 표시이름 설정 이동 + 디자인 토큰 정리
+- `MainPage.jsx`: 페이지 편집 UI를 fullscreen-editor 패턴으로 전환
+- `ProjectPage.jsx`: 페이지 편집 UI를 fullscreen-editor 패턴으로 전환
+- `ProjectPage.css`: 삭제 (스타일을 global.css로 이동)
+- `global.css`: ProjectPage 공용 스타일 통합, 하드코딩 색상을 디자인 토큰으로 교체
+- Git 태그: `v260224-0254`
+- 복원: `git checkout v260224-0254`
+
 ## 2026-02-24 00:52 — 즐겨찾기 기능 구현 + 체크리스트 상태변경 버그 수정
 - `favoriteService.js`: 즐겨찾기(체크리스트/친구) CRUD 서비스 신규 생성
 - `MainPage.jsx/css`: 즐겨찾기 탭 UI, DM 버튼, 해제 확인 메시지

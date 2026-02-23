@@ -77,6 +77,29 @@
     opacity: 0.5;
 }
 
+.todo-left-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.todo-fav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.todo-fav-btn:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
 .todo-type-icon {
     font-size: 1.1rem;
     margin-top: 2px;

@@ -751,3 +751,127 @@
     vertical-align: middle;
     margin-right: 2px;
 }
+
+/* ===== Favorites Tab ===== */
+.favorites-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.favorites-sub-tabs {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.favorites-sub-tab {
+    flex: 1;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.favorites-sub-tab.active {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border-color: var(--color-primary);
+}
+
+.favorites-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.fav-item-card {
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.fav-item-card:hover {
+    transform: translateX(4px);
+    border-color: var(--color-primary);
+}
+
+.fav-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.fav-item-project {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.fav-item-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.fav-remove-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px;
+    transition: transform var(--transition-fast);
+}
+
+.fav-remove-btn:hover {
+    transform: scale(1.2);
+}
+
+.friend-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+/* Friend Card */
+.friend-card {
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.friend-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.friend-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.friend-nickname {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.friend-memo-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.friend-memo-input {
+    flex: 1;
+    padding: var(--spacing-xs) var(--spacing-sm) !important;
+    font-size: var(--font-size-xs) !important;
+}
+
+.friend-memo-text {
+    flex: 1;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}

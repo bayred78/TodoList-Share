@@ -14,6 +14,7 @@ import { getUserProfile } from '../services/authService';
 import { addEventToCalendar, removeEventFromCalendar, shareCalendarWithUser, unshareCalendarWithUser, checkEventExists, getCalendarAclEmails, hasCalendarToken, getCalendarList } from '../services/calendarService';
 import { uploadChatImage, uploadItemImage, uploadItemFile } from '../services/storageService';
 import { formatFileSize } from '../utils/imageUtils';
+import { subscribeToFavoriteItems, addFavoriteItem, removeFavoriteItem } from '../services/favoriteService';
 import { exportItemsToCsv, parseCsv } from '../services/csvService';
 import Modal from '../components/common/Modal';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
@@ -228,6 +229,8 @@ export default function ProjectPage() {
     const [pageViewMode, setPageViewMode] = useState(() => localStorage.getItem('pageViewMode') || 'card');
     const [refreshKey, setRefreshKey] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
+    const [favoriteItems, setFavoriteItems] = useState([]);
+    const favoriteItemSet = useMemo(() => new Set(favoriteItems.map(f => `${f.projectId}_${f.itemId}`)), [favoriteItems]);
 
     const VIEW_MODES = ['card', 'grid', 'list', 'detail'];
     const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋', detail: '📄' };
@@ -419,6 +422,13 @@ export default function ProjectPage() {
             document.removeEventListener('visibilitychange', handleVisibility);
         };
     }, [projectId]);
+
+    // 즐겨찾기 구독
+    useEffect(() => {
+        if (!profile?.uid) return;
+        const unsub = subscribeToFavoriteItems(profile.uid, setFavoriteItems);
+        return () => unsub();
+    }, [profile?.uid]);
 
     // 채팅 구독은 채팅 탭이 활성화된 때만 (비용 절감)
     useEffect(() => {
@@ -2690,13 +2700,32 @@ export default function ProjectPage() {
                                     onDrop={handleDrop}
                                 >
                                     <div className="todo-item-main">
-                                        <button
-                                            className={`todo-checkbox ${item.checked ? 'checked' : ''}`}
-                                            onClick={() => handleToggleCheck(item)}
-                                            disabled={!userCanWrite || item.locked}
-                                        >
-                                            {item.checked && '✓'}
-                                        </button>
+                                        <div className="todo-left-actions">
+                                            <button
+                                                className={`todo-checkbox ${item.checked ? 'checked' : ''}`}
+                                                onClick={() => handleToggleCheck(item)}
+                                                disabled={!userCanWrite || item.locked}
+                                            >
+                                                {item.checked && '✓'}
+                                            </button>
+                                            <button
+                                                className="todo-fav-btn"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const isFav = favoriteItemSet.has(`${projectId}_${item.id}`);
+                                                    if (isFav) {
+                                                        if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
+                                                            removeFavoriteItem(profile.uid, projectId, item.id);
+                                                        }
+                                                    } else {
+                                                        addFavoriteItem(profile.uid, projectId, item.id, item.title, project?.name || '');
+                                                    }
+                                                }}
+                                                title="즐겨찾기"
+                                            >
+                                                {favoriteItemSet.has(`${projectId}_${item.id}`) ? '⭐' : '☆'}
+                                            </button>
+                                        </div>
                                         <div className="todo-content" onClick={() => {
                                             if (userCanWrite && !item.locked) {
                                                 const copy = { ...item };
@@ -3045,6 +3074,21 @@ export default function ProjectPage() {
                                 }}
                             >←</button>
                             <div className="fullscreen-editor-actions">
+                                <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const isFav = favoriteItemSet.has(`${projectId}_${editItem.id}`);
+                                        if (isFav) {
+                                            if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
+                                                removeFavoriteItem(profile.uid, projectId, editItem.id);
+                                            }
+                                        } else {
+                                            addFavoriteItem(profile.uid, projectId, editItem.id, editItem.title, project?.name || '');
+                                        }
+                                    }}
+                                    title="즐겨찾기"
+                                >{favoriteItemSet.has(`${projectId}_${editItem.id}`) ? '⭐ 즐겨찾기' : '☆ 즐겨찾기'}</button>
                                 {/* 구성원 체크 버튼 */}
                                 {!isEditingContent && editItem && !editItem.locked && project?.members && (
                                     <div className="member-check-wrapper">

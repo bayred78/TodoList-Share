@@ -16,6 +16,7 @@ import {
 } from '../services/searchService';
 import { sendDirectMessage } from '../services/chatService';
 import { findUserByNicknameOrEmail } from '../services/userService';
+import { subscribeToFavoriteItems, subscribeToFavoriteFriends, addFavoriteFriend, removeFavoriteFriend, updateFriendMemo, removeFavoriteItem } from '../services/favoriteService';
 
 const VIEW_MODES = ['card', 'grid', 'list'];
 const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋' };
@@ -38,6 +39,13 @@ export default function MainPage() {
     const [projectColor, setProjectColor] = useState(null);
     const [colorFilters, setColorFilters] = useState([]);
     const [showColorFilter, setShowColorFilter] = useState(false);
+
+    // 즐겨찾기
+    const [favoriteItems, setFavoriteItems] = useState([]);
+    const [favoriteFriends, setFavoriteFriends] = useState([]);
+    const [favSubTab, setFavSubTab] = useState('checklist');
+    const [editingMemoId, setEditingMemoId] = useState(null);
+    const [memoInput, setMemoInput] = useState('');
 
     // 활동명 (createProject/acceptInvitation용)
     const [useDisplayName, setUseDisplayName] = useState(false);
@@ -173,6 +181,14 @@ export default function MainPage() {
             document.removeEventListener('visibilitychange', handleVisibility);
         };
     }, [profile]);
+
+    // 즐겨찾기 구독
+    useEffect(() => {
+        if (!profile?.uid) return;
+        const unsub1 = subscribeToFavoriteItems(profile.uid, setFavoriteItems);
+        const unsub2 = subscribeToFavoriteFriends(profile.uid, setFavoriteFriends);
+        return () => { unsub1(); unsub2(); };
+    }, [profile?.uid]);
 
     // UpgradeModal state
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -673,6 +689,13 @@ export default function MainPage() {
                         🔍 검색{!getUserLimits(profile).search && ' 🔒'}
                     </button>
                     <button
+                        data-tab="favorites"
+                        className={`tab-item ${activeTab === 'favorites' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('favorites')}
+                    >
+                        ⭐ 즐겨찾기
+                    </button>
+                    <button
                         data-tab="requests"
                         className={`tab-item ${activeTab === 'requests' ? 'active' : ''}`}
                         onClick={() => setActiveTab('requests')}
@@ -1134,6 +1157,112 @@ export default function MainPage() {
                     </div>
                 )}
 
+                {/* 즐겨찾기 탭 */}
+                {activeTab === 'favorites' && (
+                    <div className="favorites-container">
+                        <div className="favorites-sub-tabs">
+                            <button
+                                className={`favorites-sub-tab ${favSubTab === 'checklist' ? 'active' : ''}`}
+                                onClick={() => setFavSubTab('checklist')}
+                            >
+                                📋 체크리스트 ({favoriteItems.length})
+                            </button>
+                            <button
+                                className={`favorites-sub-tab ${favSubTab === 'friends' ? 'active' : ''}`}
+                                onClick={() => setFavSubTab('friends')}
+                            >
+                                👥 친구 ({favoriteFriends.length})
+                            </button>
+                        </div>
+
+                        {favSubTab === 'checklist' && (
+                            <div className="favorites-list">
+                                {favoriteItems.length === 0 ? (
+                                    <div className="empty-state">
+                                        <div className="empty-state-icon">⭐</div>
+                                        <div className="empty-state-title">즐겨찾기한 체크리스트가 없습니다</div>
+                                        <div className="empty-state-text">체크리스트 카드의 ☆ 버튼을 눌러 추가하세요</div>
+                                    </div>
+                                ) : (
+                                    favoriteItems.map((fav) => (
+                                        <div key={fav.id} className="card fav-item-card" onClick={() => navigate(`/project/${fav.projectId}?openItem=${fav.itemId}`)}>
+                                            <div className="fav-item-header">
+                                                <span className="fav-item-project">{fav.projectName}</span>
+                                                <button className="fav-remove-btn" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
+                                                        removeFavoriteItem(profile.uid, fav.projectId, fav.itemId);
+                                                    }
+                                                }} title="즐겨찾기 해제">⭐</button>
+                                            </div>
+                                            <h4 className="fav-item-title">{fav.title}</h4>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {favSubTab === 'friends' && (
+                            <div className="favorites-list">
+                                {favoriteFriends.length === 0 ? (
+                                    <div className="empty-state">
+                                        <div className="empty-state-icon">👥</div>
+                                        <div className="empty-state-title">즐겨찾기한 친구가 없습니다</div>
+                                        <div className="empty-state-text">메시지의 ☆ 버튼으로 친구를 추가하세요</div>
+                                    </div>
+                                ) : (
+                                    favoriteFriends.map((friend) => (
+                                        <div key={friend.id} className="card friend-card">
+                                            <div className="friend-row">
+                                                <div className="friend-info">
+                                                    <span className="friend-nickname">{friend.nickname}</span>
+                                                    <div className="friend-actions">
+                                                        <button className="btn btn-primary btn-sm" onClick={() => {
+                                                            setDmRecipient(friend.nickname);
+                                                            setDmSearchResult({ id: friend.friendUid, nickname: friend.nickname });
+                                                            setDmMessage('');
+                                                            setShowDmModal(true);
+                                                        }}>💬</button>
+                                                        <button className="fav-remove-btn" onClick={() => { if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, friend.friendUid); }} title="즐겨찾기 해제">⭐</button>
+                                                    </div>
+                                                </div>
+                                                <div className="friend-memo-row">
+                                                    {editingMemoId === friend.id ? (
+                                                        <>
+                                                            <input
+                                                                className="input-field friend-memo-input"
+                                                                value={memoInput}
+                                                                onChange={(e) => setMemoInput(e.target.value)}
+                                                                placeholder="비고 입력"
+                                                            />
+                                                            <button className="btn btn-primary btn-sm" onClick={async () => {
+                                                                try {
+                                                                    await updateFriendMemo(profile.uid, friend.id, memoInput);
+                                                                    setEditingMemoId(null);
+                                                                } catch (e) {
+                                                                    addToast('비고 저장에 실패했습니다.', 'error');
+                                                                }
+                                                            }}>저장</button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="friend-memo-text">{friend.memo || '(비고 없음)'}</span>
+                                                            <button className="btn btn-secondary btn-sm" onClick={() => {
+                                                                setEditingMemoId(friend.id);
+                                                                setMemoInput(friend.memo || '');
+                                                            }}>편집</button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* 요청 목록 */}
                 {activeTab === 'requests' && (
                     <div className="request-list">
@@ -1372,6 +1501,18 @@ export default function MainPage() {
                                                 {dm.createdAt && (
                                                     <span className="invitation-time" style={{ marginRight: 'auto' }}>{formatTime(dm.createdAt)}</span>
                                                 )}
+                                                <button className="btn btn-sm" style={{ fontSize: '16px', padding: '2px 6px', minWidth: 'auto' }}
+                                                    onClick={() => {
+                                                        const isFav = favoriteFriends.some(f => f.friendUid === dm.senderUid);
+                                                        if (isFav) {
+                                                            if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, dm.senderUid);
+                                                        } else {
+                                                            addFavoriteFriend(profile.uid, dm.senderUid, dm.senderNickname);
+                                                        }
+                                                    }}
+                                                    title="친구 즐겨찾기">
+                                                    {favoriteFriends.some(f => f.friendUid === dm.senderUid) ? '⭐' : '☆'}
+                                                </button>
                                                 <button className="btn btn-primary btn-sm"
                                                     onClick={() => {
                                                         setDmRecipient(dm.senderNickname);
@@ -1683,6 +1824,23 @@ export default function MainPage() {
                         >
                             {dmSearching ? '...' : '검색'}
                         </button>
+                        {dmSearchResult && (
+                            <button
+                                className="btn btn-sm"
+                                style={{ fontSize: '16px', padding: '2px 8px', minWidth: 'auto' }}
+                                onClick={() => {
+                                    const isFav = favoriteFriends.some(f => f.friendUid === dmSearchResult.id);
+                                    if (isFav) {
+                                        if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, dmSearchResult.id);
+                                    } else {
+                                        addFavoriteFriend(profile.uid, dmSearchResult.id, dmSearchResult.nickname);
+                                    }
+                                }}
+                                title="친구 즐겨찾기"
+                            >
+                                {favoriteFriends.some(f => f.friendUid === dmSearchResult.id) ? '⭐' : '☆'}
+                            </button>
+                        )}
                     </div>
                     {dmSearchResult && (
                         <div className="card" style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>

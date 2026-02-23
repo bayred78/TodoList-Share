@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
-import { subscribeToMyProjects, createProject, updateProject, deleteProject, getRoleLabel, getCachedProjects, deltaFetchProjects } from '../services/projectService';
+import { subscribeToMyProjects, createProject, updateProject, deleteProject, getRoleLabel, getCachedProjects, deltaFetchProjects, updateProjectDisplayNameMode } from '../services/projectService';
 import { subscribeToMyInvitations, subscribeToSentInvitations, acceptInvitation, rejectInvitation, cancelInvitation } from '../services/invitationService';
 import { getUserPlan, getEffectivePlan, getUserLimits, LIMITS } from '../services/subscriptionService';
 import UpgradeModal from '../components/common/UpgradeModal';
@@ -31,6 +31,8 @@ export default function MainPage() {
     const [invitations, setInvitations] = useState([]);
     const [sentInvitations, setSentInvitations] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [createOptionSheet, setCreateOptionSheet] = useState(null); // 'color'|'tag'|'displayName'|null
+    const [editOptionSheet, setEditOptionSheet] = useState(null); // 'color'|'tag'|'displayName'|null
     const [projectName, setProjectName] = useState('');
     const [projectDesc, setProjectDesc] = useState('');
     const [creating, setCreating] = useState(false);
@@ -458,6 +460,7 @@ export default function MainPage() {
         setProjectColor(project.color || null);
         setProjectTags(project.projectTags || []);
         setNewProjectTag('');
+        setEditOptionSheet(null);
         setShowEditModal(true);
     };
 
@@ -480,6 +483,7 @@ export default function MainPage() {
                 projectTags: projectTags,
             });
             addToast('페이지 정보가 수정되었습니다.', 'success');
+            setEditOptionSheet(null);
             setShowEditModal(false);
         } catch (error) {
             addToast('페이지 수정에 실패했습니다.', 'error');
@@ -1556,212 +1560,328 @@ export default function MainPage() {
                 if (activeTab === 'requests') {
                     setShowDmModal(true);
                 } else {
-                    setProjectColor(null); setProjectTags([]); setNewProjectTag(''); setUseDisplayName(false); setDisplayNameInput(''); setShowCreateModal(true);
+                    setProjectColor(null); setProjectTags([]); setNewProjectTag(''); setUseDisplayName(false); setDisplayNameInput(''); setCreateOptionSheet(null); setShowCreateModal(true);
                 }
             }} title={activeTab === 'requests' ? '메시지 보내기' : '새 페이지'}>
                 {activeTab === 'requests' ? '✉️' : '+'}
             </button>
 
-            {/* 페이지 생성 모달 */}
-            <Modal
-                isOpen={showCreateModal}
-                onClose={() => { setShowCreateModal(false); setProjectTags([]); setNewProjectTag(''); setUseDisplayName(false); setDisplayNameInput(''); }}
-                title="새 페이지"
-                hideHeader
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={() => { setShowCreateModal(false); setProjectTags([]); setNewProjectTag(''); setUseDisplayName(false); setDisplayNameInput(''); }}>
-                            취소
+            {/* 페이지 생성 - 전체화면 에디터 */}
+            {showCreateModal && (
+                <div className="fullscreen-editor">
+                    <div className="fullscreen-editor-header">
+                        <button className="fullscreen-editor-back" onClick={() => { setCreateOptionSheet(null); setShowCreateModal(false); setProjectTags([]); setNewProjectTag(''); setUseDisplayName(false); setDisplayNameInput(''); }}>←</button>
+                        <div className="fullscreen-editor-actions">
+                            <button
+                                className="btn btn-primary btn-sm"
+                                onClick={handleCreateProject}
+                                disabled={creating}
+                            >
+                                {creating ? <span className="spinner"></span> : '생성'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 생성 모드 상단 툴바 */}
+                    <div className="edit-toolbar">
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${createOptionSheet === 'color' ? 'active' : ''}`}
+                            onClick={() => setCreateOptionSheet(createOptionSheet === 'color' ? null : 'color')}
+                        >
+                            <span>🏅</span><span className="edit-toolbar-label">중요도</span>
+                            {projectColor && <span className="edit-toolbar-dot" style={{ background: LABEL_COLORS.find(c => c.id === projectColor)?.hex }}></span>}
                         </button>
                         <button
-                            className="btn btn-primary"
-                            onClick={handleCreateProject}
-                            disabled={creating}
+                            type="button"
+                            className={`edit-toolbar-btn ${createOptionSheet === 'tag' ? 'active' : ''}`}
+                            onClick={() => setCreateOptionSheet(createOptionSheet === 'tag' ? null : 'tag')}
                         >
-                            {creating ? <span className="spinner"></span> : '생성'}
+                            <span>🏷️</span><span className="edit-toolbar-label">태그</span>
+                            {projectTags.length > 0 && <span className="edit-toolbar-count">{projectTags.length}</span>}
                         </button>
-                    </>
-                }
-            >
-                <form onSubmit={handleCreateProject}>
-                    <div className="input-group">
-                        <label className="input-label">페이지 이름 *</label>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${createOptionSheet === 'displayName' ? 'active' : ''}`}
+                            onClick={() => setCreateOptionSheet(createOptionSheet === 'displayName' ? null : 'displayName')}
+                        >
+                            <span>📛</span><span className="edit-toolbar-label">활동명</span>
+                            {useDisplayName && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
+                        </button>
+                    </div>
+
+                    {/* 옵션 시트: 중요도 */}
+                    {createOptionSheet === 'color' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏅 중요도 선택</span>
+                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
+                            </div>
+                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6, padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                {LABEL_COLORS.map(c => (
+                                    <button
+                                        key={c.id}
+                                        className={`filter-chip ${projectColor === c.id ? 'active' : ''}`}
+                                        onClick={() => setProjectColor(projectColor === c.id ? null : c.id)}
+                                        type="button"
+                                    >
+                                        <span className="filter-chip-dot" style={{ background: c.hex }} />
+                                        {c.name}
+                                    </button>
+                                ))}
+                                <button
+                                    className={`filter-chip ${projectColor === null ? 'active' : ''}`}
+                                    onClick={() => setProjectColor(null)}
+                                    type="button"
+                                >
+                                    <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} />
+                                    무순위
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 태그 */}
+                    {createOptionSheet === 'tag' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏷️ 태그 설정</span>
+                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
+                                    {projectTags.map(tag => (
+                                        <button key={tag} type="button" className="filter-chip active"
+                                            onClick={() => setProjectTags(prev => prev.filter(t => t !== tag))}>
+                                            🏷️ {tag} ×
+                                        </button>
+                                    ))}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                    <input type="text" className="input-field" placeholder="새 태그"
+                                        value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)}
+                                        style={{ flex: 1 }} />
+                                    <button type="button" className="btn btn-primary btn-sm"
+                                        disabled={!newProjectTag.trim()}
+                                        onClick={() => {
+                                            const t = newProjectTag.trim();
+                                            if (t && !projectTags.includes(t)) setProjectTags(prev => [...prev, t]);
+                                            setNewProjectTag('');
+                                        }}>추가</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 활동명 */}
+                    {createOptionSheet === 'displayName' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>📛 활동명 설정</span>
+                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={useDisplayName}
+                                        onChange={e => setUseDisplayName(e.target.checked)}
+                                    />
+                                    활동명 사용
+                                </label>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
+                                    페이지 내에서 닉네임 대신 별도의 활동명을 사용합니다.
+                                </p>
+                                {useDisplayName && (
+                                    <input
+                                        type="text"
+                                        className="input-field"
+                                        placeholder="나의 활동명을 입력하세요"
+                                        value={displayNameInput}
+                                        onChange={e => setDisplayNameInput(e.target.value)}
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="fullscreen-editor-body">
                         <input
                             type="text"
-                            className="input-field"
+                            className="fullscreen-editor-title"
                             placeholder="페이지 이름을 입력하세요"
                             value={projectName}
                             onChange={(e) => setProjectName(e.target.value)}
+                            autoFocus
                         />
-                    </div>
-                    <div className="input-group">
-                        <label className="input-label">설명 (선택)</label>
                         <textarea
-                            className="input-field"
+                            className="fullscreen-editor-content"
                             placeholder="페이지 설명을 입력하세요"
                             value={projectDesc}
                             onChange={(e) => setProjectDesc(e.target.value)}
-                            rows={3}
-                            style={{ resize: 'vertical' }}
                         />
                     </div>
-                    <div className="input-group">
-                        <label className="input-label">🏅 중요도</label>
-                    </div>
-                    <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
-                        {LABEL_COLORS.map(c => (
-                            <button
-                                key={c.id}
-                                className={`filter-chip ${projectColor === c.id ? 'active' : ''}`}
-                                onClick={() => setProjectColor(projectColor === c.id ? null : c.id)}
-                                type="button"
-                            >
-                                <span className="filter-chip-dot" style={{ background: c.hex }} />
-                                {c.name}
-                            </button>
-                        ))}
-                        <button
-                            className={`filter-chip ${projectColor === null ? 'active' : ''}`}
-                            onClick={() => setProjectColor(null)}
-                            type="button"
-                        >
-                            <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} />
-                            무순위
-                        </button>
-                    </div>
-                    <div className="input-group">
-                        <label className="input-label">🏷️ 태그</label>
-                        <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
-                            {projectTags.map(tag => (
-                                <button key={tag} type="button" className="filter-chip active"
-                                    onClick={() => setProjectTags(prev => prev.filter(t => t !== tag))}>
-                                    🏷️ {tag} ×
-                                </button>
-                            ))}
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                            <input type="text" className="input-field" placeholder="새 태그"
-                                value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)}
-                                style={{ flex: 1 }} />
-                            <button type="button" className="btn btn-primary btn-sm"
-                                disabled={!newProjectTag.trim()}
-                                onClick={() => {
-                                    const t = newProjectTag.trim();
-                                    if (t && !projectTags.includes(t)) setProjectTags(prev => [...prev, t]);
-                                    setNewProjectTag('');
-                                }}>추가</button>
-                        </div>
-                    </div>
-                    <div className="input-group">
-                        <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                                type="checkbox"
-                                checked={useDisplayName}
-                                onChange={e => setUseDisplayName(e.target.checked)}
-                            />
-                            📛 활동명 사용
-                        </label>
-                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
-                            페이지 내에서 닉네임 대신 별도의 활동명을 사용합니다.
-                        </p>
-                        {useDisplayName && (
-                            <input
-                                type="text"
-                                className="input-field"
-                                placeholder="나의 활동명을 입력하세요"
-                                value={displayNameInput}
-                                onChange={e => setDisplayNameInput(e.target.value)}
-                            />
-                        )}
-                    </div>
-                </form>
-            </Modal>
+                </div>
+            )}
 
-            {/* 페이지 수정 모달 */}
-            <Modal
-                isOpen={showEditModal}
-                onClose={() => { setShowEditModal(false); setProjectTags([]); setNewProjectTag(''); }}
-                title="페이지 수정"
-                hideHeader
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={() => { setShowEditModal(false); setProjectTags([]); setNewProjectTag(''); }}>취소</button>
-                        <button className="btn btn-primary" onClick={handleSaveEdit} disabled={saving}>
-                            {saving ? <span className="spinner"></span> : '저장'}
-                        </button>
-                    </>
-                }
-            >
-                <div className="input-group">
-                    <label className="input-label">페이지 이름 *</label>
-                    <input
-                        type="text"
-                        className="input-field"
-                        placeholder="페이지 이름"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        autoFocus
-                    />
-                </div>
-                <div className="input-group">
-                    <label className="input-label">설명 (선택)</label>
-                    <textarea
-                        className="input-field"
-                        placeholder="페이지 설명을 입력하세요"
-                        value={editDesc}
-                        onChange={(e) => setEditDesc(e.target.value)}
-                        rows={3}
-                        style={{ resize: 'vertical' }}
-                    />
-                </div>
-                <div className="input-group">
-                    <label className="input-label">🏅 중요도</label>
-                </div>
-                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
-                    {LABEL_COLORS.map(c => (
-                        <button
-                            key={c.id}
-                            className={`filter-chip ${projectColor === c.id ? 'active' : ''}`}
-                            onClick={() => setProjectColor(projectColor === c.id ? null : c.id)}
-                            type="button"
-                        >
-                            <span className="filter-chip-dot" style={{ background: c.hex }} />
-                            {c.name}
-                        </button>
-                    ))}
-                    <button
-                        className={`filter-chip ${projectColor === null ? 'active' : ''}`}
-                        onClick={() => setProjectColor(null)}
-                        type="button"
-                    >
-                        <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} />
-                        무순위
-                    </button>
-                </div>
-                <div className="input-group">
-                    <label className="input-label">🏷️ 태그</label>
-                    <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
-                        {projectTags.map(tag => (
-                            <button key={tag} type="button" className="filter-chip active"
-                                onClick={() => setProjectTags(prev => prev.filter(t => t !== tag))}>
-                                🏷️ {tag} ×
+            {/* 페이지 수정 - 전체화면 에디터 */}
+            {showEditModal && (
+                <div className="fullscreen-editor">
+                    <div className="fullscreen-editor-header">
+                        <button className="fullscreen-editor-back" onClick={() => { setEditOptionSheet(null); setShowEditModal(false); setProjectTags([]); setNewProjectTag(''); }}>←</button>
+                        <div className="fullscreen-editor-actions">
+                            <button className="btn btn-primary btn-sm" onClick={handleSaveEdit} disabled={saving}>
+                                {saving ? <span className="spinner"></span> : '저장'}
                             </button>
-                        ))}
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                        <input type="text" className="input-field" placeholder="새 태그"
-                            value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)}
-                            style={{ flex: 1 }} />
-                        <button type="button" className="btn btn-primary btn-sm"
-                            disabled={!newProjectTag.trim()}
-                            onClick={() => {
-                                const t = newProjectTag.trim();
-                                if (t && !projectTags.includes(t)) setProjectTags(prev => [...prev, t]);
-                                setNewProjectTag('');
-                            }}>추가</button>
+
+                    {/* 수정 모드 상단 툴바 */}
+                    <div className="edit-toolbar">
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${editOptionSheet === 'color' ? 'active' : ''}`}
+                            onClick={() => setEditOptionSheet(editOptionSheet === 'color' ? null : 'color')}
+                        >
+                            <span>🏅</span><span className="edit-toolbar-label">중요도</span>
+                            {projectColor && <span className="edit-toolbar-dot" style={{ background: LABEL_COLORS.find(c => c.id === projectColor)?.hex }}></span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${editOptionSheet === 'tag' ? 'active' : ''}`}
+                            onClick={() => setEditOptionSheet(editOptionSheet === 'tag' ? null : 'tag')}
+                        >
+                            <span>🏷️</span><span className="edit-toolbar-label">태그</span>
+                            {projectTags.length > 0 && <span className="edit-toolbar-count">{projectTags.length}</span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${editOptionSheet === 'displayName' ? 'active' : ''}`}
+                            onClick={() => setEditOptionSheet(editOptionSheet === 'displayName' ? null : 'displayName')}
+                        >
+                            <span>📛</span><span className="edit-toolbar-label">활동명</span>
+                            {editTarget?.useDisplayName && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
+                        </button>
+                    </div>
+
+                    {/* 옵션 시트: 중요도 */}
+                    {editOptionSheet === 'color' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏅 중요도 선택</span>
+                                <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
+                            </div>
+                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6, padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                {LABEL_COLORS.map(c => (
+                                    <button
+                                        key={c.id}
+                                        className={`filter-chip ${projectColor === c.id ? 'active' : ''}`}
+                                        onClick={() => setProjectColor(projectColor === c.id ? null : c.id)}
+                                        type="button"
+                                    >
+                                        <span className="filter-chip-dot" style={{ background: c.hex }} />
+                                        {c.name}
+                                    </button>
+                                ))}
+                                <button
+                                    className={`filter-chip ${projectColor === null ? 'active' : ''}`}
+                                    onClick={() => setProjectColor(null)}
+                                    type="button"
+                                >
+                                    <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} />
+                                    무순위
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 태그 */}
+                    {editOptionSheet === 'tag' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏷️ 태그 설정</span>
+                                <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
+                                    {projectTags.map(tag => (
+                                        <button key={tag} type="button" className="filter-chip active"
+                                            onClick={() => setProjectTags(prev => prev.filter(t => t !== tag))}>
+                                            🏷️ {tag} ×
+                                        </button>
+                                    ))}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                    <input type="text" className="input-field" placeholder="새 태그"
+                                        value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)}
+                                        style={{ flex: 1 }} />
+                                    <button type="button" className="btn btn-primary btn-sm"
+                                        disabled={!newProjectTag.trim()}
+                                        onClick={() => {
+                                            const t = newProjectTag.trim();
+                                            if (t && !projectTags.includes(t)) setProjectTags(prev => [...prev, t]);
+                                            setNewProjectTag('');
+                                        }}>추가</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 활동명 */}
+                    {editOptionSheet === 'displayName' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>📛 표시 이름 설정</span>
+                                <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 8px' }}>
+                                    활동명은 이 페이지 내에서만 사용되는 이름입니다.
+                                </p>
+                                <div className="filter-chips" style={{ gap: 6 }}>
+                                    <button type="button"
+                                        className={`filter-chip ${!editTarget?.useDisplayName ? 'active' : ''}`}
+                                        onClick={async () => {
+                                            try {
+                                                await updateProjectDisplayNameMode(editTarget.id, false);
+                                                setEditTarget(prev => ({ ...prev, useDisplayName: false }));
+                                                addToast('닉네임 모드로 변경되었습니다.', 'success');
+                                            } catch (e) { addToast('변경 실패', 'error'); }
+                                        }}
+                                    >닉네임 사용</button>
+                                    <button type="button"
+                                        className={`filter-chip ${editTarget?.useDisplayName ? 'active' : ''}`}
+                                        onClick={async () => {
+                                            try {
+                                                await updateProjectDisplayNameMode(editTarget.id, true);
+                                                setEditTarget(prev => ({ ...prev, useDisplayName: true }));
+                                                addToast('활동명 모드로 변경되었습니다.', 'success');
+                                            } catch (e) { addToast('변경 실패', 'error'); }
+                                        }}
+                                    >활동명 사용</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="fullscreen-editor-body">
+                        <input
+                            type="text"
+                            className="fullscreen-editor-title"
+                            placeholder="페이지 이름"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            autoFocus
+                        />
+                        <textarea
+                            className="fullscreen-editor-content"
+                            placeholder="페이지 설명을 입력하세요"
+                            value={editDesc}
+                            onChange={(e) => setEditDesc(e.target.value)}
+                        />
                     </div>
                 </div>
-            </Modal>
+            )}
 
             {/* DM(직접 메시지) 모달 */}
             <Modal

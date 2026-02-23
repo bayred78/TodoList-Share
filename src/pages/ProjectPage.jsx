@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
-import { subscribeToProject, canWrite, canAdmin, getUserRole, getRoleLabel, leaveProject, changeMemberRole, removeMember, deleteProject, saveProjectCalendarId, getProjectCalendarId, addProjectLabel, removeProjectLabel, updateMemberDisplayName, updateProjectDisplayNameMode } from '../services/projectService';
+import { subscribeToProject, canWrite, canAdmin, getUserRole, getRoleLabel, leaveProject, changeMemberRole, removeMember, deleteProject, saveProjectCalendarId, getProjectCalendarId, addProjectLabel, removeProjectLabel, updateMemberDisplayName } from '../services/projectService';
 import { getProjectLimits, getUserLimits, getUserPlan, getEffectivePlan, LIMITS } from '../services/subscriptionService';
 import UpgradeModal from '../components/common/UpgradeModal';
 import { subscribeToAllItems, addTodoItem, updateTodoItem, deleteTodoItem, toggleCheck, createRepeatItem, updateMemberCheck, updateCalendarSync, restoreTodoItem, permanentDeleteItem, getCachedItems, deltaFetchItems } from '../services/todoService';
@@ -260,6 +260,11 @@ export default function ProjectPage() {
     const [newLabels, setNewLabels] = useState([]);
     const [newRepeatType, setNewRepeatType] = useState('none');
     const [editOptionSheet, setEditOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'file'|null
+    const [addOptionSheet, setAddOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'file'|null
+    const [newImages, setNewImages] = useState([]); // { file: File, preview: string }[]
+    const [newFiles, setNewFiles] = useState([]);   // File[]
+    const addImageRef = React.useRef(null);
+    const addDocRef = React.useRef(null);
     const [showDueHelp, setShowDueHelp] = useState(false);
     const [dueDisplayMode, setDueDisplayMode] = useState(() => localStorage.getItem('dueDisplayMode') || 'date'); // 'date' | 'remaining'
     const [filters, setFilters] = useState({
@@ -929,6 +934,30 @@ export default function ProjectPage() {
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
+            // 첨부 파일 업로드 (생성 후 ID 확보)
+            if (newImages.length > 0 || newFiles.length > 0) {
+                const uploadedImages = [];
+                const uploadedFiles = [];
+                for (const img of newImages) {
+                    try {
+                        const { downloadUrl } = await uploadItemImage(projectId, newItemId, img.file);
+                        uploadedImages.push(downloadUrl);
+                    } catch (err) { addToast('이미지 업로드 실패: ' + img.file.name, 'error'); }
+                }
+                for (const f of newFiles) {
+                    try {
+                        const { downloadUrl, fileName, fileSize, fileType } = await uploadItemFile(projectId, newItemId, f);
+                        uploadedFiles.push({ url: downloadUrl, name: fileName, size: fileSize, type: fileType });
+                    } catch (err) { addToast('파일 업로드 실패: ' + f.name, 'error'); }
+                }
+                if (uploadedImages.length > 0 || uploadedFiles.length > 0) {
+                    await updateTodoItem(projectId, newItemId, {
+                        ...(uploadedImages.length > 0 ? { images: uploadedImages } : {}),
+                        ...(uploadedFiles.length > 0 ? { files: uploadedFiles } : {}),
+                    });
+                }
+                newImages.forEach(img => URL.revokeObjectURL(img.preview));
+            }
             // 활동 알림 전송 (메인페이지 메세지탭에 표시)
             try {
                 const { updateDoc, doc, arrayUnion } = await import('firebase/firestore');
@@ -952,6 +981,8 @@ export default function ProjectPage() {
             setNewDueDate('');
             setNewLabels([]);
             setNewRepeatType('none');
+            setNewImages([]);
+            setNewFiles([]);
             setShowAddModal(false);
             addToast('아이템이 추가되었습니다!', 'success');
         } catch (error) {
@@ -2860,192 +2891,337 @@ export default function ProjectPage() {
 
             {/* FAB - 체크리스트 탭에서만 표시 */}
             {userCanWrite && activeTab === 'checklist' && (
-                <button className="fab" onClick={() => { setNewColor(null); setNewTitle(''); setNewContent(''); setNewDueDate(''); setNewLabels([]); setNewRepeatType('none'); setShowAddModal(true); }} title="새 체크리스트">
+                <button className="fab" onClick={() => { setNewColor(null); setNewTitle(''); setNewContent(''); setNewDueDate(''); setNewLabels([]); setNewRepeatType('none'); setAddOptionSheet(null); setNewImages([]); setNewFiles([]); setShowAddModal(true); }} title="새 체크리스트">
                     +
                 </button>
             )}
 
-            {/* 체크리스트 추가 모달 */}
-            <Modal
-                isOpen={showAddModal}
-                onClose={() => setShowAddModal(false)}
-                title="새 체크리스트"
-                hideHeader
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>취소</button>
-                        <button className="btn btn-primary" onClick={handleAddItem}>추가</button>
-                    </>
-                }
-            >
-                <form onSubmit={handleAddItem}>
-                    <div className="input-group">
-                        <label className="input-label">제목 *</label>
+            {/* 체크리스트 추가 - 전체화면 에디터 */}
+            {showAddModal && (
+                <div className="fullscreen-editor">
+                    <div className="fullscreen-editor-header">
+                        <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); setNewImages([]); setNewFiles([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
+                        <div className="fullscreen-editor-actions">
+                            <button className="btn btn-primary btn-sm" onClick={handleAddItem}>추가</button>
+                        </div>
+                    </div>
+
+                    {/* 추가 모드 상단 툴바 */}
+                    <div className="edit-toolbar">
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${addOptionSheet === 'color' ? 'active' : ''}`}
+                            onClick={() => setAddOptionSheet(addOptionSheet === 'color' ? null : 'color')}
+                        >
+                            <span>🏅</span><span className="edit-toolbar-label">중요도</span>
+                            {newColor && <span className="edit-toolbar-dot" style={{ background: LABEL_COLORS.find(c => c.id === newColor)?.hex }}></span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${addOptionSheet === 'dueDate' ? 'active' : ''}`}
+                            onClick={() => {
+                                if (!effectiveLimits.priority) { setUpgradeReason('priority'); setShowUpgradeModal(true); return; }
+                                setAddOptionSheet(addOptionSheet === 'dueDate' ? null : 'dueDate');
+                            }}
+                        >
+                            <span>⏰</span><span className="edit-toolbar-label">마감일</span>
+                            {newDueDate && <span className="edit-toolbar-dot" style={{ background: getDuePriority(new Date(newDueDate)).color }}></span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${addOptionSheet === 'label' ? 'active' : ''}`}
+                            onClick={() => {
+                                if (!effectiveLimits.labels) { setUpgradeReason('labels'); setShowUpgradeModal(true); return; }
+                                setAddOptionSheet(addOptionSheet === 'label' ? null : 'label');
+                            }}
+                        >
+                            <span>🏷️</span><span className="edit-toolbar-label">라벨</span>
+                            {newLabels.length > 0 && <span className="edit-toolbar-count">{newLabels.length}</span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${addOptionSheet === 'repeat' ? 'active' : ''}`}
+                            onClick={() => {
+                                if (!effectiveLimits.repeat) { setUpgradeReason('repeat'); setShowUpgradeModal(true); return; }
+                                setAddOptionSheet(addOptionSheet === 'repeat' ? null : 'repeat');
+                            }}
+                        >
+                            <span>🔄</span><span className="edit-toolbar-label">반복</span>
+                            {newRepeatType && newRepeatType !== 'none' && <span className="edit-toolbar-dot" style={{ background: '#6366f1' }}></span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${addOptionSheet === 'file' ? 'active' : ''}`}
+                            onClick={() => setAddOptionSheet(addOptionSheet === 'file' ? null : 'file')}
+                            disabled={(newImages.length + newFiles.length) >= 5}
+                        >
+                            <span>📎</span><span className="edit-toolbar-label">파일</span>
+                            {(newImages.length + newFiles.length) > 0 && <span className="edit-toolbar-count">{newImages.length + newFiles.length}</span>}
+                        </button>
+                    </div>
+                    <input ref={addImageRef} type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (!file.type.startsWith('image/')) { addToast('이미지 파일만 추가할 수 있습니다.', 'error'); return; }
+                            if (file.size > 5 * 1024 * 1024) { addToast('5MB 이하 이미지만 가능합니다.', 'error'); return; }
+                            if ((newImages.length + newFiles.length) >= 5) { addToast('첨부파일은 최대 5개까지 가능합니다.', 'error'); return; }
+                            setNewImages(prev => [...prev, { file, preview: URL.createObjectURL(file) }]);
+                            e.target.value = '';
+                        }}
+                    />
+                    <input ref={addDocRef} type="file" accept="*/*" style={{ display: 'none' }}
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 5 * 1024 * 1024) { addToast('5MB 이하 파일만 가능합니다.', 'error'); return; }
+                            if ((newImages.length + newFiles.length) >= 5) { addToast('첨부파일은 최대 5개까지 가능합니다.', 'error'); return; }
+                            setNewFiles(prev => [...prev, file]);
+                            e.target.value = '';
+                        }}
+                    />
+
+                    {/* 옵션 시트: 중요도 */}
+                    {addOptionSheet === 'color' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏅 중요도 선택</span>
+                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                            </div>
+                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6, padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                {LABEL_COLORS.map(c => (
+                                    <button
+                                        key={c.id}
+                                        className={`filter-chip ${newColor === c.id ? 'active' : ''}`}
+                                        onClick={() => setNewColor(newColor === c.id ? null : c.id)}
+                                        type="button"
+                                    >
+                                        <span className="filter-chip-dot" style={{ background: c.hex }} />
+                                        {c.name}
+                                    </button>
+                                ))}
+                                <button
+                                    className={`filter-chip ${newColor === null ? 'active' : ''}`}
+                                    onClick={() => setNewColor(null)}
+                                    type="button"
+                                >
+                                    <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} />
+                                    무순위
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 마감일 */}
+                    {addOptionSheet === 'dueDate' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>⏰ 마감일 설정</span>
+                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <input
+                                    type="datetime-local"
+                                    className="input-field"
+                                    value={newDueDate}
+                                    onChange={(e) => setNewDueDate(e.target.value)}
+                                />
+                                {newDueDate && (
+                                    <div style={{ marginTop: 4, fontSize: 13 }}>
+                                        {getDuePriority(new Date(newDueDate)).icon} {getDuePriority(new Date(newDueDate)).level > 0 ? `단계 ${getDuePriority(new Date(newDueDate)).level}` : ''}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 라벨 */}
+                    {addOptionSheet === 'label' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏷️ 라벨 선택</span>
+                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <div className="label-selector">
+                                    {(project?.projectLabels || []).map(label => (
+                                        <button
+                                            key={label}
+                                            type="button"
+                                            className={`priority-option ${newLabels.includes(label) ? 'active' : ''}`}
+                                            onClick={() => {
+                                                setNewLabels(prev =>
+                                                    prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
+                                                );
+                                            }}
+                                        >
+                                            🏷️ {label}
+                                            {userCanWrite && (
+                                                <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--color-danger)', cursor: 'pointer' }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (confirm(`"${label}" 라벨을 삭제하시겠습니까?`)) {
+                                                            setNewLabels(prev => prev.filter(l => l !== label));
+                                                            removeProjectLabel(projectId, label).then(() => addToast(`라벨 "${label}" 삭제됨`, 'success'));
+                                                        }
+                                                    }}>×</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                                {userCanWrite && (
+                                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                        <input type="text" className="input-field" placeholder="새 라벨"
+                                            value={newLabel} onChange={e => setNewLabel(e.target.value)} style={{ flex: 1 }} />
+                                        <button type="button" className="btn btn-primary btn-sm"
+                                            disabled={!newLabel.trim()}
+                                            onClick={async () => {
+                                                await addProjectLabel(projectId, newLabel.trim());
+                                                setNewLabel('');
+                                                addToast('라벨 추가됨', 'success');
+                                            }}>추가</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 반복 */}
+                    {addOptionSheet === 'repeat' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🔄 반복 설정</span>
+                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <div className="repeat-selector" style={{ flexWrap: 'wrap' }}>
+                                    {[
+                                        { v: 'none', l: '없음' },
+                                        { v: 'daily', l: '매일', e: '🔄' },
+                                        { v: 'weekly', l: '매주', e: '📅' },
+                                        { v: 'monthly', l: '매달', e: '🗓️' },
+                                    ].map(r => (
+                                        <button
+                                            key={r.v}
+                                            type="button"
+                                            className={`priority-option ${newRepeatType === r.v || (r.v === 'none' && !newRepeatType) ? 'active' : ''}`}
+                                            onClick={() => {
+                                                if (r.v !== 'none' && !effectiveLimits.repeat) { setUpgradeReason('repeat'); setShowUpgradeModal(true); return; }
+                                                setNewRepeatType(r.v);
+                                            }}
+                                        >
+                                            {r.e || ''} {r.l}
+                                        </button>
+                                    ))}
+                                    <div className="repeat-dropdowns">
+                                        <select
+                                            className={`input-field${newRepeatType?.startsWith('weekday:') ? ' selected' : ''}`}
+                                            style={{ padding: '4px 6px', fontSize: 'var(--font-size-xs)' }}
+                                            value={newRepeatType?.startsWith('weekday:') ? newRepeatType : ''}
+                                            onChange={(e) => setNewRepeatType(e.target.value || 'none')}
+                                        >
+                                            <option value="">매주 요일...</option>
+                                            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+                                                <option key={i} value={`weekday:${i}`}>매주 {d}요일</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            className={`input-field${newRepeatType?.startsWith('monthday:') ? ' selected' : ''}`}
+                                            style={{ padding: '4px 6px', fontSize: 'var(--font-size-xs)' }}
+                                            value={newRepeatType?.startsWith('monthday:') ? newRepeatType : ''}
+                                            onChange={(e) => setNewRepeatType(e.target.value || 'none')}
+                                        >
+                                            <option value="">매달 일자...</option>
+                                            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                                                <option key={d} value={`monthday:${d}`}>매달 {d}일</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 파일 첨부 */}
+                    {addOptionSheet === 'file' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>📎 파일 첨부</span>
+                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                            </div>
+                            <div className="file-upload-sheet">
+                                <button
+                                    type="button"
+                                    className="file-upload-btn"
+                                    onClick={() => { addImageRef.current?.click(); setAddOptionSheet(null); }}
+                                    disabled={(newImages.length + newFiles.length) >= 5}
+                                >
+                                    🖼️ 이미지 업로드
+                                </button>
+                                <button
+                                    type="button"
+                                    className="file-upload-btn"
+                                    onClick={() => { addDocRef.current?.click(); setAddOptionSheet(null); }}
+                                    disabled={(newImages.length + newFiles.length) >= 5}
+                                >
+                                    📄 서류 업로드
+                                </button>
+                                <p className="file-upload-hint">이미지+서류 합산 최대 5개, 각 5MB 이하</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="fullscreen-editor-body">
                         <input
                             type="text"
-                            className="input-field"
+                            className="fullscreen-editor-title"
                             placeholder="제목을 입력하세요"
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
+                            autoFocus
                         />
-                    </div>
-                    <div className="input-group">
-                        <label className="input-label">내용 (선택)</label>
                         <textarea
-                            className="input-field"
+                            className="fullscreen-editor-content"
                             placeholder="내용을 입력하세요"
                             value={newContent}
                             onChange={(e) => setNewContent(e.target.value)}
-                            rows={3}
-                            style={{ resize: 'vertical' }}
                         />
-                    </div>
-                    <div className="input-group">
-                        <label className="input-label">중요도</label>
-                        <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
-                            {LABEL_COLORS.map(c => (
-                                <button
-                                    key={c.id}
-                                    className={`filter-chip ${newColor === c.id ? 'active' : ''}`}
-                                    onClick={() => setNewColor(newColor === c.id ? null : c.id)}
-                                    type="button"
-                                >
-                                    <span className="filter-chip-dot" style={{ background: c.hex }} />
-                                    {c.name}
-                                </button>
-                            ))}
-                            <button
-                                className={`filter-chip ${newColor === null ? 'active' : ''}`}
-                                onClick={() => setNewColor(null)}
-                                type="button"
-                            >
-                                <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} />
-                                무순위
-                            </button>
-                        </div>
-                    </div>
-                    <div className="input-group">
-                        <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            마감일
-                            <button type="button" className="edit-help-btn" onClick={() => setShowDueHelp(true)} title="도움말">❓</button>
-                            {effectiveLimits.freeDueDateLimit !== Infinity && (
-                                <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                                    ({items.filter(i => !i.deleted && i.dueDate).length}/{effectiveLimits.freeDueDateLimit})
-                                </span>
-                            )}
-                        </label>
-                        <input
-                            type="datetime-local"
-                            className="input-field"
-                            value={newDueDate}
-                            onChange={(e) => {
-                                if (!effectiveLimits.priority) { setUpgradeReason('priority'); setShowUpgradeModal(true); return; }
-                                setNewDueDate(e.target.value);
-                            }}
-                        />
-                        {newDueDate && (
-                            <div style={{ marginTop: 4, fontSize: 13 }}>
-                                {getDuePriority(new Date(newDueDate)).icon} {getDuePriority(new Date(newDueDate)).level > 0 ? `단계 ${getDuePriority(new Date(newDueDate)).level}` : ''}
+                        {/* 첨부 이미지 미리보기 */}
+                        {newImages.length > 0 && (
+                            <div className="edit-images-grid">
+                                {newImages.map((img, i) => (
+                                    <div key={i} className="edit-image-item">
+                                        <img src={img.preview} alt={`첨부 ${i + 1}`} />
+                                        <button
+                                            type="button"
+                                            className="edit-image-remove"
+                                            onClick={() => {
+                                                URL.revokeObjectURL(img.preview);
+                                                setNewImages(prev => prev.filter((_, idx) => idx !== i));
+                                            }}
+                                        >×</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {/* 첨부 서류 목록 */}
+                        {newFiles.length > 0 && (
+                            <div className="edit-files-list" style={{ padding: '0 var(--spacing-md)' }}>
+                                {newFiles.map((f, i) => (
+                                    <div key={i} className="edit-file-item">
+                                        <span>📄 {f.name} ({(f.size / 1024).toFixed(0)}KB)</span>
+                                        <button
+                                            type="button"
+                                            className="edit-image-remove"
+                                            onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))}
+                                        >×</button>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
-                    <div className="input-group">
-                        <label className="input-label">라벨 {effectiveLimits.freeLabelLimit !== Infinity && (
-                            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                                ({items.filter(i => !i.deleted && (i.labels || []).length > 0).length}/{effectiveLimits.freeLabelLimit})
-                            </span>
-                        )}</label>
-                        <div className="label-selector">
-                            {(project?.projectLabels || []).map(label => (
-                                <button
-                                    key={label}
-                                    type="button"
-                                    className={`priority-option ${newLabels.includes(label) ? 'active' : ''}`}
-                                    onClick={() => {
-                                        if (!effectiveLimits.labels) { setUpgradeReason('labels'); setShowUpgradeModal(true); return; }
-                                        setNewLabels(prev =>
-                                            prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
-                                        );
-                                    }}
-                                >
-                                    🏷️ {label}
-                                    {userCanWrite && (
-                                        <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--color-danger)', cursor: 'pointer' }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (confirm(`"${label}" 라벨을 삭제하시겠습니까?`)) {
-                                                    setNewLabels(prev => prev.filter(l => l !== label));
-                                                    removeProjectLabel(projectId, label).then(() => addToast(`라벨 "${label}" 삭제됨`, 'success'));
-                                                }
-                                            }}>×</span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                        {userCanWrite && (
-                            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                                <input type="text" className="input-field" placeholder="새 라벨"
-                                    value={newLabel} onChange={e => setNewLabel(e.target.value)} style={{ flex: 1 }} />
-                                <button type="button" className="btn btn-primary btn-sm"
-                                    disabled={!newLabel.trim()}
-                                    onClick={async () => {
-                                        if (!effectiveLimits.labels) { setUpgradeReason('labels'); setShowUpgradeModal(true); return; }
-                                        await addProjectLabel(projectId, newLabel.trim());
-                                        setNewLabel('');
-                                        addToast('라벨 추가됨', 'success');
-                                    }}>추가</button>
-                            </div>
-                        )}
-                    </div>
-                    <div className="input-group">
-                        <label className="input-label">반복 {!effectiveLimits.repeat && <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>(Pro)</span>}</label>
-                        <div className="repeat-selector" style={{ flexWrap: 'wrap' }}>
-                            {[
-                                { v: 'none', l: '없음' },
-                                { v: 'daily', l: '매일', e: '🔄' },
-                                { v: 'weekly', l: '매주', e: '📅' },
-                                { v: 'monthly', l: '매달', e: '🗓️' },
-                            ].map(r => (
-                                <button
-                                    key={r.v}
-                                    type="button"
-                                    className={`priority-option ${newRepeatType === r.v || (r.v === 'none' && !newRepeatType) ? 'active' : ''}`}
-                                    onClick={() => {
-                                        if (r.v !== 'none' && !effectiveLimits.repeat) { setUpgradeReason('repeat'); setShowUpgradeModal(true); return; }
-                                        setNewRepeatType(r.v);
-                                    }}
-                                >
-                                    {r.e || ''} {r.l}
-                                </button>
-                            ))}
-                            <div className="repeat-dropdowns">
-                                <select
-                                    className={`input-field${newRepeatType?.startsWith('weekday:') ? ' selected' : ''}`}
-                                    style={{ padding: '4px 6px', fontSize: 'var(--font-size-xs)' }}
-                                    value={newRepeatType?.startsWith('weekday:') ? newRepeatType : ''}
-                                    onChange={(e) => setNewRepeatType(e.target.value || 'none')}
-                                >
-                                    <option value="">매주 요일...</option>
-                                    {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                                        <option key={i} value={`weekday:${i}`}>매주 {d}요일</option>
-                                    ))}
-                                </select>
-                                <select
-                                    className={`input-field${newRepeatType?.startsWith('monthday:') ? ' selected' : ''}`}
-                                    style={{ padding: '4px 6px', fontSize: 'var(--font-size-xs)' }}
-                                    value={newRepeatType?.startsWith('monthday:') ? newRepeatType : ''}
-                                    onChange={(e) => setNewRepeatType(e.target.value || 'none')}
-                                >
-                                    <option value="">매달 일자...</option>
-                                    {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                                        <option key={d} value={`monthday:${d}`}>매달 {d}일</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </Modal>
+                </div>
+            )}
 
             {/* 아이템 수정 - 전체화면 에디터 (Google Keep 스타일) */}
             {
@@ -3572,35 +3748,6 @@ export default function ProjectPage() {
                 onClose={() => setShowSettingsModal(false)}
                 title="페이지 설정"
             >
-                {/* 활동명 모드 토글 (관리자만) */}
-                {userCanAdmin && (
-                    <div className="settings-section">
-                        <h3 className="settings-section-title">📛 표시 이름 설정</h3>
-                        <p className="settings-description" style={{ margin: '0 0 8px' }}>
-                            활동명은 이 페이지 내에서만 사용되는 이름입니다.
-                        </p>
-                        <div className="filter-chips" style={{ gap: 6 }}>
-                            <button type="button"
-                                className={`filter-chip ${!project?.useDisplayName ? 'active' : ''}`}
-                                onClick={async () => {
-                                    try {
-                                        await updateProjectDisplayNameMode(projectId, false);
-                                        addToast('닉네임 모드로 변경되었습니다.', 'success');
-                                    } catch (e) { addToast('변경 실패', 'error'); }
-                                }}
-                            >닉네임 사용</button>
-                            <button type="button"
-                                className={`filter-chip ${project?.useDisplayName ? 'active' : ''}`}
-                                onClick={async () => {
-                                    try {
-                                        await updateProjectDisplayNameMode(projectId, true);
-                                        addToast('활동명 모드로 변경되었습니다.', 'success');
-                                    } catch (e) { addToast('변경 실패', 'error'); }
-                                }}
-                            >활동명 사용</button>
-                        </div>
-                    </div>
-                )}
                 <div className="settings-section">
                     <h3 className="settings-section-title">멤버 ({members.length}명)</h3>
                     <div className="member-list">

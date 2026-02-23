@@ -1,0 +1,9 @@
+.banner-ad-placeholder {
+    height: 0;
+}
+
+.banner-ad-spacer {
+    height: 60px;
+    /* AdMob 배너 높이만큼 패딩 */
+    flex-shrink: 0;
+}

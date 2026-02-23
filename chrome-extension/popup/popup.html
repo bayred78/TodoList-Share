@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TodoList Share</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- 로딩 화면 -->
+        <div id="loading-screen" class="screen">
+            <div class="spinner-lg"></div>
+            <p class="loading-text">TodoList Share</p>
+        </div>
+
+        <!-- 로그인 화면 -->
+        <div id="login-screen" class="screen hidden">
+            <div class="login-logo">📝</div>
+            <h1 class="login-title">TodoList Share</h1>
+            <p class="login-subtitle">팀과 함께 할 일을 관리하세요</p>
+            <button id="btn-google-login" class="btn-google">
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                    <path fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                    <path fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                    <path fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Google로 로그인
+            </button>
+        </div>
+
+        <!-- 닉네임 설정 화면 -->
+        <div id="nickname-screen" class="screen hidden">
+            <h2 class="screen-title">닉네임 설정</h2>
+            <p class="screen-subtitle">앱에서 사용할 닉네임을 설정해주세요</p>
+            <div class="input-group">
+                <input type="text" id="input-nickname" class="input-field" placeholder="2~20자 닉네임 입력" maxlength="20">
+            </div>
+            <p class="hint-text">⚠ 닉네임은 설정 후 7일간 변경할 수 없습니다.</p>
+            <button id="btn-set-nickname" class="btn btn-primary btn-block">시작하기</button>
+        </div>
+
+        <!-- 메인 화면 - 프로젝트 목록 -->
+        <div id="main-screen" class="screen hidden">
+            <div class="header">
+                <h1 class="header-title">TodoList Share</h1>
+                <div class="header-actions">
+                    <button id="btn-refresh" class="icon-btn" title="새로고침">🔄</button>
+                    <button id="btn-settings" class="icon-btn" title="설정">⚙️</button>
+                </div>
+            </div>
+
+            <!-- 탭 -->
+            <div class="tab-bar">
+                <button class="tab-item active" data-tab="projects">프로젝트</button>
+                <button class="tab-item" data-tab="invitations">
+                    초대 <span id="invite-count" class="invite-badge hidden">0</span>
+                </button>
+            </div>
+
+            <!-- 프로젝트 목록 -->
+            <div id="project-list" class="list-container">
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <p>프로젝트가 없습니다</p>
+                </div>
+            </div>
+
+            <!-- 초대 목록 -->
+            <div id="invitation-list" class="list-container hidden">
+                <div class="empty-state">
+                    <div class="empty-icon">✉️</div>
+                    <p>받은 초대가 없습니다</p>
+                </div>
+            </div>
+
+            <!-- 프로젝트 생성 버튼 -->
+            <button id="btn-create-project" class="fab">+</button>
+        </div>
+
+        <!-- 프로젝트 상세 화면 -->
+        <div id="project-screen" class="screen hidden">
+            <div class="header">
+                <button id="btn-back-to-main" class="icon-btn">←</button>
+                <h2 id="project-title" class="header-title" style="font-size: 1rem;"></h2>
+                <div class="header-actions">
+                    <button id="btn-invite-member" class="icon-btn hidden" title="초대">👤+</button>
+                    <button id="btn-project-settings" class="icon-btn" title="설정">⚙️</button>
+                </div>
+            </div>
+
+            <div id="readonly-banner" class="readonly-banner hidden">
+                🔒 읽기 전용 - 관리자 구독 필요
+            </div>
+
+            <!-- 필터 탭 -->
+            <div class="tab-bar">
+                <button class="tab-item active" data-filter="all">전체</button>
+                <button class="tab-item" data-filter="memo">📝 메모</button>
+                <button class="tab-item" data-filter="checklist">✅ 체크</button>
+            </div>
+
+            <!-- 투두 아이템 목록 -->
+            <div id="todo-list" class="list-container"></div>
+
+            <!-- 아이템 추가 버튼 -->
+            <button id="btn-add-item" class="fab hidden">+</button>
+        </div>
+
+        <!-- 설정 화면 -->
+        <div id="settings-screen" class="screen hidden">
+            <div class="header">
+                <button id="btn-back-from-settings" class="icon-btn">←</button>
+                <h2 class="header-title" style="font-size: 1rem;">설정</h2>
+                <div></div>
+            </div>
+
+            <div id="profile-section" class="settings-section">
+                <div class="profile-card">
+                    <div id="profile-avatar" class="avatar">?</div>
+                    <div class="profile-info">
+                        <h3 id="profile-nickname">로딩 중...</h3>
+                        <p id="profile-email">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3 class="section-title">닉네임</h3>
+                <div class="settings-row">
+                    <span id="current-nickname">-</span>
+                    <button id="btn-change-nickname" class="btn btn-sm btn-secondary">변경</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <button id="btn-logout" class="btn btn-danger btn-block">로그아웃</button>
+            </div>
+
+            <p class="footer-text">TodoList Share v1.0.0 (Chrome Extension)</p>
+        </div>
+
+        <!-- 토스트 컨테이너 -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <!-- 모달: 프로젝트 생성 -->
+    <div id="modal-create-project" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>새 프로젝트</h3>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>프로젝트 이름 *</label>
+                    <input type="text" id="input-project-name" class="input-field" placeholder="프로젝트 이름">
+                </div>
+                <div class="input-group">
+                    <label>설명 (선택)</label>
+                    <textarea id="input-project-desc" class="input-field" placeholder="프로젝트 설명" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-cancel">취소</button>
+                <button id="btn-confirm-create" class="btn btn-primary">생성</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 아이템 추가 -->
+    <div id="modal-add-item" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>새 아이템</h3>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>유형</label>
+                    <div class="tab-bar" style="margin-bottom:0">
+                        <button class="tab-item active" data-type="checklist">✅ 체크리스트</button>
+                        <button class="tab-item" data-type="memo">📝 메모</button>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>제목 *</label>
+                    <input type="text" id="input-item-title" class="input-field" placeholder="제목">
+                </div>
+                <div class="input-group">
+                    <label>내용 (선택)</label>
+                    <textarea id="input-item-content" class="input-field" placeholder="내용" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-cancel">취소</button>
+                <button id="btn-confirm-add-item" class="btn btn-primary">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 멤버 초대 -->
+    <div id="modal-invite" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>멤버 초대</h3>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>닉네임</label>
+                    <input type="text" id="input-invite-nickname" class="input-field" placeholder="초대할 사용자의 닉네임">
+                </div>
+                <div class="input-group">
+                    <label>권한</label>
+                    <select id="select-invite-role" class="input-field">
+                        <option value="read">읽기</option>
+                        <option value="write">쓰기</option>
+                        <option value="readwrite" selected>읽기/쓰기</option>
+                        <option value="admin">관리자</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-cancel">취소</button>
+                <button id="btn-confirm-invite" class="btn btn-primary">초대</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 프로젝트 설정 -->
+    <div id="modal-project-settings" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>프로젝트 설정</h3>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3 class="section-title">📅 구글 캘린더 연동</h3>
+                    <p class="section-desc" style="margin-bottom:8px;font-size:12px;color:#8b949e;">
+                        이 프로젝트의 체크리스트를 구글 캘린더의 <strong>특정 캘린더</strong>와 연동합니다.
+                        📅 버튼을 누르면 날짜를 선택할 수 있고, 선택한 날짜에 할일이 등록됩니다.
+                    </p>
+                    <div class="input-group" style="margin-bottom:8px;">
+                        <input type="text" id="input-project-calendar-id" class="input-field"
+                            placeholder="연동할 캘린더 ID를 입력하세요">
+                    </div>
+                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                        <button id="btn-save-project-calendar" class="btn btn-sm btn-primary">저장</button>
+                        <button id="btn-toggle-calendar-help" class="btn btn-sm btn-secondary">📌 도움말</button>
+                    </div>
+                    <div id="calendar-help-panel" class="hidden"
+                        style="background:#161b22;border-radius:8px;padding:10px;font-size:11px;color:#8b949e;">
+                        <strong style="color:#58a6ff;">캘린더 ID 찾는 방법</strong>
+                        <ol style="padding-left:16px;margin-top:4px;line-height:1.8;">
+                            <li>Google Calendar 접속</li>
+                            <li>왼쪽 사이드바에서 연동할 <strong>특정 캘린더</strong>의 ⋮ 클릭</li>
+                            <li>"설정 및 공유" 선택</li>
+                            <li>"캘린더 통합" → "캘린더 ID" 복사</li>
+                        </ol>
+                        <div style="margin-top:6px;padding:6px;background:#0d1117;border-radius:4px;">
+                            💡 <strong>특정 캘린더란?</strong> 구글 캘린더는 여러 개의 캘린더(업무, 개인, 공유 등)를 가질 수 있습니다.
+                            할일을 등록할 캘린더를 선택하여 ID를 입력하세요.
+                        </div>
+                        <div style="margin-top:4px;padding:6px;background:#0d1117;border-radius:4px;">
+                            📅 <strong>사용 방법:</strong> 체크리스트 항목의 📅 버튼 → 날짜 선택 → 해당 날짜에 할일이 등록됩니다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 날짜 선택 -->
+    <div id="modal-date-picker" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📅 캘린더에 등록할 날짜 선택</h3>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="date-picker-item-info"
+                    style="margin-bottom:12px;padding:10px;background:#161b22;border-radius:8px;">
+                    <p style="font-size:11px;color:#8b949e;margin-bottom:2px;">등록할 항목</p>
+                    <p id="date-picker-item-title" style="font-size:14px;font-weight:600;color:#e6edf3;"></p>
+                </div>
+                <div class="input-group">
+                    <label style="font-size:12px;color:#8b949e;margin-bottom:4px;display:block;">날짜 선택</label>
+                    <input type="date" id="input-calendar-date" class="input-field"
+                        style="font-size:14px;padding:10px;">
+                </div>
+                <p style="font-size:11px;color:#8b949e;margin-top:6px;">
+                    선택한 날짜에 할일 제목으로 구글 캘린더에 등록됩니다.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-cancel">취소</button>
+                <button id="btn-confirm-calendar-date" class="btn btn-primary">등록</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="popup.js"></script>
+</body>
+
+</html>

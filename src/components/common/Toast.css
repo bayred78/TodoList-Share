@@ -1,0 +1,17 @@
+.toast {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    min-width: 240px;
+}
+
+.toast-icon {
+    font-weight: 700;
+    font-size: var(--font-size-md);
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+}

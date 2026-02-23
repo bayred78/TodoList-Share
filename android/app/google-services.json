@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "865182648003",
+    "firebase_url": "https://todolist-share-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "todolist-share",
+    "storage_bucket": "todolist-share.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:865182648003:android:e029a10f0b6726878bc476",
+        "android_client_info": {
+          "package_name": "com.todolistshare.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "865182648003-1gj7rnbj21mf6ig7sg734mggf9drglt1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ26R7xbDbvgYsbyMcJWWe_MbPhvm6tck"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "865182648003-1gj7rnbj21mf6ig7sg734mggf9drglt1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

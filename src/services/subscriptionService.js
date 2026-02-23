@@ -1,0 +1,192 @@
+/**
+ * 구독 서비스 — 프리미엄 등급별 제한 관리
+ * 
+ * 하이브리드 모델:
+ *   - 페이지 기능: 관리자(ownerId)의 구독 등급 기준 (project.ownerPlan)
+ *   - 개인 기능: 본인 구독 등급 기준 (profile.plan)
+ */
+
+// ===== 구독 등급 상수 =====
+export const PLAN = {
+    FREE: 'free',
+    PRO: 'pro',
+    TEAM: 'team',
+};
+
+// ===== 등급별 제한 =====
+export const LIMITS = {
+    free: {
+        maxPages: 5,
+        maxMembers: 2,
+        maxItems: 50,
+        chatHistory: 50,
+        calendar: false,
+        exportCsv: false,
+        noAds: false,
+        imageChat: false,
+        repeat: false,
+        priority: true,
+        labels: true,
+        viewerRole: true,
+        statistics: false,
+        search: false,
+        freeDueDateLimit: 3,
+        freeLabelLimit: 3,
+    },
+    pro: {
+        maxPages: 20,
+        maxMembers: 10,
+        maxItems: Infinity,
+        chatHistory: Infinity,
+        calendar: true,
+        exportCsv: true,
+        noAds: true,
+        imageChat: false,
+        repeat: true,
+        priority: true,
+        labels: true,
+        viewerRole: true,
+        statistics: true,
+        search: true,
+        freeDueDateLimit: Infinity,
+        freeLabelLimit: Infinity,
+    },
+    team: {
+        maxPages: Infinity,
+        maxMembers: 30,
+        maxItems: Infinity,
+        chatHistory: Infinity,
+        calendar: true,
+        exportCsv: true,
+        noAds: true,
+        imageChat: true,
+        repeat: true,
+        priority: true,
+        labels: true,
+        viewerRole: true,
+        statistics: true,
+        search: true,
+        freeDueDateLimit: Infinity,
+        freeLabelLimit: Infinity,
+    },
+};
+
+// ===== 개인 플랜 조회 (동기 — Firestore 저장용, 실제 구독 등급) =====
+export function getUserPlan(profile) {
+    return profile?.plan || PLAN.FREE;
+}
+
+// ===== 개인 제한 조회 (동기 — 리워드/체험 반영) =====
+export function getUserLimits(profile) {
+    return LIMITS[getEffectivePlan(profile)];
+}
+
+// ===== 프로젝트 제한 조회 (동기 — project.ownerPlan 비정규화) =====
+export function getProjectLimits(project) {
+    const plan = project?.ownerPlan || PLAN.FREE;
+    return LIMITS[plan] || LIMITS.free;
+}
+
+// ===== 개별 기능 체크 (개인 기반) =====
+export function checkPersonalFeature(profile, feature) {
+    const limits = getUserLimits(profile);
+    return !!limits[feature];
+}
+
+// ===== 개별 기능 체크 (프로젝트 기반) =====
+export function checkProjectFeature(project, feature) {
+    const limits = getProjectLimits(project);
+    return !!limits[feature];
+}
+
+// ===== 플랜 이름 (한글) =====
+export function getPlanLabel(plan) {
+    const labels = {
+        free: '무료',
+        pro: 'Pro',
+        team: 'Team',
+    };
+    return labels[plan] || '무료';
+}
+
+// ===== 구독 만료 확인 =====
+export function isSubscriptionExpired(profile) {
+    if (!profile?.planExpiresAt) return false;
+    const expiresAt = profile.planExpiresAt?.toDate
+        ? profile.planExpiresAt.toDate()
+        : new Date(profile.planExpiresAt);
+    return expiresAt < new Date();
+}
+
+// ===== 리워드 광고 — KST 자정 만료 =====
+export function setRewardUnlock() {
+    // KST(UTC+9) 기준 자정까지 — UTC 메서드만 사용하여 타임존 오류 방지
+    const KST_MS = 9 * 60 * 60 * 1000;
+    const nowUtc = Date.now();
+
+    // 현재 KST 시각을 UTC 메서드로 조작하기 위한 fake Date
+    const kstFake = new Date(nowUtc + KST_MS);
+
+    // 다음 자정 KST (fake UTC 기준)
+    const midnightFake = new Date(Date.UTC(
+        kstFake.getUTCFullYear(),
+        kstFake.getUTCMonth(),
+        kstFake.getUTCDate() + 1,
+        0, 0, 0, 0
+    ));
+
+    // 22:00 KST 이후 → 다음날 자정 연장
+    if (kstFake.getUTCHours() >= 22) {
+        midnightFake.setUTCDate(midnightFake.getUTCDate() + 1);
+    }
+
+    // fake UTC → 실제 UTC 타임스탬프 (KST 오프셋 차감)
+    const expiryUtc = midnightFake.getTime() - KST_MS;
+    localStorage.setItem('rewardUnlockExpiry', String(expiryUtc));
+}
+
+export function isRewardUnlocked() {
+    const expiry = localStorage.getItem('rewardUnlockExpiry');
+    if (!expiry) return false;
+    return Date.now() < Number(expiry);
+}
+
+export function getRewardRemainingMs() {
+    const expiry = localStorage.getItem('rewardUnlockExpiry');
+    if (!expiry) return 0;
+    return Math.max(0, Number(expiry) - Date.now());
+}
+
+// ===== 7일 무료 체험 =====
+export function startFreeTrial() {
+    if (isTrialUsed()) return false;
+    const expiryMs = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    localStorage.setItem('freeTrialExpiry', String(expiryMs));
+    localStorage.setItem('freeTrialUsed', 'true');
+    return true;
+}
+
+export function isTrialActive() {
+    const expiry = localStorage.getItem('freeTrialExpiry');
+    if (!expiry) return false;
+    return Date.now() < Number(expiry);
+}
+
+export function isTrialUsed() {
+    return localStorage.getItem('freeTrialUsed') === 'true';
+}
+
+export function getTrialRemainingDays() {
+    const expiry = localStorage.getItem('freeTrialExpiry');
+    if (!expiry) return 0;
+    return Math.max(0, Math.ceil((Number(expiry) - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
+// ===== 실효 플랜 (리워드·체험 반영) =====
+export function getEffectivePlan(profile) {
+    const actual = getUserPlan(profile);
+    if (actual !== PLAN.FREE) return actual;  // Pro/Team은 그대로
+    if (isRewardUnlocked()) return PLAN.PRO;
+    if (isTrialActive()) return PLAN.PRO;
+    return PLAN.FREE;
+}

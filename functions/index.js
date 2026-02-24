@@ -173,3 +173,199 @@ exports.migrateAddMemberUIDs = onCall(async (request) => {
         throw new HttpsError('internal', '마이그레이션 실패: ' + error.message);
     }
 });
+
+// ========================================================
+// 푸시 알림 (FCM) — Firestore 트리거
+// ========================================================
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
+
+/**
+ * 헬퍼: 특정 사용자에게 FCM 알림 발송
+ * @param {string} uid - 대상 사용자 UID
+ * @param {string} category - 알림 카테고리 (itemCreate, itemChange, chat, dm, invitation)
+ * @param {object} payload - { title, body, data }
+ */
+async function sendPushToUser(uid, category, payload) {
+    try {
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (!userDoc.exists) return;
+        const userData = userDoc.data();
+
+        // 알림 설정 확인
+        const ns = userData.notificationSettings || {};
+        if (ns.enabled === false) return;
+        if (ns[category] === false) return;
+
+        // FCM 토큰 조회
+        const tokens = userData.fcmTokens;
+        if (!tokens || !Array.isArray(tokens) || tokens.length === 0) return;
+
+        // 메시지 구성
+        const message = {
+            notification: {
+                title: payload.title,
+                body: payload.body,
+            },
+            data: payload.data || {},
+            tokens: tokens,
+        };
+
+        const response = await getMessaging().sendEachForMulticast(message);
+
+        // 실패한 토큰 정리
+        if (response.failureCount > 0) {
+            const invalidTokens = [];
+            response.responses.forEach((resp, idx) => {
+                if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
+                    invalidTokens.push(tokens[idx]);
+                }
+            });
+            if (invalidTokens.length > 0) {
+                const { FieldValue } = require('firebase-admin/firestore');
+                await db.collection('users').doc(uid).update({
+                    fcmTokens: FieldValue.arrayRemove(...invalidTokens),
+                });
+            }
+        }
+    } catch (err) {
+        console.error(`sendPushToUser(${uid}) 실패:`, err);
+    }
+}
+
+/**
+ * 헬퍼: 프로젝트 멤버 목록 조회 (특정 UID 제외)
+ */
+async function getProjectMembersExcept(projectId, excludeUid) {
+    const projectDoc = await db.collection('projects').doc(projectId).get();
+    if (!projectDoc.exists) return [];
+    const data = projectDoc.data();
+    const members = data.members ? Object.keys(data.members) : [];
+    return members.filter(uid => uid !== excludeUid);
+}
+
+// ----- 1. 체크리스트 생성 알림 (생성자 제외) -----
+exports.onItemCreate = onDocumentCreated('projects/{projectId}/items/{itemId}', async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const projectId = event.params.projectId;
+    const creatorUid = data.createdBy;
+    const itemTitle = data.title || '새 항목';
+
+    // 프로젝트 이름 조회
+    const projectDoc = await db.collection('projects').doc(projectId).get();
+    const projectName = projectDoc.data()?.title || '프로젝트';
+    const creatorName = projectDoc.data()?.members?.[creatorUid]?.nickname || '멤버';
+
+    const members = await getProjectMembersExcept(projectId, creatorUid);
+
+    const promises = members.map(uid =>
+        sendPushToUser(uid, 'itemCreate', {
+            title: `📝 ${projectName}`,
+            body: `${creatorName}님이 '${itemTitle}'을(를) 추가했습니다`,
+            data: { type: 'itemCreate', projectId },
+        })
+    );
+    await Promise.all(promises);
+});
+
+// ----- 2. 체크리스트 변경 알림 (변경자 제외) -----
+exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+
+    const projectId = event.params.projectId;
+    const updaterUid = after.updatedBy || after.createdBy;
+
+    // 의미 있는 변경 감지
+    let action = '';
+    if (before.checked !== after.checked) {
+        action = after.checked ? '완료' : '미완료로 변경';
+    } else if (before.title !== after.title) {
+        action = '수정';
+    } else if (after.deleted && !before.deleted) {
+        action = '삭제';
+    } else {
+        return; // 의미 없는 변경은 무시
+    }
+
+    const itemTitle = after.title || before.title || '항목';
+    const projectDoc = await db.collection('projects').doc(projectId).get();
+    const projectName = projectDoc.data()?.title || '프로젝트';
+    const updaterName = projectDoc.data()?.members?.[updaterUid]?.nickname || '멤버';
+
+    const members = await getProjectMembersExcept(projectId, updaterUid);
+
+    const promises = members.map(uid =>
+        sendPushToUser(uid, 'itemChange', {
+            title: `✏️ ${projectName}`,
+            body: `${updaterName}님이 '${itemTitle}'을(를) ${action}했습니다`,
+            data: { type: 'itemChange', projectId },
+        })
+    );
+    await Promise.all(promises);
+});
+
+// ----- 3. 채팅 알림 (발신자 제외) -----
+exports.onChatCreate = onDocumentCreated('projects/{projectId}/messages/{messageId}', async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const projectId = event.params.projectId;
+    const senderUid = data.senderId;
+    const senderName = data.senderNickname || '멤버';
+    const messageText = data.text || '';
+    const preview = messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText;
+
+    const projectDoc = await db.collection('projects').doc(projectId).get();
+    const projectName = projectDoc.data()?.title || '프로젝트';
+
+    const members = await getProjectMembersExcept(projectId, senderUid);
+
+    const promises = members.map(uid =>
+        sendPushToUser(uid, 'chat', {
+            title: `💬 ${projectName}`,
+            body: `${senderName}: ${preview}`,
+            data: { type: 'chat', projectId },
+        })
+    );
+    await Promise.all(promises);
+});
+
+// ----- 4. DM 메시지 알림 -----
+exports.onDMCreate = onDocumentCreated('users/{userId}/notifications/{notiId}', async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+    if (data.type !== 'dm') return; // DM 타입만 처리
+
+    const recipientUid = event.params.userId;
+    const senderName = data.senderNickname || '사용자';
+    const messageText = data.text || data.message || '';
+    const preview = messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText;
+
+    await sendPushToUser(recipientUid, 'dm', {
+        title: `✉️ ${senderName}`,
+        body: preview || '새 메시지가 도착했습니다',
+        data: { type: 'dm', senderUid: data.senderUid || '' },
+    });
+});
+
+// ----- 5. 초대 알림 -----
+exports.onInvitationCreate = onDocumentCreated('invitations/{invitationId}', async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const inviteeId = data.inviteeId;
+    const inviterName = data.inviterNickname || '사용자';
+    const projectName = data.projectName || '프로젝트';
+
+    if (!inviteeId) return;
+
+    await sendPushToUser(inviteeId, 'invitation', {
+        title: `📨 프로젝트 초대`,
+        body: `${inviterName}님이 '${projectName}'에 초대했습니다`,
+        data: { type: 'invitation' },
+    });
+});

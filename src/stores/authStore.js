@@ -18,6 +18,12 @@ const useAuthStore = create((set, get) => ({
                     loading: false,
                     isNewUser: !profile,
                 });
+                // FCM 토큰 자동 등록 (알림 설정 활성화 시)
+                if (profile?.notificationSettings?.enabled !== false) {
+                    import('../services/notificationService').then(({ registerPushNotifications }) => {
+                        registerPushNotifications(firebaseUser.uid);
+                    }).catch((e) => console.warn('FCM 등록 실패:', e));
+                }
             } else {
                 set({
                     user: null,

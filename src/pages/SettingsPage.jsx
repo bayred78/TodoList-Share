@@ -5,6 +5,7 @@ import useToastStore from '../stores/toastStore';
 import { changeNickname } from '../services/userService';
 import PlanCompareTable from '../components/common/PlanCompareTable';
 import { getEffectivePlan, getUserPlan, isTrialActive } from '../services/subscriptionService';
+import { getNotificationSettings, saveNotificationSettings, registerPushNotifications } from '../services/notificationService';
 import RewardedAd from '../components/ads/RewardedAd';
 import './SettingsPage.css';
 
@@ -18,12 +19,54 @@ export default function SettingsPage() {
     const [nicknameEditing, setNicknameEditing] = useState(false);
     const [devTapCount, setDevTapCount] = useState(0);
     const [devMode, setDevMode] = useState(() => localStorage.getItem('devMode') === 'true');
+    const [notiSettings, setNotiSettings] = useState(() => getNotificationSettings(profile));
+    const [notiSaving, setNotiSaving] = useState(false);
 
     useEffect(() => {
         if (profile) {
             setNickname(profile.nickname || '');
+            setNotiSettings(getNotificationSettings(profile));
         }
     }, [profile]);
+
+    // 알림 설정 변경 핸들러
+    const handleNotiToggle = async (key) => {
+        const updated = { ...notiSettings, [key]: !notiSettings[key] };
+        // 전체 OFF 시 개별도 모두 OFF
+        if (key === 'enabled' && !updated.enabled) {
+            updated.itemCreate = false;
+            updated.itemChange = false;
+            updated.chat = false;
+            updated.dm = false;
+            updated.invitation = false;
+        }
+        // 전체 ON 시 개별도 모두 ON
+        if (key === 'enabled' && updated.enabled) {
+            updated.itemCreate = true;
+            updated.itemChange = true;
+            updated.chat = true;
+            updated.dm = true;
+            updated.invitation = true;
+        }
+        // 개별 하나라도 ON이면 전체도 ON
+        if (key !== 'enabled') {
+            const anyOn = updated.itemCreate || updated.itemChange || updated.chat || updated.dm || updated.invitation;
+            updated.enabled = anyOn;
+        }
+        setNotiSettings(updated);
+        setNotiSaving(true);
+        try {
+            await saveNotificationSettings(profile?.uid, updated);
+            // 알림 ON 전환 시 FCM 토큰도 등록
+            if (updated.enabled) {
+                await registerPushNotifications(profile?.uid);
+            }
+        } catch (err) {
+            addToast('알림 설정 저장에 실패했습니다.', 'error');
+        } finally {
+            setNotiSaving(false);
+        }
+    };
 
     // 닉네임 변경 가능 여부 확인
     const canChangeNickname = (() => {
@@ -95,6 +138,55 @@ export default function SettingsPage() {
                 </div>
 
 
+                {/* 알림 설정 */}
+                <div className="settings-card card">
+                    <h3 className="settings-card-title">🔔 알림 설정</h3>
+                    <p className="settings-description">프로젝트 변경 사항을 푸시 알림으로 받습니다.</p>
+                    <div className="noti-settings-list">
+                        <div className="noti-setting-row noti-setting-main">
+                            <span>전체 알림</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.enabled} onChange={() => handleNotiToggle('enabled')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div className="noti-setting-row">
+                            <span>📝 체크리스트 생성</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.itemCreate} onChange={() => handleNotiToggle('itemCreate')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div className="noti-setting-row">
+                            <span>✏️ 체크리스트 변경</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.itemChange} onChange={() => handleNotiToggle('itemChange')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div className="noti-setting-row">
+                            <span>💬 채팅</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.chat} onChange={() => handleNotiToggle('chat')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div className="noti-setting-row">
+                            <span>✉️ 메시지(DM)</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.dm} onChange={() => handleNotiToggle('dm')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div className="noti-setting-row">
+                            <span>📨 초대</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.invitation} onChange={() => handleNotiToggle('invitation')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
 
                 {/* 구독 */}
                 <div className="settings-card card">

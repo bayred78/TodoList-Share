@@ -284,11 +284,13 @@ function calcNextDueDate(dueDate, repeatType) {
 }
 
 // 체크 토글 (반복 항목은 체크만, 생성은 별도)
-export async function toggleCheck(projectId, itemId, checked, itemData = {}) {
-    await updateDoc(doc(db, 'projects', projectId, 'items', itemId), {
+export async function toggleCheck(projectId, itemId, checked, itemData = {}, updatedBy = null) {
+    const updateData = {
         checked: checked,
         updatedAt: serverTimestamp(),
-    });
+    };
+    if (updatedBy) updateData.updatedBy = updatedBy;
+    await updateDoc(doc(db, 'projects', projectId, 'items', itemId), updateData);
 
     // 반복 항목 여부만 알려줌 (실제 생성은 createRepeatItem에서 처리)
     const isRepeat = checked && itemData.repeatType && itemData.repeatType !== 'none';

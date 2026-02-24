@@ -735,6 +735,8 @@ export default function ProjectPage() {
 
         // 정렬 (기존 유지)
         list.sort((a, b) => {
+            // 완료된 항목은 하단으로
+            if (a.checked !== b.checked) return a.checked ? 1 : -1;
             const aDue = a.dueDate?.toDate ? a.dueDate.toDate() : a.dueDate ? new Date(a.dueDate) : null;
             const bDue = b.dueDate?.toDate ? b.dueDate.toDate() : b.dueDate ? new Date(b.dueDate) : null;
             if (aDue && bDue) return aDue - bDue;
@@ -888,10 +890,7 @@ export default function ProjectPage() {
             addToast('제목을 입력해주세요.', 'warning');
             return;
         }
-        if (items.find(i => !i.deleted && i.title === newTitle.trim())) {
-            addToast('이미 같은 제목의 체크리스트가 있습니다.', 'warning');
-            return;
-        }
+
         // ★ 항목 수 제한 체크
         if (items.filter(i => !i.deleted).length >= effectiveLimits.maxItems) {
             setUpgradeReason('maxItems');
@@ -993,7 +992,7 @@ export default function ProjectPage() {
     const handleToggleCheck = async (item) => {
         if (!userCanWrite) return;
         try {
-            const result = await toggleCheck(projectId, item.id, !item.checked, item);
+            const result = await toggleCheck(projectId, item.id, !item.checked, item, profile?.uid);
             // 반복 항목 체크 시 확인 모달 표시
             if (result?.isRepeat) {
                 setRepeatConfirmItem(item);
@@ -1042,7 +1041,7 @@ export default function ProjectPage() {
                 const memberUIDs = Object.keys(project.members);
                 const allChecked = memberUIDs.every(uid => updatedChecks[uid] === true);
                 if (allChecked && !item.checked) {
-                    await toggleCheck(projectId, item.id, true, item);
+                    await toggleCheck(projectId, item.id, true, item, profile?.uid);
                     addToast('모든 구성원이 확인하여 자동 체크되었습니다!', 'success');
                     // 반복 항목이면 확인 모달 표시
                     if (item.repeatType && item.repeatType !== 'none') {
@@ -1726,10 +1725,7 @@ export default function ProjectPage() {
     const handleEditItem = async (e) => {
         e?.preventDefault();
         if (!editItem) return;
-        if (items.find(i => !i.deleted && i.title === editItem.title.trim() && i.id !== editItem.id)) {
-            addToast('이미 같은 제목의 체크리스트가 있습니다.', 'warning');
-            return;
-        }
+
         // ★ 편집 시 신규 마감일 추가 제한 (기존 마감일 수정은 허용)
         const hadDueDate = !!editItemOriginal?.dueDate;
         const hasDueDate = !!editItem.dueDate;
@@ -1762,6 +1758,7 @@ export default function ProjectPage() {
                 dueDate: editItem.dueDate || null,
                 labels: editItem.labels || [],
                 repeatType: editItem.repeatType || null,
+                updatedBy: profile?.uid,
             }, { expectedVersion: editItem.version || 1 });
             // 활동 알림 전송 (메인페이지 메세지탭에 표시)
             try {

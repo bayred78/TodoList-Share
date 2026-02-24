@@ -59,6 +59,20 @@ service cloud.firestore {
         allow create, update, delete: if request.auth != null 
           && canWriteToProject(projectId);
       }
+
+      // ===== 채팅 메시지 =====
+      match /messages/{messageId} {
+        allow read: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members;
+        allow create: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members;
+      }
+
+      // ===== 채팅 읽음 확인 =====
+      match /chatLastRead/{userId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members;
+      }
     }
 
     // ===== 초대 =====

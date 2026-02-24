@@ -1472,6 +1472,25 @@ export default function MainPage() {
                                                 >
                                                     확인
                                                 </button>
+                                                <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={async () => {
+                                                        try {
+                                                            const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
+                                                            const { db } = await import('../services/firebase');
+                                                            const project = projects.find(p => p.id === noti.projectId);
+                                                            if (project?.notifications?.[noti.idx]) {
+                                                                await updateDoc(doc(db, 'projects', noti.projectId), {
+                                                                    notifications: arrayRemove(project.notifications[noti.idx]),
+                                                                });
+                                                            }
+                                                        } catch (e) {
+                                                            addToast('삭제에 실패했습니다.', 'error');
+                                                        }
+                                                    }}
+                                                >
+                                                    닫기
+                                                </button>
                                             </div>
                                         </div>
                                     </div>

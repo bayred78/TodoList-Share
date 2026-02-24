@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-02-24 20:46 — 버그 수정 4건 (Storage 규칙 + 업로드 타임아웃 + 구독 UI)
+- `storage.rules` [NEW]: Firebase Storage 보안 규칙 생성 (인증 사용자 5MB 이하 업로드 허용)
+- `firebase.json`: storage/hosting 섹션 추가
+- `storageService.js`: 업로드 30초 타임아웃 추가 (네트워크 불안정 시 무한 대기 방지)
+- `MainPage.jsx`: 보낸 초대 카드에 '닫기' 버튼 추가 (카드 UI 통일)
+- `subscriptionService.js`: imageChat Free/Pro → false 롤백 (Team 전용)
+- `ProjectPage.jsx`: 비구독자 이미지 버튼 🔒 자물쇠 표시 + 클릭 시 업그레이드 모달
+- Git 태그: `v260224-2046`
+- 복원: `git checkout v260224-2046`
+
+---
+
 ## 2026-02-24 20:14 — 버그 수정 3건 + 코드/디자인 리뷰 수정
 - `ProjectPage.jsx`: 체크리스트 중복 제목 제한 제거, 완료 항목 하단 정렬 추가
 - `subscriptionService.js`: Free/Pro 플랜 이미지 채팅 제한 해제 (`imageChat: true`)

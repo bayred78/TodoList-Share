@@ -1341,6 +1341,12 @@ export default function MainPage() {
                                                     취소
                                                 </button>
                                             )}
+                                            <button
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => handleDismissSentInvite(invite.id)}
+                                            >
+                                                닫기
+                                            </button>
                                         </div>
                                     </div>
                                 ))}

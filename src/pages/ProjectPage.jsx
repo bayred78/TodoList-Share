@@ -2495,18 +2495,25 @@ export default function ProjectPage() {
                         )}
                         {/* 입력 바 */}
                         <form className="chat-input-bar" onSubmit={handleSendMessage} onTouchMove={(e) => e.preventDefault()}>
-                            {/* 📷 이미지 첨부 버튼 — 본인 구독 필요 */}
-                            {userLimits.imageChat && (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="chat-attach-btn"
-                                        onClick={() => chatFileInputRef.current?.click()}
-                                        disabled={chatUploading}
-                                        title="이미지 전송"
-                                    >
-                                        {chatUploading ? '⏳' : '📷'}
-                                    </button>
+                            {/* 📷 이미지 첨부 버튼 — 비구독: 자물쇠 / 구독: 카메라 */}
+                            <>
+                                <button
+                                    type="button"
+                                    className="chat-attach-btn"
+                                    onClick={() => {
+                                        if (!userLimits.imageChat) {
+                                            setUpgradeReason('imageChat');
+                                            setShowUpgradeModal(true);
+                                            return;
+                                        }
+                                        chatFileInputRef.current?.click();
+                                    }}
+                                    disabled={chatUploading}
+                                    title={userLimits.imageChat ? '이미지 전송' : '구독 전용 기능'}
+                                >
+                                    {chatUploading ? '⏳' : userLimits.imageChat ? '📷' : '🔒'}
+                                </button>
+                                {userLimits.imageChat && (
                                     <input
                                         ref={chatFileInputRef}
                                         type="file"
@@ -2514,8 +2521,8 @@ export default function ProjectPage() {
                                         style={{ display: 'none' }}
                                         onChange={handleChatImageSelect}
                                     />
-                                </>
-                            )}
+                                )}
+                            </>
                             <input
                                 ref={chatInputRef}
                                 type="text"

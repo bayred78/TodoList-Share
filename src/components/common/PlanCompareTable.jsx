@@ -39,7 +39,7 @@ const FREE_ACCESS_FEATURES = [
     { label: '통합 검색', free: '❌', access: '✅ 사용 가능' },
 ];
 
-export default function PlanCompareTable({ currentPlan = 'free', onSubscribe }) {
+export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, profile, onTrialStart }) {
     const [selectedPlan, setSelectedPlan] = useState(null);
 
     const handleSubscribe = (plan, period) => {
@@ -118,18 +118,18 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe }) 
             {/* 무료 체험 & 리워드 — 무료 사용자에게만 */}
             {currentPlan === 'free' && (
                 <div style={{ marginTop: 16, textAlign: 'center' }}>
-                    {!isTrialUsed() && (
+                    {!isTrialUsed(profile) && (
                         <button className="btn btn-secondary btn-block" style={{ marginBottom: 8 }}
-                            onClick={() => { startFreeTrial(); window.location.reload(); }}>
+                            onClick={async () => { await startFreeTrial(profile?.uid || profile?.id, profile); onTrialStart?.(); }}>
                             🎁 7일 무료 체험 시작
                         </button>
                     )}
-                    {isTrialActive() && (
+                    {isTrialActive(profile) && (
                         <div style={{ padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 8, fontSize: 13, marginBottom: 8 }}>
-                            🎉 Pro 체험 중 ({getTrialRemainingDays()}일 남음)
+                            🎉 Pro 체험 중 ({getTrialRemainingDays(profile)}일 남음)
                         </div>
                     )}
-                    <RewardedAd />
+                    <RewardedAd profile={profile} />
                 </div>
             )}
 

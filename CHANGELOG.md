@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-02-24 15:27 — 리워드/체험판 Firestore 전환 + 코드 리뷰 이슈 수정
+- `subscriptionService.js`: 리워드/체험판 localStorage → Firestore 계정 기반 전환, startFreeTrial 중복 방어
+- `RewardedAd.jsx`: 광고 완주 시만 보상, 서버 실패 시 보상, 중도 종료 미지급, applyReward 에러 핸들링
+- `PlanCompareTable.jsx`: onTrialStart 콜백으로 reload 제거
+- `UpgradeModal.jsx`, `SettingsPage.jsx`, `ProjectPage.jsx`, `MainPage.jsx`: profile/onTrialStart/refreshProfile 전달
+- Git 태그: `v260224-1527`
+- 복원: `git checkout v260224-1527`
+
 ## 2026-02-24 02:54 — 페이지수정창 fullscreen-editor 전환 + 표시이름 설정 이동 + 디자인 토큰 정리
 - `MainPage.jsx`: 페이지 편집 UI를 fullscreen-editor 패턴으로 전환
 - `ProjectPage.jsx`: 페이지 편집 UI를 fullscreen-editor 패턴으로 전환

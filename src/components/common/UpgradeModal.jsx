@@ -9,7 +9,7 @@ import './UpgradeModal.css';
  * 기능 제한 도달 시 표시되는 업그레이드 모달
  * 공유 PlanCompareTable 컴포넌트 사용
  */
-export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', reason = '', onSubscribe }) {
+export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', reason = '', onSubscribe, profile, onTrialStart }) {
     const REASON_MESSAGES = {
         maxPages: '페이지 생성 수가 최대 한도에 도달했습니다.',
         maxMembers: '참여자 수가 최대 한도에 도달했습니다.',
@@ -42,12 +42,12 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', re
                 </div>
 
                 {/* 공유 플랜 비교표 */}
-                <PlanCompareTable currentPlan={currentPlan} onSubscribe={onSubscribe} />
+                <PlanCompareTable currentPlan={currentPlan} onSubscribe={onSubscribe} profile={profile} onTrialStart={onTrialStart} />
 
                 {/* 리워드 광고 — 무료 사용자에게만 */}
                 {currentPlan === 'free' && (
                     <div style={{ marginTop: 12 }}>
-                        <RewardedAd onReward={onClose} />
+                        <RewardedAd profile={profile} onReward={onClose} />
                     </div>
                 )}
 

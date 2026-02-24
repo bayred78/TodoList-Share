@@ -105,14 +105,16 @@ export default function SettingsPage() {
                                 const ep = getEffectivePlan(profile);
                                 return ep === 'team' ? 'Team' : ep === 'pro' ? 'Pro' : '무료';
                             })()}
-                            {isTrialActive() && ' (체험 중)'}
+                            {isTrialActive(profile) && ' (체험 중)'}
                         </strong>
                     </p>
-                    <RewardedAd />
+                    <RewardedAd profile={profile} />
 
                     {/* 공유 플랜 비교표 (구독 버튼 활성화) */}
                     <PlanCompareTable
                         currentPlan={getUserPlan(profile)}
+                        profile={profile}
+                        onTrialStart={() => refreshProfile()}
                         onSubscribe={(plan, period) => {
                             addToast(`${plan === 'pro' ? 'Pro' : 'Team'} ${period === 'monthly' ? '월간' : '연간'} 구독을 준비 중입니다...`, 'info');
                         }}

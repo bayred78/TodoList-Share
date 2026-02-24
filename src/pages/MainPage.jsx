@@ -23,7 +23,7 @@ const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋' };
 const VIEW_MODE_LABELS = { card: '카드', grid: '2열', list: '리스트' };
 
 export default function MainPage() {
-    const { profile, logout } = useAuthStore();
+    const { profile, logout, refreshProfile } = useAuthStore();
     const addToast = useToastStore((s) => s.addToast);
     const navigate = useNavigate();
 
@@ -1992,6 +1992,8 @@ export default function MainPage() {
                 onClose={() => setShowUpgradeModal(false)}
                 currentPlan={getUserPlan(profile)}
                 reason={upgradeReason}
+                profile={profile}
+                onTrialStart={() => refreshProfile()}
             />
         </div>
     );

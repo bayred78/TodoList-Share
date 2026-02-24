@@ -220,7 +220,7 @@ export default function ProjectPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { profile } = useAuthStore();
+    const { profile, refreshProfile } = useAuthStore();
     const addToast = useToastStore((s) => s.addToast);
 
     const [project, setProject] = useState(null);
@@ -1147,6 +1147,13 @@ export default function ProjectPage() {
 
     // 채팅 이미지 선택
     const handleChatImageSelect = (e) => {
+        // ★ 이미지 채팅은 개인 구독 기반 (Team 전용)
+        if (!userLimits.imageChat) {
+            setUpgradeReason('imageChat');
+            setShowUpgradeModal(true);
+            e.target.value = '';
+            return;
+        }
         const file = e.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
@@ -1503,6 +1510,13 @@ export default function ProjectPage() {
         e.preventDefault();
         if (!inviteNickname.trim()) {
             addToast('닉네임 또는 이메일을 입력해주세요.', 'warning');
+            return;
+        }
+        // ★ 멤버 수 제한 체크 (프로젝트 기반)
+        const currentMemberCount = project?.memberCount || Object.keys(project?.members || {}).length;
+        if (currentMemberCount >= effectiveLimits.maxMembers) {
+            setUpgradeReason('maxMembers');
+            setShowUpgradeModal(true);
             return;
         }
         setInviting(true);
@@ -3742,234 +3756,242 @@ export default function ProjectPage() {
                 </form>
             </Modal>
 
-            {/* 페이지 설정 모달 */}
-            <Modal
-                isOpen={showSettingsModal}
-                onClose={() => setShowSettingsModal(false)}
-                title="페이지 설정"
-            >
-                <div className="settings-section">
-                    <h3 className="settings-section-title">멤버 ({members.length}명)</h3>
-                    <div className="member-list">
-                        {members.map(([userId, member]) => (
-                            <div key={userId} className="member-item">
-                                <div className="member-info">
-                                    <span className="member-nickname">{getMemberName(userId) || member.nickname}</span>
-                                    <span className={`badge badge-${member.role === 'admin' ? 'primary' : 'success'}`}>
-                                        {getRoleLabel(member.role)}
-                                    </span>
-                                    {project?.useDisplayName && userId === profile?.uid && (
+            {/* 페이지 설정 전체화면 */}
+            {showSettingsModal && (
+                <div className="fullscreen-editor">
+                    <div className="fullscreen-editor-header">
+                        <button
+                            className="fullscreen-editor-back"
+                            onClick={() => setShowSettingsModal(false)}
+                        >←</button>
+                        <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>⚙️ 페이지 설정</h2>
+                        <div style={{ width: 40 }} />
+                    </div>
+                    <div className="fullscreen-editor-body">
+                        <div className="settings-section">
+                            <h3 className="settings-section-title">멤버 ({members.length}명)</h3>
+                            <div className="member-list">
+                                {members.map(([userId, member]) => (
+                                    <div key={userId} className="member-item">
+                                        <div className="member-info">
+                                            <span className="member-nickname">{getMemberName(userId) || member.nickname}</span>
+                                            <span className={`badge badge-${member.role === 'admin' ? 'primary' : 'success'}`}>
+                                                {getRoleLabel(member.role)}
+                                            </span>
+                                            {project?.useDisplayName && userId === profile?.uid && (
+                                                <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    style={{ marginLeft: '4px', fontSize: 'var(--font-size-xs)', padding: '2px 6px' }}
+                                                    onClick={() => { setMyDisplayNameInput(member.displayName || ''); setShowDisplayNamePrompt(true); }}
+                                                >📛 활동명 변경</button>
+                                            )}
+                                        </div>
+                                        {userCanAdmin && userId !== profile?.uid && (
+                                            <div className="member-actions">
+                                                <select
+                                                    className="input-field"
+                                                    style={{ width: 'auto', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                    value={member.role}
+                                                    onChange={(e) => handleChangeRole(userId, e.target.value)}
+                                                >
+                                                    <option value="editor">✏️ 편집자</option>
+                                                    <option value="viewer">👁️ 독자</option>
+                                                </select>
+                                                <button
+                                                    className="btn btn-danger btn-sm"
+                                                    onClick={() => handleRemoveMember(userId, getMemberName(userId) || member.nickname)}
+                                                >
+                                                    제거
+                                                </button>
+                                            </div>
+                                        )}
+                                        {/* 캘린더 공유 버튼 (관리자: 공유/해제, 비관리자: 요청 표시) */}
+                                        {userId !== profile?.uid && myCalendarId && (
+                                            userCanAdmin ? (
+                                                <button
+                                                    className={`btn btn-sm ${calendarSharedMembers[userId] === true ? 'btn-success' : calendarSharedMembers[userId] === 'pending' ? 'btn-warning' : calendarShareRequested[userId] ? 'btn-warning' : 'btn-secondary'}`}
+                                                    style={{ marginLeft: '4px', fontSize: 'var(--font-size-xs)', minWidth: '32px' }}
+                                                    onClick={() => handleToggleCalendarShare(userId, member)}
+                                                    disabled={sharingCalendar[userId]}
+                                                    title={calendarSharedMembers[userId] === true ? '캘린더 공유 해제' : calendarSharedMembers[userId] === 'pending' ? '참여 대기 중 - 클릭하여 해제' : calendarShareRequested[userId] ? '공유 요청됨 - 클릭하여 공유' : '캘린더 공유'}
+                                                >
+                                                    {sharingCalendar[userId] ? '⏳' : calendarSharedMembers[userId] === true ? '📅✅' : calendarSharedMembers[userId] === 'pending' ? '📅⏳' : calendarShareRequested[userId] ? '📅❗' : '📅'}
+                                                </button>
+                                            ) : (
+                                                !calendarSharedMembers[profile?.uid] && null
+                                            )
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 보기 설정 */}
+                        <div className="settings-section">
+                            <h3 className="settings-section-title">⚙️ 보기 설정</h3>
+                            <div className="settings-row">
+                                <span>마감일 표시 형식</span>
+                                <select
+                                    className="input-field"
+                                    style={{ width: 'auto', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                    value={dueDisplayMode}
+                                    onChange={(e) => {
+                                        setDueDisplayMode(e.target.value);
+                                        localStorage.setItem('dueDisplayMode', e.target.value);
+                                    }}
+                                >
+                                    <option value="date">📅 마감일 (월.일 / 시:분)</option>
+                                    <option value="remaining">⏳ 남은 시간</option>
+                                </select>
+                            </div>
+                        </div>
+
+
+                        {/* 구글 캘린더 연동 */}
+                        <div className="settings-section">
+                            {userCanAdmin ? (
+                                <>
+                                    <h3 className="settings-section-title">📅 구글 캘린더 연동</h3>
+                                    <p className="settings-description">
+                                        할일에 마감일을 설정하면 📅 버튼으로 구글 캘린더에 등록할 수 있습니다.<br />
+                                        <strong>팀 공유 캘린더</strong>를 사용하려면 아래에 캘린더 ID를 입력하세요.
+                                    </p>
+                                    <div className="input-group" style={{ marginBottom: '8px' }}>
+                                        <label className="input-label" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>📋 캘린더 ID</label>
+                                        <input
+                                            type="text"
+                                            className="input-field"
+                                            placeholder="연동할 캘린더 ID를 입력하세요 (예: abc@gmail.com)"
+                                            value={calendarId}
+                                            onChange={(e) => setCalendarId(e.target.value)}
+                                            disabled={!calendarIdEditing}
+                                            style={{ opacity: calendarIdEditing ? 1 : 0.6 }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                        {calendarIdEditing ? (
+                                            <>
+                                                <button
+                                                    className="btn btn-primary btn-sm"
+                                                    onClick={handleSaveCalendarId}
+                                                    disabled={savingCalendar}
+                                                >
+                                                    {savingCalendar ? <span className="spinner"></span> : '💾 저장'}
+                                                </button>
+                                                <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={() => {
+                                                        setCalendarId(myCalendarId || '');
+                                                        setCalendarIdEditing(false);
+                                                    }}
+                                                >취소</button>
+                                            </>
+                                        ) : (
+                                            <button
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => setCalendarIdEditing(true)}
+                                            >✏️ 편집</button>
+                                        )}
                                         <button
                                             className="btn btn-secondary btn-sm"
-                                            style={{ marginLeft: '4px', fontSize: 'var(--font-size-xs)', padding: '2px 6px' }}
-                                            onClick={() => { setMyDisplayNameInput(member.displayName || ''); setShowDisplayNamePrompt(true); }}
-                                        >📛 활동명 변경</button>
-                                    )}
-                                </div>
-                                {userCanAdmin && userId !== profile?.uid && (
-                                    <div className="member-actions">
-                                        <select
-                                            className="input-field"
-                                            style={{ width: 'auto', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                            value={member.role}
-                                            onChange={(e) => handleChangeRole(userId, e.target.value)}
+                                            onClick={() => setShowCalendarHelp(!showCalendarHelp)}
                                         >
-                                            <option value="editor">✏️ 편집자</option>
-                                            <option value="viewer">👁️ 독자</option>
-                                        </select>
-                                        <button
-                                            className="btn btn-danger btn-sm"
-                                            onClick={() => handleRemoveMember(userId, getMemberName(userId) || member.nickname)}
-                                        >
-                                            제거
+                                            {showCalendarHelp ? '도움말 접기' : '📌 도움말'}
                                         </button>
                                     </div>
-                                )}
-                                {/* 캘린더 공유 버튼 (관리자: 공유/해제, 비관리자: 요청 표시) */}
-                                {userId !== profile?.uid && myCalendarId && (
-                                    userCanAdmin ? (
-                                        <button
-                                            className={`btn btn-sm ${calendarSharedMembers[userId] === true ? 'btn-success' : calendarSharedMembers[userId] === 'pending' ? 'btn-warning' : calendarShareRequested[userId] ? 'btn-warning' : 'btn-secondary'}`}
-                                            style={{ marginLeft: '4px', fontSize: 'var(--font-size-xs)', minWidth: '32px' }}
-                                            onClick={() => handleToggleCalendarShare(userId, member)}
-                                            disabled={sharingCalendar[userId]}
-                                            title={calendarSharedMembers[userId] === true ? '캘린더 공유 해제' : calendarSharedMembers[userId] === 'pending' ? '참여 대기 중 - 클릭하여 해제' : calendarShareRequested[userId] ? '공유 요청됨 - 클릭하여 공유' : '캘린더 공유'}
-                                        >
-                                            {sharingCalendar[userId] ? '⏳' : calendarSharedMembers[userId] === true ? '📅✅' : calendarSharedMembers[userId] === 'pending' ? '📅⏳' : calendarShareRequested[userId] ? '📅❗' : '📅'}
-                                        </button>
-                                    ) : (
-                                        !calendarSharedMembers[profile?.uid] && null
-                                    )
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                                </>
+                            ) : (
+                                <>
+                                </>
+                            )}
 
-                {/* 보기 설정 */}
-                <div className="settings-section">
-                    <h3 className="settings-section-title">⚙️ 보기 설정</h3>
-                    <div className="settings-row">
-                        <span>마감일 표시 형식</span>
-                        <select
-                            className="input-field"
-                            style={{ width: 'auto', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                            value={dueDisplayMode}
-                            onChange={(e) => {
-                                setDueDisplayMode(e.target.value);
-                                localStorage.setItem('dueDisplayMode', e.target.value);
-                            }}
-                        >
-                            <option value="date">📅 마감일 (월.일 / 시:분)</option>
-                            <option value="remaining">⏳ 남은 시간</option>
-                        </select>
-                    </div>
-                </div>
+                            {/* 팀 캘린더 상태 안내 */}
+                            {myCalendarId && (
+                                <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 18 }}>{calendarSharedMembers[profile?.uid] === true ? '✅' : '📅'}</span>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.5' }}>
+                                        {userCanAdmin
+                                            ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유합니다. 필요시 멤버에게 공유하세요.</>
+                                            : calendarSharedMembers[profile?.uid] === true
+                                                ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유받았습니다.</>
+                                                : <>팀 캘린더가 설정되어 있습니다. 필요시 관리자에게 공유를 요청하세요.</>
+                                        }
+                                    </div>
+                                </div>
+                            )}
 
-
-                {/* 구글 캘린더 연동 */}
-                <div className="settings-section">
-                    {userCanAdmin ? (
-                        <>
-                            <h3 className="settings-section-title">📅 구글 캘린더 연동</h3>
-                            <p className="settings-description">
-                                할일에 마감일을 설정하면 📅 버튼으로 구글 캘린더에 등록할 수 있습니다.<br />
-                                <strong>팀 공유 캘린더</strong>를 사용하려면 아래에 캘린더 ID를 입력하세요.
-                            </p>
-                            <div className="input-group" style={{ marginBottom: '8px' }}>
-                                <label className="input-label" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>📋 캘린더 ID</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    placeholder="연동할 캘린더 ID를 입력하세요 (예: abc@gmail.com)"
-                                    value={calendarId}
-                                    onChange={(e) => setCalendarId(e.target.value)}
-                                    disabled={!calendarIdEditing}
-                                    style={{ opacity: calendarIdEditing ? 1 : 0.6 }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                                {calendarIdEditing ? (
-                                    <>
-                                        <button
-                                            className="btn btn-primary btn-sm"
-                                            onClick={handleSaveCalendarId}
-                                            disabled={savingCalendar}
-                                        >
-                                            {savingCalendar ? <span className="spinner"></span> : '💾 저장'}
-                                        </button>
-                                        <button
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={() => {
-                                                setCalendarId(myCalendarId || '');
-                                                setCalendarIdEditing(false);
-                                            }}
-                                        >취소</button>
-                                    </>
-                                ) : (
+                            {/* 캘린더 공유요청 (비관리자 + 공유 미적용) */}
+                            {!userCanAdmin && myCalendarId && !calendarSharedMembers[profile?.uid] && (
+                                <div style={{ marginTop: '12px' }}>
                                     <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => setCalendarIdEditing(true)}
-                                    >✏️ 편집</button>
-                                )}
+                                        className={`btn btn-block ${calendarShareRequested[profile?.uid] ? 'btn-secondary' : 'btn-primary'}`}
+                                        onClick={handleRequestCalendarShare}
+                                        disabled={requestingShare || calendarShareRequested[profile?.uid]}
+                                    >
+                                        {requestingShare ? <span className="spinner"></span> : calendarShareRequested[profile?.uid] ? '요청완료' : '📅 캘린더 공유요청'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {showCalendarHelp && userCanAdmin && (
+                                <div className="calendar-help" style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: '14px', marginTop: '4px' }}>
+
+                                    {/* 캘린더 설정 (관리자용) */}
+                                    <h4 style={{ fontSize: 'var(--font-size-sm)', marginBottom: '6px', color: 'var(--color-primary)' }}>🔧 팀 캘린더 설정</h4>
+                                    <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
+                                        <li><span style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => { e.preventDefault(); window.open('https://calendar.google.com', '_system'); }}>calendar.google.com</span> 접속 <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>(웹브라우저)</span></li>
+                                        <li>왼쪽 사이드바에서 공유할 캘린더의 <strong>⋮ → 설정 및 공유</strong></li>
+                                        <li><strong>캘린더 통합</strong> 섹션에서 <strong>캘린더 ID</strong> 복사</li>
+                                        <li><strong>✏️ 편집</strong> 버튼을 눌러 입력란에 붙여넣고 <strong>💾 저장</strong></li>
+                                    </ol>
+
+                                    <h4 style={{ fontSize: 'var(--font-size-sm)', marginTop: '14px', marginBottom: '6px', color: 'var(--color-primary)' }}>👥 멤버에게 캘린더 공유하기</h4>
+                                    <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
+                                        <li>위 멤버 목록에서 각 멤버 옆 <strong>📅 버튼</strong> 클릭</li>
+                                        <li>멤버에게 공유 초대 메일이 자동 발송됩니다</li>
+                                        <li>멤버가 메일에서 <strong>수락</strong>하면 공유 완료 (📅✅)</li>
+                                    </ol>
+
+                                </div>
+                            )}
+                        </div>
+
+
+                        {/* 페이지 나가기 (비관리자만 표시) */}
+                        {!userCanAdmin && (
+                            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
                                 <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => setShowCalendarHelp(!showCalendarHelp)}
+                                    className="btn btn-danger"
+                                    style={{ width: '100%' }}
+                                    onClick={handleLeaveProject}
                                 >
-                                    {showCalendarHelp ? '도움말 접기' : '📌 도움말'}
+                                    🚪 페이지 나가기
                                 </button>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 6, textAlign: 'center' }}>
+                                    나가면 관리자가 다시 초대해야 참여할 수 있습니다.
+                                </p>
                             </div>
-                        </>
-                    ) : (
-                        <>
-                        </>
-                    )}
+                        )}
 
-                    {/* 팀 캘린더 상태 안내 */}
-                    {myCalendarId && (
-                        <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 18 }}>{calendarSharedMembers[profile?.uid] === true ? '✅' : '📅'}</span>
-                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.5' }}>
-                                {userCanAdmin
-                                    ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유합니다. 필요시 멤버에게 공유하세요.</>
-                                    : calendarSharedMembers[profile?.uid] === true
-                                        ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유받았습니다.</>
-                                        : <>팀 캘린더가 설정되어 있습니다. 필요시 관리자에게 공유를 요청하세요.</>
-                                }
+                        {/* 페이지 삭제 (관리자만 표시) */}
+                        {userCanAdmin && (
+                            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+                                <button
+                                    className="btn btn-danger"
+                                    style={{ width: '100%' }}
+                                    onClick={handleDeleteProject}
+                                >
+                                    🗑️ 페이지 삭제
+                                </button>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 6, textAlign: 'center' }}>
+                                    모든 데이터가 영구적으로 삭제됩니다.
+                                </p>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* 캘린더 공유요청 (비관리자 + 공유 미적용) */}
-                    {!userCanAdmin && myCalendarId && !calendarSharedMembers[profile?.uid] && (
-                        <div style={{ marginTop: '12px' }}>
-                            <button
-                                className={`btn btn-block ${calendarShareRequested[profile?.uid] ? 'btn-secondary' : 'btn-primary'}`}
-                                onClick={handleRequestCalendarShare}
-                                disabled={requestingShare || calendarShareRequested[profile?.uid]}
-                            >
-                                {requestingShare ? <span className="spinner"></span> : calendarShareRequested[profile?.uid] ? '요청완료' : '📅 캘린더 공유요청'}
-                            </button>
-                        </div>
-                    )}
-
-                    {showCalendarHelp && userCanAdmin && (
-                        <div className="calendar-help" style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: '14px', marginTop: '4px' }}>
-
-                            {/* 캘린더 설정 (관리자용) */}
-                            <h4 style={{ fontSize: 'var(--font-size-sm)', marginBottom: '6px', color: 'var(--color-primary)' }}>🔧 팀 캘린더 설정</h4>
-                            <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
-                                <li><span style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => { e.preventDefault(); window.open('https://calendar.google.com', '_system'); }}>calendar.google.com</span> 접속 <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>(웹브라우저)</span></li>
-                                <li>왼쪽 사이드바에서 공유할 캘린더의 <strong>⋮ → 설정 및 공유</strong></li>
-                                <li><strong>캘린더 통합</strong> 섹션에서 <strong>캘린더 ID</strong> 복사</li>
-                                <li><strong>✏️ 편집</strong> 버튼을 눌러 입력란에 붙여넣고 <strong>💾 저장</strong></li>
-                            </ol>
-
-                            <h4 style={{ fontSize: 'var(--font-size-sm)', marginTop: '14px', marginBottom: '6px', color: 'var(--color-primary)' }}>👥 멤버에게 캘린더 공유하기</h4>
-                            <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
-                                <li>위 멤버 목록에서 각 멤버 옆 <strong>📅 버튼</strong> 클릭</li>
-                                <li>멤버에게 공유 초대 메일이 자동 발송됩니다</li>
-                                <li>멤버가 메일에서 <strong>수락</strong>하면 공유 완료 (📅✅)</li>
-                            </ol>
-
-                        </div>
-                    )}
+                    </div>
                 </div>
-
-
-                {/* 페이지 나가기 (비관리자만 표시) */}
-                {!userCanAdmin && (
-                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
-                        <button
-                            className="btn btn-danger"
-                            style={{ width: '100%' }}
-                            onClick={handleLeaveProject}
-                        >
-                            🚪 페이지 나가기
-                        </button>
-                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 6, textAlign: 'center' }}>
-                            나가면 관리자가 다시 초대해야 참여할 수 있습니다.
-                        </p>
-                    </div>
-                )}
-
-                {/* 페이지 삭제 (관리자만 표시) */}
-                {userCanAdmin && (
-                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
-                        <button
-                            className="btn btn-danger"
-                            style={{ width: '100%' }}
-                            onClick={handleDeleteProject}
-                        >
-                            🗑️ 페이지 삭제
-                        </button>
-                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 6, textAlign: 'center' }}>
-                            모든 데이터가 영구적으로 삭제됩니다.
-                        </p>
-                    </div>
-                )}
-
-            </Modal>
+            )}
 
             {/* 날짜 선택 모달 (인라인 달력) */}
             {
@@ -4111,6 +4133,8 @@ export default function ProjectPage() {
                 onClose={() => setShowUpgradeModal(false)}
                 currentPlan={project?.ownerPlan || 'free'}
                 reason={upgradeReason}
+                profile={profile}
+                onTrialStart={() => refreshProfile()}
             />
 
             {/* CSV 가져오기 파일 input */}

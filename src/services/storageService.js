@@ -1,5 +1,8 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from './firebase';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { resizeImage, isImageFile } from '../utils/imageUtils';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB 제한
@@ -74,3 +77,69 @@ export async function uploadItemFile(projectId, itemId, file) {
     return { downloadUrl, fileName: file.name, fileSize: file.size, fileType: file.type };
 }
 
+/**
+ * Blob → Base64 변환 (Capacitor Filesystem용)
+ */
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+/**
+ * 파일 다운로드 유틸
+ * - 네이티브 앱: fetch → 캐시 저장 → 공유 시트 (저장/열기)
+ * - 웹: 확인 다이얼로그 → Blob 다운로드
+ */
+export async function downloadFile(url, fileName) {
+    try {
+        if (Capacitor.isNativePlatform()) {
+            const platform = Capacitor.getPlatform();
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`다운로드 실패 (${response.status})`);
+            const blob = await response.blob();
+            const base64 = await blobToBase64(blob);
+
+            if (platform === 'android') {
+                const savePath = `TodoListShare/${fileName}`;
+                await Filesystem.writeFile({
+                    path: savePath,
+                    data: base64,
+                    directory: Directory.Documents,
+                    recursive: true
+                });
+                alert(`'내 파일 > 문서(Documents) > TodoListShare' 폴더에 저장되었습니다.`);
+            } else {
+                const result = await Filesystem.writeFile({
+                    path: fileName,
+                    data: base64,
+                    directory: Directory.Cache,
+                });
+                await Share.share({ title: fileName, url: result.uri });
+            }
+        } else {
+            if (!window.confirm(`'${fileName}' 파일을 다운로드하시겠습니까?`)) return;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`다운로드 실패 (${response.status})`);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+        }
+    } catch (e) {
+        console.error('downloadFile error:', e);
+        alert(`파일 다운로드에 실패했습니다.\n${e.message}`);
+    }
+}

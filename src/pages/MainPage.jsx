@@ -492,15 +492,6 @@ export default function MainPage() {
         }
     };
 
-    // X 버튼: 메시지 삭제 (받은 초대 - 미응답이면 거절 처리, 보낸 초대 - 삭제)
-    const handleDismissReceivedInvite = async (invitationId) => {
-        try {
-            await rejectInvitation(invitationId);
-        } catch (error) {
-            addToast('삭제에 실패했습니다.', 'error');
-        }
-    };
-
     const handleDismissSentInvite = async (invitationId) => {
         try {
             await cancelInvitation(invitationId);
@@ -1276,11 +1267,6 @@ export default function MainPage() {
                                 <h3 className="request-section-title">📩 받은 초대</h3>
                                 {invitations.map((invite) => (
                                     <div key={invite.id} className="request-card card">
-                                        <button
-                                            className="request-dismiss-btn"
-                                            onClick={() => handleDismissReceivedInvite(invite.id)}
-                                            title="삭제 (거절 처리)"
-                                        >×</button>
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{invite.projectName}</h3>
                                             <p className="invitation-from">
@@ -1316,37 +1302,32 @@ export default function MainPage() {
                                 <h3 className="request-section-title">📤 보낸 초대</h3>
                                 {sentInvitations.map((invite) => (
                                     <div key={invite.id} className="request-card card">
-                                        <button
-                                            className="request-dismiss-btn"
-                                            onClick={() => handleDismissSentInvite(invite.id)}
-                                            title="삭제"
-                                        >×</button>
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{invite.projectName}</h3>
                                             <p className="invitation-from">
                                                 → {invite.inviteeNickname}님에게 초대
                                             </p>
-                                            <div className="invitation-detail">
+                                            <div className="invitation-detail" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
                                                 {getStatusBadge(invite.status)}
                                                 <span className="badge badge-primary" style={{ marginLeft: '4px' }}>{invite.role === 'readwrite' ? '읽기/쓰기' : invite.role}</span>
                                                 {invite.createdAt && <span className="invitation-time">{formatTime(invite.createdAt)}</span>}
+                                                <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                                                    {invite.status === 'pending' && (
+                                                        <button
+                                                            className="btn btn-danger btn-sm"
+                                                            onClick={() => handleCancelInvite(invite.id)}
+                                                        >
+                                                            취소
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        className="btn btn-secondary btn-sm"
+                                                        onClick={() => handleDismissSentInvite(invite.id)}
+                                                    >
+                                                        닫기
+                                                    </button>
+                                                </span>
                                             </div>
-                                        </div>
-                                        <div className="invitation-actions">
-                                            {invite.status === 'pending' && (
-                                                <button
-                                                    className="btn btn-danger btn-sm"
-                                                    onClick={() => handleCancelInvite(invite.id)}
-                                                >
-                                                    취소
-                                                </button>
-                                            )}
-                                            <button
-                                                className="btn btn-secondary btn-sm"
-                                                onClick={() => handleDismissSentInvite(invite.id)}
-                                            >
-                                                닫기
-                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -1359,11 +1340,6 @@ export default function MainPage() {
                                 <h3 className="request-section-title">📅 캘린더 공유 요청</h3>
                                 {calendarShareRequests.map((req) => (
                                     <div key={`${req.projectId}-${req.userId}`} className="request-card card">
-                                        <button
-                                            className="request-dismiss-btn"
-                                            onClick={() => handleRejectCalendarShare(req)}
-                                            title="삭제 (거절 처리)"
-                                        >×</button>
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{req.projectName}</h3>
                                             <p className="invitation-from">
@@ -1425,24 +1401,6 @@ export default function MainPage() {
                                 <h3 className="request-section-title">🔔 시스템 알림</h3>
                                 {systemNotifications.map((noti, i) => (
                                     <div key={`sys-${noti.projectId}-${i}`} className="request-card card">
-                                        <button
-                                            className="request-dismiss-btn"
-                                            onClick={async () => {
-                                                try {
-                                                    const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
-                                                    const { db } = await import('../services/firebase');
-                                                    const project = projects.find(p => p.id === noti.projectId);
-                                                    if (project?.notifications?.[noti.idx]) {
-                                                        await updateDoc(doc(db, 'projects', noti.projectId), {
-                                                            notifications: arrayRemove(project.notifications[noti.idx]),
-                                                        });
-                                                    }
-                                                } catch (e) {
-                                                    addToast('삭제에 실패했습니다.', 'error');
-                                                }
-                                            }}
-                                            title="삭제"
-                                        >×</button>
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{noti.projectName}</h3>
                                             <p className="invitation-from">{noti.text}</p>
@@ -1510,19 +1468,6 @@ export default function MainPage() {
                                 <h3 className="request-section-title">💬 받은 메시지</h3>
                                 {directMessages.map((dm) => (
                                     <div key={dm.id} className="request-card card">
-                                        <button
-                                            className="request-dismiss-btn"
-                                            onClick={async () => {
-                                                try {
-                                                    const { deleteDoc, doc } = await import('firebase/firestore');
-                                                    const { db: fireDb } = await import('../services/firebase');
-                                                    await deleteDoc(doc(fireDb, 'users', profile.uid, 'notifications', dm.id));
-                                                } catch (e) {
-                                                    addToast('삭제에 실패했습니다.', 'error');
-                                                }
-                                            }}
-                                            title="삭제"
-                                        >×</button>
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{dm.senderNickname}</h3>
                                             <p className="invitation-from" style={{ whiteSpace: 'pre-wrap' }}>{dm.message}</p>

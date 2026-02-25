@@ -23,6 +23,31 @@ Thumbs.db
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
 # Android build artifacts
 android/app/build/
@@ -37,3 +62,9 @@ npm-debug.log*
 # Agent/AI files
 .agent/
 .gemini/
+
+# Sensitive Data & Large Files
+KEY Store/
+todolist-share-*.json
+image/
+*.txt

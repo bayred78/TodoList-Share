@@ -12,11 +12,12 @@ import { inviteUser } from '../services/invitationService';
 import { findUserByNicknameOrEmail } from '../services/userService';
 import { getUserProfile } from '../services/authService';
 import { addEventToCalendar, removeEventFromCalendar, shareCalendarWithUser, unshareCalendarWithUser, checkEventExists, getCalendarAclEmails, hasCalendarToken, getCalendarList } from '../services/calendarService';
-import { uploadChatImage, uploadItemImage, uploadItemFile } from '../services/storageService';
+import { uploadChatImage, uploadItemImage, uploadItemFile, downloadFile } from '../services/storageService';
 import { formatFileSize } from '../utils/imageUtils';
 import { subscribeToFavoriteItems, addFavoriteItem, removeFavoriteItem } from '../services/favoriteService';
 import { exportItemsToCsv, parseCsv } from '../services/csvService';
 import Modal from '../components/common/Modal';
+import ImageViewer from '../components/common/ImageViewer';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
 import CalendarView from '../components/CalendarView';
 import './ProjectPage.css';
@@ -335,6 +336,7 @@ export default function ProjectPage() {
     const [inviteNickname, setInviteNickname] = useState('');
     const [inviteRole, setInviteRole] = useState('editor');
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [viewerImage, setViewerImage] = useState(null);
     const [upgradeReason, setUpgradeReason] = useState('');
     const [inviting, setInviting] = useState(false);
     const [newLabel, setNewLabel] = useState('');
@@ -1892,12 +1894,12 @@ export default function ProjectPage() {
     };
 
     const handleRemoveMember = async (userId, nickname) => {
-        if (!confirm(`${nickname}님을 프로젝트에서 제거하시겠습니까?`)) return;
+        if (!confirm(`${nickname}님을 프로젝트에서 내보내시겠습니까?`)) return;
         try {
             await removeMember(projectId, userId);
-            addToast(`${nickname}님이 해제되었습니다.`, 'success');
+            addToast(`${nickname}님이 내보내졌습니다.`, 'success');
         } catch (error) {
-            addToast('멤버 제거에 실패했습니다.', 'error');
+            addToast('멤버 내보내기에 실패했습니다.', 'error');
         }
     };
 
@@ -2073,7 +2075,7 @@ export default function ProjectPage() {
                                     setUpgradeReason('exportCsv'); setShowUpgradeModal(true); return;
                                 }
                                 setShowCsvMenu(prev => !prev);
-                            }} title="CSV 관리">📋</button>
+                            }} title="CSV 관리">🗂️</button>
                             {showCsvMenu && (
                                 <div className="csv-dropdown-menu">
                                     <button onClick={() => { handleExportCsv(); setShowCsvMenu(false); }}>📥 CSV 내보내기</button>
@@ -2371,7 +2373,7 @@ export default function ProjectPage() {
                                             setUpgradeReason('exportCsv'); setShowUpgradeModal(true); return;
                                         }
                                         setShowCsvMenu(prev => !prev);
-                                    }} title="CSV 관리">📋</button>
+                                    }} title="CSV 관리">🗂️</button>
                                     {showCsvMenu && (
                                         <div className="csv-dropdown-menu">
                                             <button onClick={() => { handleExportCsv(); setShowCsvMenu(false); }}>📥 CSV 내보내기</button>
@@ -2474,7 +2476,7 @@ export default function ProjectPage() {
                                                         src={msg.mediaUrl}
                                                         alt={msg.mediaName || '이미지'}
                                                         className="chat-image"
-                                                        onClick={() => window.open(msg.mediaUrl, '_blank')}
+                                                        onClick={() => setViewerImage(msg.mediaUrl)}
                                                     />
                                                 ) : null}
                                                 {msg.text && <span>{msg.text}</span>}
@@ -2820,26 +2822,16 @@ export default function ProjectPage() {
                                                 })()}
                                                 {item.title}
                                             </h4>
-                                            {(item.content || (item.images || []).length > 0 || (item.files || []).length > 0) && (
+                                            {item.content && (
                                                 <div className="todo-detail">
-                                                    {item.content && <p className="todo-desc">{item.content}</p>}
-                                                    {(item.images || []).length > 0 && (
-                                                        <div className="todo-images">
-                                                            {item.images.map((url, i) => (
-                                                                <img key={i} src={url} className="todo-image-thumb" alt="" />
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    {(item.files || []).length > 0 && (
-                                                        <div className="todo-files">
-                                                            {item.files.map((f, i) => (
-                                                                <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="todo-file-link">
-                                                                    📄 {f.name} ({formatFileSize(f.size)})
-                                                                </a>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                    <p className="todo-desc">{item.content}</p>
                                                 </div>
+                                            )}
+                                            {((item.images || []).length > 0 || (item.files || []).length > 0) && (
+                                                <span className="todo-attach-icons">
+                                                    {(item.images || []).length > 0 && <span>📷 {item.images.length}</span>}
+                                                    {(item.files || []).length > 0 && <span>📄 {item.files.length}</span>}
+                                                </span>
                                             )}
                                             <span className="todo-meta">
                                                 {getMemberName(item.createdBy) || item.createdByNickname}
@@ -3618,7 +3610,7 @@ export default function ProjectPage() {
                                         <div className="edit-images-grid">
                                             {editItem.images.map((url, i) => (
                                                 <div key={i} className="edit-image-item">
-                                                    <img src={url} alt={`첨부 ${i + 1}`} onClick={() => window.open(url, '_blank')} />
+                                                    <img src={url} alt={`첨부 ${i + 1}`} onClick={() => setViewerImage(url)} />
                                                     <button
                                                         type="button"
                                                         className="edit-image-remove"
@@ -3655,7 +3647,7 @@ export default function ProjectPage() {
                                             <div className="edit-images-grid" style={{ marginTop: 12 }}>
                                                 {editItem.images.map((url, i) => (
                                                     <div key={i} className="edit-image-item">
-                                                        <img src={url} alt={`첨부 ${i + 1}`} onClick={() => window.open(url, '_blank')} />
+                                                        <img src={url} alt={`첨부 ${i + 1}`} onClick={() => setViewerImage(url)} />
                                                     </div>
                                                 ))}
                                             </div>
@@ -3664,9 +3656,9 @@ export default function ProjectPage() {
                                         {(editItem.files || []).length > 0 && (
                                             <div className="edit-files-list" style={{ marginTop: 8 }}>
                                                 {(editItem.files || []).map((f, i) => (
-                                                    <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="todo-file-link">
+                                                    <span key={i} className="todo-file-link" onClick={() => downloadFile(f.url, f.name || `파일_${i + 1}`)}>
                                                         📄 {f.name} ({formatFileSize(f.size)})
-                                                    </a>
+                                                    </span>
                                                 ))}
                                             </div>
                                         )}
@@ -3805,7 +3797,7 @@ export default function ProjectPage() {
                                                     className="btn btn-danger btn-sm"
                                                     onClick={() => handleRemoveMember(userId, getMemberName(userId) || member.nickname)}
                                                 >
-                                                    제거
+                                                    내보내기
                                                 </button>
                                             </div>
                                         )}
@@ -3857,8 +3849,8 @@ export default function ProjectPage() {
                                 <>
                                     <h3 className="settings-section-title">📅 구글 캘린더 연동</h3>
                                     <p className="settings-description">
-                                        할일에 마감일을 설정하면 📅 버튼으로 구글 캘린더에 등록할 수 있습니다.<br />
-                                        <strong>팀 공유 캘린더</strong>를 사용하려면 아래에 캘린더 ID를 입력하세요.
+                                        <strong>팀 공유 캘린더</strong>를 사용하려면 아래에 캘린더 ID를 입력하세요.<br />
+                                        팀 공유 캘린더를 사용하지 않으면 <strong>개인 캘린더</strong>를 사용합니다.
                                     </p>
                                     <div className="input-group" style={{ marginBottom: '8px' }}>
                                         <label className="input-label" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>📋 캘린더 ID</label>
@@ -4202,6 +4194,11 @@ export default function ProjectPage() {
                     autoFocus
                 />
             </Modal>
+
+            {/* ===== 이미지 뷰어 모달 ===== */}
+            {viewerImage && (
+                <ImageViewer url={viewerImage} onClose={() => setViewerImage(null)} />
+            )}
         </div >
     );
 }

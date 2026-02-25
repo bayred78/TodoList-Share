@@ -4,6 +4,13 @@
 
 ---
 
+## 2026-02-25 20:30 — 안드로이드 파일 지정 다운로드(Save As) 기능 구현
+- `FileSaver.java` [NEW]: 지정된 디렉토리에 파일을 저장하기 위해 안드로이드의 `ACTION_CREATE_DOCUMENT`를 호출하는 커스텀 네이티브 플러그인 추가
+- `MainActivity.java`: 앱 구동 시 생성한 `FileSaver` 로컬 플러그인 레지스터 추가
+- `storageService.js`: 안드로이드 다운로드 시 무조건 `Documents` 폴더에 저장하던 로직을 `FileSaverPlugin.saveAs` 호출로 변경하여 사용자가 직접 저장 위치를 선택할 수 있도록 개선
+- Git 태그: `v260225-2030`
+- 복원: `git checkout v260225-2030`
+
 ## 2026-02-25 18:22 — 안드로이드 파일 저장 개선 및 이미지 뷰어 줌 기준점 변경
 - `storageService.js`: 안드로이드 다운로드 시 공유 시트 대신 기기 공용 문서(`Directory.Documents`) 폴더에 직접 저장하도록 개선 (내 파일 연동)
 - `ImageViewer.jsx`: 이미지 뷰어 핀치 줌 시 화면 중앙이 아닌 터치/마우스 중심점 기준으로 확대/축소되도록 개선

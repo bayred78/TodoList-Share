@@ -1,11 +1,17 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from './firebase';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { resizeImage, isImageFile } from '../utils/imageUtils';
 
+// 로컬 커스텀 플러그인 등록
+const FileSaverPlugin = Capacitor.Plugins.FileSaver;
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB 제한
+// ... 이하 원본 생략 (다운로드 함수부로 점프) ...
+
+// (정확한 대체를 위해 다운로드 함수까지 함께 지정해야하므로 아래 교체도 진행합니다)
 const UPLOAD_TIMEOUT = 30000; // 30초 타임아웃
 
 /**
@@ -108,14 +114,12 @@ export async function downloadFile(url, fileName) {
             const base64 = await blobToBase64(blob);
 
             if (platform === 'android') {
-                const savePath = `TodoListShare/${fileName}`;
-                await Filesystem.writeFile({
-                    path: savePath,
+                await FileSaverPlugin.saveAs({
                     data: base64,
-                    directory: Directory.Documents,
-                    recursive: true
+                    name: fileName,
+                    mimeType: blob.type || '*/*'
                 });
-                alert(`'내 파일 > 문서(Documents) > TodoListShare' 폴더에 저장되었습니다.`);
+                alert(`성공적으로 저장되었습니다.`);
             } else {
                 const result = await Filesystem.writeFile({
                     path: fileName,

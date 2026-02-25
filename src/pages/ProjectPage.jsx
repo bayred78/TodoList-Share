@@ -3849,8 +3849,8 @@ export default function ProjectPage() {
                                 <>
                                     <h3 className="settings-section-title">📅 구글 캘린더 연동</h3>
                                     <p className="settings-description">
-                                        <strong>팀 공유 캘린더</strong>를 사용하려면 아래에 캘린더 ID를 입력하세요.<br />
-                                        팀 공유 캘린더를 사용하지 않으면 <strong>개인 캘린더</strong>를 사용합니다.
+                                        <strong>팀 공유 캘린더</strong>를 사용하려면 캘린더 ID를 입력.<br />
+                                        팀 공유 캘린더를 사용하지 않으면 <strong>개인 캘린더</strong>를 사용.
                                     </p>
                                     <div className="input-group" style={{ marginBottom: '8px' }}>
                                         <label className="input-label" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>📋 캘린더 ID</label>
@@ -3910,7 +3910,7 @@ export default function ProjectPage() {
                                             ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유합니다. 필요시 멤버에게 공유하세요.</>
                                             : calendarSharedMembers[profile?.uid] === true
                                                 ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유받았습니다.</>
-                                                : <>팀 캘린더가 설정되어 있습니다. 필요시 관리자에게 공유를 요청하세요.</>
+                                                : <>팀 캘린더가 설정되어 있습니다. 필요시 관리자에게 공유를 요청하세요. 현재 개인 캘린더를 사용중입니다.</>
                                         }
                                     </div>
                                 </div>

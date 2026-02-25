@@ -34,7 +34,7 @@ export default function DevPlanSwitcher() {
             );
             await Promise.all(promises);
 
-            alert(`✅ 플랜이 "${newPlan}"으로 변경되었습니다.\n프로젝트 ${projSnap.size}개 업데이트됨.\n페이지를 새로고침합니다.`);
+            alert(`✅ 플랜이 "${newPlan}"으로 변경되었습니다.\n페이지 ${projSnap.size}개 업데이트됨.\n페이지를 새로고침합니다.`);
             window.location.reload();
         } catch (err) {
             console.error(err);

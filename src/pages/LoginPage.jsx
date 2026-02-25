@@ -80,7 +80,7 @@ export default function LoginPage() {
                                 autoFocus
                             />
                         </div>
-                        <p className="nickname-hint" style={{ color: '#e67e22', fontWeight: 600 }}>
+                        <p className="nickname-hint" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
                             ⚠ 닉네임은 한 번 설정하면 변경할 수 없습니다.
                         </p>
                         <button

@@ -1307,11 +1307,11 @@ export default function MainPage() {
                                             <p className="invitation-from">
                                                 → {invite.inviteeNickname}님에게 초대
                                             </p>
-                                            <div className="invitation-detail" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                                            <div className="invitation-detail" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
                                                 {getStatusBadge(invite.status)}
-                                                <span className="badge badge-primary" style={{ marginLeft: '4px' }}>{invite.role === 'readwrite' ? '읽기/쓰기' : invite.role}</span>
+                                                <span className="badge badge-primary" style={{ marginLeft: 'var(--spacing-xs)' }}>{invite.role === 'readwrite' ? '읽기/쓰기' : invite.role}</span>
                                                 {invite.createdAt && <span className="invitation-time">{formatTime(invite.createdAt)}</span>}
-                                                <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                                                <span style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--spacing-sm)' }}>
                                                     {invite.status === 'pending' && (
                                                         <button
                                                             className="btn btn-danger btn-sm"
@@ -1377,7 +1377,7 @@ export default function MainPage() {
                                             <p className="invitation-from">
                                                 {noti.ownerNickname}님이 캘린더를 공유했습니다.
                                             </p>
-                                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '4px 0 0' }}>
+                                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: 'var(--spacing-xs) 0 0' }}>
                                                 📧 Gmail을 확인하여 캘린더 초대를 수락해주세요.
                                             </p>
                                             <span className="badge badge-success">공유됨</span>
@@ -1404,7 +1404,7 @@ export default function MainPage() {
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{noti.projectName}</h3>
                                             <p className="invitation-from">{noti.text}</p>
-                                            <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                                                 {noti.createdAt && (
                                                     <span className="invitation-time" style={{ marginRight: 'auto' }}>{formatTime(new Date(noti.createdAt))}</span>
                                                 )}
@@ -1471,7 +1471,7 @@ export default function MainPage() {
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{dm.senderNickname}</h3>
                                             <p className="invitation-from" style={{ whiteSpace: 'pre-wrap' }}>{dm.message}</p>
-                                            <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                                                 {dm.createdAt && (
                                                     <span className="invitation-time" style={{ marginRight: 'auto' }}>{formatTime(dm.createdAt)}</span>
                                                 )}
@@ -1587,7 +1587,7 @@ export default function MainPage() {
                                 <span>🏅 중요도 선택</span>
                                 <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
                             </div>
-                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6, padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                                 {LABEL_COLORS.map(c => (
                                     <button
                                         key={c.id}
@@ -1619,7 +1619,7 @@ export default function MainPage() {
                                 <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
                             </div>
                             <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
+                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
                                     {projectTags.map(tag => (
                                         <button key={tag} type="button" className="filter-chip active"
                                             onClick={() => setProjectTags(prev => prev.filter(t => t !== tag))}>
@@ -1627,7 +1627,7 @@ export default function MainPage() {
                                         </button>
                                     ))}
                                 </div>
-                                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
                                     <input type="text" className="input-field" placeholder="새 태그"
                                         value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)}
                                         style={{ flex: 1 }} />
@@ -1651,7 +1651,7 @@ export default function MainPage() {
                                 <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
                             </div>
                             <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                                     <input
                                         type="checkbox"
                                         checked={useDisplayName}
@@ -1659,7 +1659,7 @@ export default function MainPage() {
                                     />
                                     활동명 사용
                                 </label>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 6px' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 var(--spacing-xs)' }}>
                                     페이지 내에서 닉네임 대신 별도의 활동명을 사용합니다.
                                 </p>
                                 {useDisplayName && (
@@ -1781,7 +1781,7 @@ export default function MainPage() {
                                         </button>
                                     ))}
                                 </div>
-                                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
                                     <input type="text" className="input-field" placeholder="새 태그"
                                         value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)}
                                         style={{ flex: 1 }} />
@@ -1805,10 +1805,10 @@ export default function MainPage() {
                                 <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                             </div>
                             <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 8px' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-sm)' }}>
                                     활동명은 이 페이지 내에서만 사용되는 이름입니다.
                                 </p>
-                                <div className="filter-chips" style={{ gap: 6 }}>
+                                <div className="filter-chips" style={{ gap: 'var(--spacing-xs)' }}>
                                     <button type="button"
                                         className={`filter-chip ${!editTarget?.useDisplayName ? 'active' : ''}`}
                                         onClick={async () => {

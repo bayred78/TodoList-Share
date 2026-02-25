@@ -15,6 +15,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "865182648003-d9qkesdk8cdd96cquqrt4upfm4egddap.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.todolistshare.app",
+            "certificate_hash": "5381f82a238cdadfec9fa0c4b11ae44394940174"
+          }
+        },
+        {
+          "client_id": "865182648003-qc4179imu7cpvkemf4c97t1dvgk1355g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.todolistshare.app",
+            "certificate_hash": "910ec28f7f194e99ca17d46ed8f77a6602755853"
+          }
+        },
+        {
           "client_id": "865182648003-1gj7rnbj21mf6ig7sg734mggf9drglt1.apps.googleusercontent.com",
           "client_type": 3
         }

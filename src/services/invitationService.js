@@ -10,7 +10,7 @@ export async function inviteUser(projectId, projectName, inviterId, inviterNickn
     const projectDoc = await getDoc(doc(db, 'projects', projectId));
     const project = projectDoc.data();
     if (project.members && project.members[inviteeId]) {
-        throw new Error('이미 프로젝트에 참여 중인 사용자입니다.');
+        throw new Error('이미 페이지에 참여 중인 사용자입니다.');
     }
 
     // 이미 초대 중인지 확인

@@ -12,7 +12,7 @@
 }
 
 .cal-auth-icon {
-    font-size: 48px;
+    font-size: var(--font-size-3xl);
     margin-bottom: var(--spacing-sm);
 }
 
@@ -187,7 +187,7 @@
 }
 
 .cal-weekday.sat {
-    color: #56CCF2;
+    color: var(--color-primary-light);
 }
 
 /* 달력 그리드 */
@@ -241,7 +241,7 @@
 }
 
 .cal-cell.sat .cal-day-num {
-    color: #56CCF2;
+    color: var(--color-primary-light);
 }
 
 .cal-cell.today.sun .cal-day-num,

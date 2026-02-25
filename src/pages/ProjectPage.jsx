@@ -131,14 +131,14 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
                 {calendarList !== undefined && (
                     <div style={{ flex: 1, minWidth: 0 }}>
                         {loadingCalendars ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-text-muted)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: 11, color: 'var(--color-text-muted)' }}>
                                 <span className="spinner" style={{ width: 14, height: 14 }}></span>
                                 <span>캘린더 로딩...</span>
                             </div>
                         ) : (
                             <select
                                 className="input-field"
-                                style={{ width: '100%', fontSize: 11, padding: '4px 6px', height: 32 }}
+                                style={{ width: '100%', fontSize: 11, padding: 'var(--spacing-xs) var(--spacing-sm)', height: 32 }}
                                 value={selectedCalendar || 'primary'}
                                 onChange={(e) => onCalendarChange && onCalendarChange(e.target.value)}
                             >
@@ -1894,7 +1894,7 @@ export default function ProjectPage() {
     };
 
     const handleRemoveMember = async (userId, nickname) => {
-        if (!confirm(`${nickname}님을 프로젝트에서 내보내시겠습니까?`)) return;
+        if (!confirm(`${nickname}님을 페이지에서 내보내시겠습니까?`)) return;
         try {
             await removeMember(projectId, userId);
             addToast(`${nickname}님이 내보내졌습니다.`, 'success');
@@ -2040,7 +2040,7 @@ export default function ProjectPage() {
             <div className="container">
                 {/* 헤더 */}
                 <div className="page-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                         <button className="page-header-back" onClick={() => navigate('/')}>←</button>
                         <h1 style={{ fontSize: 'var(--font-size-xl)' }}>{project.name}</h1>
                     </div>
@@ -2338,7 +2338,7 @@ export default function ProjectPage() {
                     <div className="chat-container">
                         {/* 채팅 전용 헤더 */}
                         <div className="page-header" style={{ padding: 'var(--spacing-md) 0', margin: '0 var(--spacing-md)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                                 <button className="page-header-back" onClick={() => navigate('/')}>←</button>
                                 <h1 style={{ fontSize: 'var(--font-size-xl)' }}>{project.name}</h1>
                             </div>
@@ -2424,7 +2424,7 @@ export default function ProjectPage() {
                         {/* 메시지 영역 */}
                         <div className="chat-messages" ref={chatContainerRef}>
                             {loadingOlder && (
-                                <div className="chat-load-more" style={{ textAlign: 'center', padding: '8px', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
+                                <div className="chat-load-more" style={{ textAlign: 'center', padding: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
                                     ⏳ 이전 메시지 불러오는 중...
                                 </div>
                             )}
@@ -2553,7 +2553,7 @@ export default function ProjectPage() {
                             <>
                                 {trashSelectMode && (
                                     <div className="trash-select-bar">
-                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                                             <button className="btn btn-sm btn-secondary" onClick={() => {
                                                 setTrashSelected(trashSelected.length === deletedItems.length ? [] : deletedItems.map(i => i.id));
                                             }}>{trashSelected.length === deletedItems.length ? '전체 해제' : '전체 선택'}</button>
@@ -2998,7 +2998,7 @@ export default function ProjectPage() {
                                 <span>🏅 중요도 선택</span>
                                 <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
                             </div>
-                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6, padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                                 {LABEL_COLORS.map(c => (
                                     <button
                                         key={c.id}
@@ -3037,7 +3037,7 @@ export default function ProjectPage() {
                                     onChange={(e) => setNewDueDate(e.target.value)}
                                 />
                                 {newDueDate && (
-                                    <div style={{ marginTop: 4, fontSize: 13 }}>
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 13 }}>
                                         {getDuePriority(new Date(newDueDate)).icon} {getDuePriority(new Date(newDueDate)).level > 0 ? `단계 ${getDuePriority(new Date(newDueDate)).level}` : ''}
                                     </div>
                                 )}
@@ -3067,7 +3067,7 @@ export default function ProjectPage() {
                                         >
                                             🏷️ {label}
                                             {userCanWrite && (
-                                                <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--color-danger)', cursor: 'pointer' }}
+                                                <span style={{ marginLeft: 'var(--spacing-xs)', fontSize: 10, color: 'var(--color-danger)', cursor: 'pointer' }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (confirm(`"${label}" 라벨을 삭제하시겠습니까?`)) {
@@ -3080,7 +3080,7 @@ export default function ProjectPage() {
                                     ))}
                                 </div>
                                 {userCanWrite && (
-                                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
                                         <input type="text" className="input-field" placeholder="새 라벨"
                                             value={newLabel} onChange={e => setNewLabel(e.target.value)} style={{ flex: 1 }} />
                                         <button type="button" className="btn btn-primary btn-sm"
@@ -3404,7 +3404,7 @@ export default function ProjectPage() {
                                     <span>🏅 중요도 선택</span>
                                     <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                                 </div>
-                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6, padding: '8px 0' }}>
+                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)', padding: 'var(--spacing-sm) 0' }}>
                                     {LABEL_COLORS.map(c => (
                                         <button
                                             key={c.id}
@@ -3829,7 +3829,7 @@ export default function ProjectPage() {
                                 <span>마감일 표시 형식</span>
                                 <select
                                     className="input-field"
-                                    style={{ width: 'auto', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                    style={{ width: 'auto', padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}
                                     value={dueDisplayMode}
                                     onChange={(e) => {
                                         setDueDisplayMode(e.target.value);

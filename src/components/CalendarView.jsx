@@ -91,7 +91,7 @@ export default function CalendarView({ calendarId, onToast, refreshKey, showCale
         } catch (err) {
             console.error('캘린더 목록 로드 실패:', err);
             if (calendarId) {
-                setCalendarList([{ id: calendarId, summary: '프로젝트 캘린더', backgroundColor: '#4285f4' }]);
+                setCalendarList([{ id: calendarId, summary: '페이지 캘린더', backgroundColor: 'var(--color-primary)' }]);
                 setSelectedCalendars([calendarId]);
             }
         } finally {
@@ -131,7 +131,7 @@ export default function CalendarView({ calendarId, onToast, refreshKey, showCale
                         ...evt,
                         calendarId: cId,
                         calendarName: cal?.summary || cId,
-                        calendarColor: cal?.backgroundColor || '#4285f4',
+                        calendarColor: cal?.backgroundColor || 'var(--color-primary)',
                     }));
                 })
             );
@@ -241,7 +241,7 @@ export default function CalendarView({ calendarId, onToast, refreshKey, showCale
                                     />
                                     <span
                                         className="cal-filter-color"
-                                        style={{ backgroundColor: cal.backgroundColor || '#4285f4' }}
+                                        style={{ backgroundColor: cal.backgroundColor || 'var(--color-primary)' }}
                                     />
                                     <span className="cal-filter-name">{cal.summary || cal.id}</span>
                                 </label>
@@ -302,7 +302,7 @@ export default function CalendarView({ calendarId, onToast, refreshKey, showCale
                                         <span
                                             key={i}
                                             className="cal-event-dot"
-                                            style={{ backgroundColor: evt.calendarColor || '#4285f4' }}
+                                            style={{ backgroundColor: evt.calendarColor || 'var(--color-primary)' }}
                                             title={evt.title}
                                         />
                                     ))}
@@ -331,7 +331,7 @@ export default function CalendarView({ calendarId, onToast, refreshKey, showCale
                             <div key={`${evt.calendarId}-${evt.id}`} className="cal-event-item">
                                 <span
                                     className="cal-event-color-bar"
-                                    style={{ backgroundColor: evt.calendarColor || '#4285f4' }}
+                                    style={{ backgroundColor: evt.calendarColor || 'var(--color-primary)' }}
                                 />
                                 <div className="cal-event-content">
                                     <div className="cal-event-title">{evt.title}</div>

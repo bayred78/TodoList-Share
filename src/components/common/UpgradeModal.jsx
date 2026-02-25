@@ -46,7 +46,7 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', re
 
                 {/* 리워드 광고 — 무료 사용자에게만 */}
                 {currentPlan === 'free' && (
-                    <div style={{ marginTop: 12 }}>
+                    <div style={{ marginTop: 'var(--spacing-md)' }}>
                         <RewardedAd profile={profile} onReward={onClose} />
                     </div>
                 )}

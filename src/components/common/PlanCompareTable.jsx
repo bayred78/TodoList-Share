@@ -117,15 +117,15 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, pr
 
             {/* 무료 체험 & 리워드 — 무료 사용자에게만 */}
             {currentPlan === 'free' && (
-                <div style={{ marginTop: 16, textAlign: 'center' }}>
+                <div style={{ marginTop: 'var(--spacing-md)', textAlign: 'center' }}>
                     {!isTrialUsed(profile) && (
-                        <button className="btn btn-secondary btn-block" style={{ marginBottom: 8 }}
+                        <button className="btn btn-secondary btn-block" style={{ marginBottom: 'var(--spacing-sm)' }}
                             onClick={async () => { await startFreeTrial(profile?.uid || profile?.id, profile); onTrialStart?.(); }}>
                             🎁 7일 무료 체험 시작
                         </button>
                     )}
                     {isTrialActive(profile) && (
-                        <div style={{ padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 8, fontSize: 13, marginBottom: 8 }}>
+                        <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--spacing-sm)' }}>
                             🎉 Pro 체험 중 ({getTrialRemainingDays(profile)}일 남음)
                         </div>
                     )}
@@ -134,7 +134,7 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, pr
             )}
 
             {/* 무료/참여 기능 비교표 */}
-            <table className="feature-access-table" style={{ marginTop: 12 }}>
+            <table className="feature-access-table" style={{ marginTop: 'var(--spacing-md)' }}>
                 <thead>
                     <tr>
                         <th>기능</th>

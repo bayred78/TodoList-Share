@@ -118,7 +118,7 @@ export default function SettingsPage() {
         <div className="page">
             <div className="container">
                 <div className="page-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                         <button className="page-header-back" onClick={() => navigate('/')}>←</button>
                         <h1>설정</h1>
                     </div>
@@ -141,7 +141,7 @@ export default function SettingsPage() {
                 {/* 알림 설정 */}
                 <div className="settings-card card">
                     <h3 className="settings-card-title">🔔 알림 설정</h3>
-                    <p className="settings-description">프로젝트 변경 사항을 푸시 알림으로 받습니다.</p>
+                    <p className="settings-description">페이지 변경 사항을 푸시 알림으로 받습니다.</p>
                     <div className="noti-settings-list">
                         <div className="noti-setting-row noti-setting-main">
                             <span>전체 알림</span>
@@ -242,7 +242,7 @@ export default function SettingsPage() {
                     {devMode && (
                         <button
                             className="btn btn-secondary btn-sm"
-                            style={{ marginTop: 8 }}
+                            style={{ marginTop: 'var(--spacing-sm)' }}
                             onClick={() => {
                                 localStorage.setItem('devMode', 'false');
                                 setDevMode(false);

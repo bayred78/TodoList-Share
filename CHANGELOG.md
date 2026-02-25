@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-02-26 04:42 — 앱 아이콘 갱신, 용어 통일 및 UI 토큰 적용
+- 안드로이드 버저닝 설정 업데이트 (`build.gradle` 버전 1.8 / 8)
+- 신규 앱 아이콘 반영 (`@capacitor/assets` 플러그인 이용 안드로이드 에셋 생성)
+- UI 노출 텍스트 용어 통일 ('프로젝트' ➡️ '페이지')
+- `ProjectPage`, `MainPage` 등 코어 페이지 내 픽셀(px) 및 색상 하드코딩 제거, CSS 디자인 토큰(`var(--spacing-*)` 등) 일괄 적용
+- Git 태그: `v260226-0442`
+- 복원: `git checkout v260226-0442`
+
 ## 2026-02-25 20:30 — 안드로이드 파일 지정 다운로드(Save As) 기능 구현
 - `FileSaver.java` [NEW]: 지정된 디렉토리에 파일을 저장하기 위해 안드로이드의 `ACTION_CREATE_DOCUMENT`를 호출하는 커스텀 네이티브 플러그인 추가
 - `MainActivity.java`: 앱 구동 시 생성한 `FileSaver` 로컬 플러그인 레지스터 추가

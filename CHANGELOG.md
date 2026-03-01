@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-03-02 01:41 — 파일 다운로드 크래시 수정 및 검색 UI/디자인 고도화
+- `storageService.js` & `FileSaver.java`: 대용량 파일 다운로드 시 OOM(메모리 부족) 방지를 위해 스트리밍 방식(Cache 디스크 경유)으로 전면 리팩토링 및 `try-with-resources` 도입
+- `App.jsx` & `storageService.js`: 시스템 다운로드 창 종료 시 발생하는 뒤로가기 이벤트 레이스 컨디션 해결 (500ms 지연 및 이벤트 차단)
+- `functions/index.js`: 채팅 이미지 7일 경과 시 자동 삭제 스케줄러 추가
+- `MainPage.jsx`: 검색 탭 내 페이지/체크리스트 필터 및 정렬(최신순, 마감일순) UI 구현
+- `ProjectPage.css`: 10px 폰트 및 하드코딩된 색상을 디자인 토큰(`var(--font-size-xs)`)으로 정규화
+- Git 태그: `v260302-0141`
+- 복원: `git checkout v260302-0141`
+
 ## 2026-03-01 23:20 — 채팅 키보드 버그 수정 및 디자인 일관성 정규화
 - `BannerAd.jsx`: 키보드 활성 시 빈 공간 버그 수정 (AdMob 이벤트 차단 및 `useRef` 도입), 메모리 누수 방지 리스너 해제 추가
 - `ProjectPage.jsx`: DM 모달을 MainPage 스타일로 통합 및 친구 즐겨찾기 기능 추가, 닉네임 클릭 시 DM 모달 자동 연결

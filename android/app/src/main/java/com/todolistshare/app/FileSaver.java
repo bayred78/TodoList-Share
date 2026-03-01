@@ -23,8 +23,8 @@ public class FileSaver extends Plugin {
         String name = call.getString("name"); // filename
         String mimeType = call.getString("mimeType", "*/*");
 
-        if (data == null || name == null) {
-            call.reject("Data and filename are required.");
+        if (name == null) {
+            call.reject("Filename is required.");
             return;
         }
 
@@ -44,23 +44,41 @@ public class FileSaver extends Plugin {
         if (result.getResultCode() == Activity.RESULT_OK) {
             Intent data = result.getData();
             if (data != null && data.getData() != null) {
-                Uri uri = data.getData();
-                String base64Data = call.getString("data");
+                Uri destUri = data.getData();
+                String srcPath = call.getString("srcPath");
 
-                // Base64 디코딩 및 URI에 쓰기
-                byte[] decodedBytes = Base64.decode(base64Data, Base64.DEFAULT);
+                if (srcPath == null) {
+                    call.reject("Source path is missing.");
+                    return;
+                }
+
                 try {
-                    OutputStream outputStream = getContext().getContentResolver().openOutputStream(uri);
+                    java.io.File srcFile = new java.io.File(srcPath);
+                    if (!srcFile.exists()) {
+                        call.reject("Source file does not exist.");
+                        return;
+                    }
+
+                    try (java.io.InputStream inputStream = new java.io.FileInputStream(srcFile);
+                         OutputStream outputStream = getContext().getContentResolver().openOutputStream(destUri)) {
+
                     if (outputStream != null) {
-                        outputStream.write(decodedBytes);
-                        outputStream.close();
-                        
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = inputStream.read(buffer)) != -1) {
+                            outputStream.write(buffer, 0, bytesRead);
+                        }
+
+                        // Copy complete, optionally delete temp file
+                        srcFile.delete();
+
                         JSObject ret = new JSObject();
                         ret.put("success", true);
                         call.resolve(ret);
                     } else {
                         call.reject("Failed to open output stream");
                     }
+                    } // 내부 try-with-resources 닫기
                 } catch (Exception e) {
                     call.reject("Error saving file: " + e.getMessage());
                 }

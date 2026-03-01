@@ -46,6 +46,11 @@ function BackButtonHandler() {
                 CapApp = mod.App;
 
                 await CapApp.addListener('backButton', ({ canGoBack }) => {
+                    // 다운로드 등 시스템 팝업을 띄운 상태면 뒤로가기 무시 (앱 종료 방지)
+                    if (window.isDownloading) {
+                        return;
+                    }
+
                     const path = window.location.pathname;
 
                     // 모달이 열려있으면 닫기 (fullscreen-editor 등)

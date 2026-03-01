@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
-import { subscribeToMyProjects, createProject, updateProject, deleteProject, getRoleLabel, getCachedProjects, deltaFetchProjects, updateProjectDisplayNameMode } from '../services/projectService';
+import { subscribeToMyProjects, createProject, updateProject, getRoleLabel, getCachedProjects, deltaFetchProjects, updateProjectDisplayNameMode } from '../services/projectService';
 import { subscribeToMyInvitations, subscribeToSentInvitations, acceptInvitation, rejectInvitation, cancelInvitation } from '../services/invitationService';
 import { getUserPlan, getEffectivePlan, getUserLimits, LIMITS } from '../services/subscriptionService';
 import UpgradeModal from '../components/common/UpgradeModal';
 import Modal from '../components/common/Modal';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
 import './MainPage.css';
-import { toggleCheck, getCachedItems } from '../services/todoService';
+import { toggleCheck } from '../services/todoService';
 import {
     searchProjects, searchItems, sortResults, highlightText,
     getRecentSearches, addRecentSearch, clearRecentSearches, preloadAllItems
@@ -763,21 +763,31 @@ export default function MainPage() {
                         <div className="search-type-toggle">
                             <button className={`search-type-btn ${searchType === 'page' ? 'active' : ''}`}
                                 onClick={() => {
-                                    setSearchType('page');
-                                    setSearchKeyword('');
-                                    const res = searchProjects(projects, '', pageFilters);
-                                    setSearchResults(sortResults(res, pageSortBy));
+                                    if (searchType === 'page') {
+                                        setShowPageFilters(p => !p); // 이미 선택된 상태면 필터 토글
+                                    } else {
+                                        setSearchType('page');
+                                        setSearchKeyword('');
+                                        const res = searchProjects(projects, '', pageFilters);
+                                        setSearchResults(sortResults(res, pageSortBy));
+                                        setShowPageFilters(true); // 탭 전환 시 필터 열기 가능 (선택적)
+                                    }
                                 }}>
-                                📄 페이지 검색
+                                📄 페이지 검색 {hasActivePageFilters && `(${pageFilterCount})`}
                             </button>
                             <button className={`search-type-btn ${searchType === 'checklist' ? 'active' : ''}`}
                                 onClick={() => {
-                                    setSearchType('checklist');
-                                    setSearchKeyword('');
-                                    const res = searchItems(projects, '', filters);
-                                    setSearchResults(sortResults(res, sortBy));
+                                    if (searchType === 'checklist') {
+                                        setShowFilters(p => !p); // 이미 선택된 상태면 필터 토글
+                                    } else {
+                                        setSearchType('checklist');
+                                        setSearchKeyword('');
+                                        const res = searchItems(projects, '', filters);
+                                        setSearchResults(sortResults(res, sortBy));
+                                        setShowFilters(true); // 탭 전환 시 필터 열기 가능 (선택적)
+                                    }
                                 }}>
-                                ✅ 체크리스트 검색
+                                ✅ 체크리스트 검색 {hasActiveFilters && `(${activeFilterCount})`}
                             </button>
                         </div>
 
@@ -813,16 +823,8 @@ export default function MainPage() {
                         </div>
 
 
-                        {/* ── 공통 툴바: [필터] [최근검색어] [정렬] ── */}
+                        {/* ── 공통 툴바: [최근검색어] ── */}
                         <div className="search-toolbar">
-                            <button className={`search-filter-toggle ${(searchType === 'page' ? hasActivePageFilters : hasActiveFilters) ? 'active' : ''
-                                }`} onClick={() => searchType === 'page'
-                                    ? setShowPageFilters(p => !p)
-                                    : setShowFilters(p => !p)}>
-                                ▼ 필터 {searchType === 'page'
-                                    ? (hasActivePageFilters && `(${pageFilterCount})`)
-                                    : (hasActiveFilters && `(${activeFilterCount})`)}
-                            </button>
                             {!searchKeyword && recentSearches.length > 0 && (
                                 <div className="search-recent-inline">
                                     {recentSearches.map((k, i) => (
@@ -838,14 +840,6 @@ export default function MainPage() {
                                     }}>✕</button>
                                 </div>
                             )}
-                            <select className="search-sort-select"
-                                value={searchType === 'page' ? pageSortBy : sortBy}
-                                onChange={e => searchType === 'page'
-                                    ? setPageSortBy(e.target.value) : setSortBy(e.target.value)}>
-                                <option value="relevance">관련도</option>
-                                <option value="newest">최신순</option>
-                                {searchType === 'checklist' && <option value="dueDate">마감일순</option>}
-                            </select>
                         </div>
 
                         {/* ── 체크리스트 필터 패널 (5섹션) ── */}
@@ -989,12 +983,22 @@ export default function MainPage() {
                             </div>
                         )}
 
-                        {/* 결과 헤더 */}
-                        <div className="search-result-count">
-                            {searchLoading ? '검색 중...'
-                                : searchKeyword.trim().length >= 1
-                                    ? `검색 결과 ${searchResults.length}건`
-                                    : `전체 ${searchResults.length}건`}
+                        {/* 결과 헤더 (결과 수 + 정렬 드롭다운) */}
+                        <div className="search-result-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                            <div className="search-result-count" style={{ marginBottom: 0 }}>
+                                {searchLoading ? '검색 중...'
+                                    : searchKeyword.trim().length >= 1
+                                        ? `검색 결과 ${searchResults.length}건`
+                                        : `전체 ${searchResults.length}건`}
+                            </div>
+                            <select className="search-sort-select"
+                                value={searchType === 'page' ? pageSortBy : sortBy}
+                                onChange={e => searchType === 'page'
+                                    ? setPageSortBy(e.target.value) : setSortBy(e.target.value)}>
+                                <option value="relevance">관련도</option>
+                                <option value="newest">최신순</option>
+                                {searchType === 'checklist' && <option value="dueDate">마감일순</option>}
+                            </select>
                         </div>
 
                         {/* 결과 — 페이지 */}

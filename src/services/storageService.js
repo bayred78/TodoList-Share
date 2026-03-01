@@ -119,22 +119,32 @@ function blobToBase64(blob) {
  */
 export async function downloadFile(url, fileName) {
     try {
+        window.isDownloading = true; // 플래그 켜기
         if (Capacitor.isNativePlatform()) {
             const platform = Capacitor.getPlatform();
 
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`다운로드 실패 (${response.status})`);
-            const blob = await response.blob();
-            const base64 = await blobToBase64(blob);
-
             if (platform === 'android') {
+                // [OOM 방지] Base64 브릿지 전송 대신 기기 디스크(Cache)에 파일로 바로 내려받기
+                const result = await Filesystem.downloadFile({
+                    url: url,
+                    path: fileName,
+                    directory: Directory.Cache
+                });
+
+                // 캐시에 임시 저장된 파일의 절대 경로를 네이티브 플러그인에 전달해 스트리밍 복사 위임
                 await FileSaverPlugin.saveAs({
-                    data: base64,
+                    srcPath: result.path,
                     name: fileName,
-                    mimeType: blob.type || '*/*'
+                    // downloadFile은 mimeType 파싱이 없으므로 네이티브에서 확장자로 추론하거나 기본값 사용
                 });
                 alert(`성공적으로 저장되었습니다.`);
             } else {
+                // iOS 등 기타 네이티브 (기존 로직 유지 또는 동일하게 최적화 가능)
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`다운로드 실패 (${response.status})`);
+                const blob = await response.blob();
+                const base64 = await blobToBase64(blob);
+
                 const result = await Filesystem.writeFile({
                     path: fileName,
                     data: base64,
@@ -157,7 +167,16 @@ export async function downloadFile(url, fileName) {
             URL.revokeObjectURL(blobUrl);
         }
     } catch (e) {
+        // 취소된 경우 에러 무시
+        if (e.message && e.message.includes('User cancelled')) {
+            return;
+        }
         console.error('downloadFile error:', e);
         alert(`파일 다운로드에 실패했습니다.\n${e.message}`);
+    } finally {
+        // [레이스 컨디션 방어] 시스템 창이 닫힐 때 발생하는 잔존 뒤로가기 이벤트를 무시하도록 500ms 지연 후 플래그 끄기
+        setTimeout(() => {
+            window.isDownloading = false;
+        }, 500);
     }
 }

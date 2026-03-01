@@ -1111,6 +1111,17 @@ export default function ProjectPage() {
     const handlePermanentDelete = async (itemId) => {
         if (!confirm('영구적으로 삭제합니다. 복원할 수 없습니다.')) return;
         try {
+            const item = items.find(i => i.id === itemId);
+            if (item) {
+                const deletePromises = [];
+                if (item.images && item.images.length > 0) {
+                    deletePromises.push(...item.images.map(url => deleteStorageFile(url)));
+                }
+                if (item.files && item.files.length > 0) {
+                    deletePromises.push(...item.files.map(f => deleteStorageFile(f.url)));
+                }
+                await Promise.all(deletePromises);
+            }
             await permanentDeleteItem(projectId, itemId);
             addToast('영구 삭제되었습니다.', 'success');
         } catch (error) {
@@ -1145,6 +1156,17 @@ export default function ProjectPage() {
         if (!confirm(`${trashSelected.length}개 항목을 영구 삭제합니다. 복원할 수 없습니다.`)) return;
         try {
             for (const id of trashSelected) {
+                const item = items.find(i => i.id === id);
+                if (item) {
+                    const deletePromises = [];
+                    if (item.images && item.images.length > 0) {
+                        deletePromises.push(...item.images.map(url => deleteStorageFile(url)));
+                    }
+                    if (item.files && item.files.length > 0) {
+                        deletePromises.push(...item.files.map(f => deleteStorageFile(f.url)));
+                    }
+                    await Promise.all(deletePromises);
+                }
                 await permanentDeleteItem(projectId, id);
             }
             addToast(`${trashSelected.length}개 항목이 영구 삭제되었습니다.`, 'success');
@@ -1760,6 +1782,20 @@ export default function ProjectPage() {
             }
         }
         try {
+            // 편집 중 삭제된 스토리지 파일(이미지, 파일) 실제 삭제 처리
+            const oldImages = editItemOriginal?.images || [];
+            const newImages = editItem.images || [];
+            const deletedImages = oldImages.filter(url => !newImages.includes(url));
+
+            const oldFiles = editItemOriginal?.files || [];
+            const newFiles = editItem.files || [];
+            const deletedFiles = oldFiles.filter(f => !newFiles.some(nf => nf.url === f.url));
+
+            await Promise.all([
+                ...deletedImages.map(url => deleteStorageFile(url)),
+                ...deletedFiles.map(f => deleteStorageFile(f.url))
+            ]);
+
             await updateTodoItem(projectId, editItem.id, {
                 title: editItem.title,
                 content: editItem.content,
@@ -3274,7 +3310,7 @@ export default function ProjectPage() {
                                             const origFiles = (editItemOriginal?.files || []).map(f => f.url);
                                             const newImages = (editItem?.images || []).filter(url => !origImages.includes(url));
                                             const newFileUrls = (editItem?.files || []).filter(f => !origFiles.includes(f.url)).map(f => f.url);
-                                            [...newImages, ...newFileUrls].forEach(url => deleteStorageFile(url));
+                                            Promise.all([...newImages, ...newFileUrls].map(url => deleteStorageFile(url))).catch(console.error);
                                             setShowEditModal(false); setEditItem(null); setEditItemOriginal(null); setIsEditingContent(false); setEditOptionSheet(null);
                                         }
                                         return;

@@ -9,6 +9,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 
 initializeApp();
 const db = getFirestore();
@@ -132,9 +133,53 @@ exports.cleanupDeletedItems = onSchedule('every 24 hours', async (event) => {
             }
             if (count > 0) await batch.commit();
             totalDeleted += itemsSnap.size;
+
+            // --- 2. 7일 지난 채팅 메시지(이미지 포함) 정리 ---
+            const messagesSnap = await db.collection('projects').doc(projectDoc.id)
+                .collection('messages')
+                .where('mediaUrl', '!=', null)
+                .get();
+
+            let chatBatch = db.batch();
+            let chatCount = 0;
+            let totalChatDeleted = 0;
+
+            for (const chatDoc of messagesSnap.docs) {
+                const data = chatDoc.data();
+                if (!data.createdAt) continue;
+                const createdAtDate = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+
+                if (createdAtDate <= sevenDaysAgo) {
+                    // Storage 파일 삭제
+                    if (data.mediaUrl) {
+                        try {
+                            const match = data.mediaUrl.match(/\/b\/([^/]+)\/o\/([^?]+)/);
+                            if (match && match[1] && match[2]) {
+                                const bucketName = match[1];
+                                const filePath = decodeURIComponent(match[2]);
+                                await getStorage().bucket(bucketName).file(filePath).delete({ ignoreNotFound: true });
+                            }
+                        } catch (e) {
+                            console.error('채팅 이미지 정리 실패:', e);
+                        }
+                    }
+                    // Firestore 채팅 문서 삭제
+                    chatBatch.delete(chatDoc.ref);
+                    chatCount++;
+                    totalChatDeleted++;
+
+                    if (chatCount >= 490) {
+                        await chatBatch.commit();
+                        chatBatch = db.batch();
+                        chatCount = 0;
+                    }
+                }
+            }
+            if (chatCount > 0) await chatBatch.commit();
+            console.log(`프로젝트 ${projectDoc.id}: 채팅 미디어 ${totalChatDeleted}개 정리 완료`);
         }
 
-        console.log(`cleanupDeletedItems: ${totalDeleted}개 아이템 영구 삭제 완료`);
+        console.log(`cleanupDeletedItems: ${totalDeleted}개 아이템 영구 삭제 및 확인 완료`);
     } catch (error) {
         console.error('cleanupDeletedItems 실패:', error);
     }

@@ -83,13 +83,26 @@ export default function SettingsPage() {
         return Math.max(0, Math.ceil(7 - daysSince));
     })();
 
+    // 글자수 포인트 계산 (한글=2, 영문=1, 최대 12포인트)
+    const getNamePoints = (str) => {
+        let points = 0;
+        for (const ch of str) {
+            points += /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch) ? 2 : 1;
+        }
+        return points;
+    };
+
     const handleChangeNickname = async () => {
         if (!nickname.trim() || nickname.trim() === profile?.nickname) {
             setNicknameEditing(false);
             return;
         }
-        if (nickname.trim().length < 2 || nickname.trim().length > 20) {
-            addToast('닉네임은 2~20자로 입력해주세요.', 'warning');
+        if (nickname.trim().length < 2) {
+            addToast('닉네임은 최소 2자 이상 입력해주세요.', 'warning');
+            return;
+        }
+        if (getNamePoints(nickname.trim()) > 12) {
+            addToast('닉네임이 너무 깁니다. (한글 6자/영문 12자 이내)', 'warning');
             return;
         }
 
@@ -118,7 +131,7 @@ export default function SettingsPage() {
         <div className="page">
             <div className="container">
                 <div className="page-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                    <div className="page-header-nav">
                         <button className="page-header-back" onClick={() => navigate('/')}>←</button>
                         <h1>설정</h1>
                     </div>
@@ -222,6 +235,7 @@ export default function SettingsPage() {
 
                 <div className="settings-footer">
                     <p
+                        className="dev-version-text"
                         onClick={() => {
                             const next = devTapCount + 1;
                             if (next >= 7) {
@@ -235,14 +249,12 @@ export default function SettingsPage() {
                                 if (next >= 4) addToast(`개발자 모드까지 ${7 - next}번 남음`, 'info');
                             }
                         }}
-                        style={{ cursor: 'default', userSelect: 'none' }}
                     >
                         TodoList Share v1.0.0
                     </p>
                     {devMode && (
                         <button
-                            className="btn btn-secondary btn-sm"
-                            style={{ marginTop: 'var(--spacing-sm)' }}
+                            className="btn btn-secondary btn-sm dev-exit-btn"
                             onClick={() => {
                                 localStorage.setItem('devMode', 'false');
                                 setDevMode(false);

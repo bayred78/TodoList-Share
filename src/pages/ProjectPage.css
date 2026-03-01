@@ -1,6 +1,80 @@
+/* ===== ProjectPage 전용 유틸리티 ===== */
+.flex-row-center {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.flex-row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.flex-row-gap-xs {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.flex-row-wrap-xs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.meta-text-xs {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.meta-text-sm {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.margin-t-sm {
+    margin-top: var(--spacing-sm);
+}
+
+.margin-t-xs {
+    margin-top: var(--spacing-xs);
+}
+
+.margin-b-sm {
+    margin-bottom: var(--spacing-sm);
+}
+
+.margin-l-auto {
+    margin-left: auto;
+}
+
+.padding-md {
+    padding: var(--spacing-md);
+}
+
+.padding-y-sm-x-md {
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.padding-b-sm {
+    padding-bottom: var(--spacing-sm);
+}
+
+.text-danger-xs {
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
+}
+
+.flex-1 {
+    flex: 1;
+}
+
 .readonly-banner {
-    background: rgba(225, 112, 85, 0.15);
-    border: 1px solid rgba(225, 112, 85, 0.3);
+    background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
     border-radius: var(--radius-md);
     padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-size-sm);
@@ -59,11 +133,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     font-weight: 700;
     color: white;
     transition: all var(--transition-fast);
-    margin-top: 2px;
+    margin-top: var(--spacing-xs);
     cursor: pointer;
 }
 
@@ -81,14 +155,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: var(--spacing-xs);
 }
 
 .todo-fav-btn {
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: var(--font-size-md);
     padding: 0;
     line-height: 1;
     opacity: 0.6;
@@ -101,8 +175,8 @@
 }
 
 .todo-type-icon {
-    font-size: 1.1rem;
-    margin-top: 2px;
+    font-size: var(--font-size-md);
+    margin-top: var(--spacing-xs);
 }
 
 .todo-content {
@@ -126,12 +200,11 @@
 .todo-desc {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
-    margin-top: 2px;
+    margin-top: var(--spacing-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
-    line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
 }
@@ -146,7 +219,7 @@
 .todo-actions {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--spacing-xs);
     flex-shrink: 0;
 }
 
@@ -166,21 +239,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     transition: all var(--transition-fast);
 }
 
 .todo-calendar-btn:hover {
-    background: rgba(108, 92, 231, 0.15);
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .todo-calendar-btn.synced {
-    background: rgba(108, 92, 231, 0.2);
-    box-shadow: 0 0 8px rgba(108, 92, 231, 0.3);
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 .todo-delete-btn:hover {
-    background: rgba(225, 112, 85, 0.15);
+    background: color-mix(in srgb, var(--color-danger) 15%, transparent);
 }
 
 /* Settings Modal */
@@ -231,34 +304,88 @@
 }
 
 .member-item {
-    display: flex;
+    display: grid;
+    /* 즐겨찾기(24), 이름(1fr), 권한(auto), 내보내기(auto), 캘린더공유(auto) */
+    grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
+    justify-content: end;
     align-items: center;
-    justify-content: space-between;
+    gap: var(--spacing-sm);
     padding: var(--spacing-sm);
     background: var(--color-bg-secondary);
     border-radius: var(--radius-sm);
 }
 
-.member-info {
+.member-list .fav-btn {
+    padding: 0;
+    background: none;
+    font-size: var(--font-size-md);
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    justify-content: center;
+    cursor: pointer;
+    line-height: 1;
 }
 
-.member-nickname {
+.member-list .fav-placeholder {
+    width: 24px;
+    height: 24px;
+}
+
+.member-name {
     font-size: var(--font-size-sm);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.member-actions {
+.member-list .role-select {
+    padding: 2px 4px;
+    font-size: var(--font-size-xs);
+    width: 80px;
+    text-align: center;
+    text-align-last: center;
+    margin: 0;
+}
+
+.member-list .role-select.editor {
+    background-color: var(--color-success-light, #e8f5e9);
+    border-color: var(--color-success);
+}
+
+.member-list .role-select.viewer {
+    background-color: var(--color-bg-secondary);
+}
+
+.member-list .action-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
+    justify-content: center;
+    font-size: var(--font-size-md);
+    margin: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.member-list .action-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.member-list .action-placeholder {
+    width: 32px;
+    height: 32px;
 }
 
 .header-actions {
     display: flex;
-    gap: 2px;
+    gap: var(--spacing-xs);
     align-items: center;
 }
 
@@ -269,7 +396,7 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-full);
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     transition: background var(--transition-fast);
 }
 
@@ -302,7 +429,7 @@
 
 /* Todo View Mode: List (컴팩트) */
 .todo-list-compact {
-    gap: 2px;
+    gap: var(--spacing-xs);
 }
 
 .todo-list-compact .todo-item {
@@ -418,7 +545,7 @@
     -webkit-line-clamp: unset;
     line-clamp: unset;
     overflow: visible;
-    margin-top: 4px;
+    margin-top: var(--spacing-xs);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
     line-height: 1.6;
@@ -426,7 +553,7 @@
 
 .todo-list-detail .todo-meta {
     display: block !important;
-    margin-top: 6px;
+    margin-top: var(--spacing-sm);
 }
 
 .todo-list-detail .todo-actions {
@@ -458,7 +585,7 @@
     color: var(--color-text-muted);
     user-select: none;
     padding: var(--spacing-xs);
-    border-radius: var(--radius-sm, 4px);
+    border-radius: var(--radius-sm);
     transition: color 0.15s;
 }
 
@@ -474,7 +601,6 @@
     right: 0;
     bottom: 0;
     height: 100dvh;
-    /* 키보드가 열릴 때 가시 영역에 맞춤 */
     display: flex;
     flex-direction: column;
     background: var(--color-bg);
@@ -483,9 +609,7 @@
     max-width: 640px;
     margin: 0 auto;
     overflow: hidden;
-    /* 컨테이너 자체는 스크롤되지 않도록 */
     overscroll-behavior: none;
-    /* 뷰포트 바운스 스크롤 방지 */
 }
 
 .chat-container .page-header {
@@ -502,13 +626,11 @@
 .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-sm) var(--spacing-md);
-    padding-bottom: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
     overscroll-behavior: contain;
-    /* 스크롤이 부모로 전파되지 않도록 */
     -webkit-overflow-scrolling: touch;
 }
 
@@ -548,13 +670,13 @@
 .chat-sender {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    margin-bottom: 2px;
-    padding-left: 4px;
+    margin-bottom: var(--spacing-xs);
+    padding-left: var(--spacing-xs);
 }
 
 .chat-bubble {
     padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     word-break: break-word;
     line-height: 1.5;
     font-size: var(--font-size-sm);
@@ -563,21 +685,21 @@
 .chat-bubble.mine {
     background: var(--color-primary);
     color: white;
-    border-bottom-right-radius: 4px;
+    border-bottom-right-radius: var(--radius-sm);
 }
 
 .chat-bubble.others {
     background: var(--color-bg-elevated);
     color: var(--color-text);
     border: 1px solid var(--color-border);
-    border-bottom-left-radius: 4px;
+    border-bottom-left-radius: var(--radius-sm);
 }
 
 .chat-time {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    margin-top: 2px;
-    padding: 0 4px;
+    margin-top: var(--spacing-xs);
+    padding: 0 var(--spacing-xs);
 }
 
 /* 활동 메시지 (체크리스트 변경사항) */
@@ -585,7 +707,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin: 8px 0;
+    margin: var(--spacing-sm) 0;
 }
 
 .chat-activity {
@@ -593,7 +715,7 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     max-width: 80%;
     text-align: center;
 }
@@ -601,7 +723,7 @@
 .chat-activity-meta {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    margin-top: 2px;
+    margin-top: var(--spacing-xs);
 }
 
 .chat-input-bar {
@@ -614,7 +736,6 @@
     flex-shrink: 0;
     margin-bottom: var(--banner-height);
     touch-action: manipulation;
-    /* 터치 드래그로 스크롤되지 않도록 */
 }
 
 .chat-input {
@@ -711,8 +832,8 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-md);
-    padding: 4px 0;
-    margin-top: 4px;
+    padding: var(--spacing-xs) 0;
+    margin-top: var(--spacing-xs);
 }
 
 .trash-dropdown button {
@@ -750,7 +871,7 @@
 
 .trash-item.selected {
     border-color: var(--color-primary);
-    background: rgba(108, 92, 231, 0.06);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
     opacity: 1;
 }
 
@@ -759,7 +880,7 @@
     height: 18px;
     accent-color: var(--color-primary);
     flex-shrink: 0;
-    margin-right: 8px;
+    margin-right: var(--spacing-sm);
     cursor: pointer;
 }
 
@@ -778,19 +899,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: var(--spacing-md);
 }
 
 .inline-calendar-title-btn {
-    font-size: var(--font-size-md, 16px);
+    font-size: var(--font-size-md);
     font-weight: 700;
     color: var(--color-text);
     background: none;
     border: none;
     cursor: pointer;
-    padding: 6px 12px;
-    border-radius: var(--radius-sm, 6px);
-    transition: background 0.15s;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
 }
 
 .inline-calendar-title-btn:hover {
@@ -798,15 +919,15 @@
 }
 
 .inline-calendar-ym-panel {
-    padding: 4px 0;
+    padding: var(--spacing-xs) 0;
 }
 
 .inline-calendar-year-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    margin-bottom: 12px;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
 }
 
 .inline-calendar-year-label {
@@ -868,7 +989,7 @@
 }
 
 .inline-calendar-today-btn:hover {
-    background: rgba(108, 92, 231, 0.1);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .inline-calendar-nav {
@@ -889,7 +1010,7 @@
 .inline-calendar-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    margin-bottom: 4px;
+    margin-bottom: var(--spacing-xs);
 }
 
 .inline-calendar-weekday {
@@ -897,7 +1018,7 @@
     font-size: var(--font-size-xs);
     font-weight: 600;
     color: var(--color-text-secondary);
-    padding: 4px 0;
+    padding: var(--spacing-xs) 0;
 }
 
 .inline-calendar-weekday.sun {
@@ -911,7 +1032,7 @@
 .inline-calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
+    gap: var(--spacing-xs);
 }
 
 .inline-calendar-day {
@@ -941,7 +1062,7 @@
 }
 
 .inline-calendar-day.today {
-    background: rgba(108, 92, 231, 0.15);
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
     color: var(--color-primary);
     font-weight: 700;
 }
@@ -1061,7 +1182,7 @@
 
 .conflict-section-content strong {
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: var(--spacing-xs);
 }
 
 .conflict-section-content p {
@@ -1091,8 +1212,8 @@
 .priority-option {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: var(--spacing-sm) var(--spacing-sm);
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
     border: 2px solid var(--color-border);
     border-radius: var(--radius-xl);
     background: var(--color-bg-elevated);
@@ -1108,14 +1229,14 @@
 
 .priority-option.active {
     border-color: var(--color-primary);
-    background: rgba(108, 92, 231, 0.1);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
     color: var(--color-primary);
     font-weight: 600;
 }
 
 /* 우선순위 뱃지 (목록 아이템 제목 앞) */
 .priority-badge {
-    margin-right: 4px;
+    margin-right: var(--spacing-xs);
     font-size: 0.85em;
 }
 
@@ -1124,27 +1245,27 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
-    margin-bottom: 4px;
+    margin-bottom: var(--spacing-xs);
 }
 
 .label-item {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--spacing-xs);
 }
 
 .item-labels {
     display: inline-flex;
-    gap: 4px;
-    margin-left: 6px;
+    gap: var(--spacing-xs);
+    margin-left: var(--spacing-sm);
     flex-wrap: wrap;
 }
 
 .item-label-badge {
     display: inline-block;
-    padding: 1px 8px;
+    padding: 2px var(--spacing-sm);
     border-radius: var(--radius-xl);
-    background: rgba(108, 92, 231, 0.12);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
     color: var(--color-primary);
     font-size: var(--font-size-xs);
     font-weight: 500;
@@ -1176,7 +1297,7 @@
 
 .repeat-dropdowns select.selected {
     border-color: var(--color-primary);
-    background: rgba(108, 92, 231, 0.08);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
     color: var(--color-primary);
     font-weight: 600;
 }
@@ -1192,11 +1313,11 @@
 
 /* ===== 마감일 인라인 표시 ===== */
 .due-date-inline {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
-    padding: 1px 5px;
-    border-radius: 4px;
-    background: rgba(128, 128, 128, 0.1);
+    padding: 2px var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
     margin-right: 4px;
     white-space: nowrap;
     vertical-align: middle;
@@ -1205,7 +1326,7 @@
 /* ===== 편집 모드 상단 툴바 ===== */
 .edit-toolbar {
     display: flex;
-    gap: 2px;
+    gap: var(--spacing-xs);
     padding: var(--spacing-sm);
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg-secondary);
@@ -1217,8 +1338,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: 8px 4px;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-xs);
     border: none;
     border-radius: var(--radius-md);
     background: transparent;
@@ -1236,13 +1357,13 @@
 }
 
 .edit-toolbar-label {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     font-weight: 500;
 }
 
 .edit-toolbar-dot {
     position: absolute;
-    top: 4px;
+    top: var(--spacing-xs);
     right: calc(50% - 16px);
     width: 8px;
     height: 8px;
@@ -1304,8 +1425,8 @@
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 14px;
-    padding: 2px 4px;
+    font-size: var(--font-size-sm);
+    padding: 2px var(--spacing-xs);
     border-radius: var(--radius-sm);
     line-height: 1;
 }
@@ -1322,14 +1443,14 @@
 .due-help-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
 }
 
 .due-help-table th {
     text-align: left;
-    padding: 6px 8px;
+    padding: var(--spacing-sm);
     font-weight: 600;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--color-text-muted);
@@ -1337,7 +1458,7 @@
 }
 
 .due-help-table td {
-    padding: 6px 8px;
+    padding: var(--spacing-sm);
     border-bottom: 1px solid var(--color-border);
 }
 
@@ -1368,14 +1489,14 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    padding: 8px 0;
-    margin-top: 4px;
+    padding: var(--spacing-sm) 0;
+    margin-top: var(--spacing-xs);
 }
 
 .member-check-title {
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
-    padding: 4px 14px 8px;
+    padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
     border-bottom: 1px solid var(--color-border);
     margin-bottom: 4px;
     color: var(--color-text-secondary);
@@ -1384,11 +1505,11 @@
 .member-check-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     cursor: pointer;
-    font-size: 13px;
-    transition: background 0.15s;
+    font-size: var(--font-size-sm);
+    transition: background var(--transition-fast);
 }
 
 .member-check-item:hover {
@@ -1411,17 +1532,17 @@
 }
 
 .member-check-role {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     flex-shrink: 0;
 }
 
 .member-check-summary {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    padding: 6px 14px 2px;
+    padding: var(--spacing-xs) var(--spacing-md) 2px;
     border-top: 1px solid var(--color-border);
-    margin-top: 4px;
+    margin-top: var(--spacing-xs);
     text-align: center;
 }
 
@@ -1436,7 +1557,7 @@
 
 .chat-image-preview {
     position: relative;
-    padding: 8px 16px;
+    padding: var(--spacing-sm) var(--spacing-md);
     background: var(--color-surface, #f5f5f5);
     border-top: 1px solid var(--color-border, #e0e0e0);
 }
@@ -1457,7 +1578,7 @@
     width: 24px;
     height: 24px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
     line-height: 24px;
     text-align: center;
 }
@@ -1467,7 +1588,7 @@
     border: none;
     cursor: pointer;
     font-size: 1.2rem;
-    padding: 4px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm);
     flex-shrink: 0;
 }
 
@@ -1479,23 +1600,23 @@
 /* ===== 체크리스트 이미지 ===== */
 .todo-images {
     display: flex;
-    gap: 4px;
+    gap: var(--spacing-xs);
     flex-wrap: wrap;
-    margin-top: 4px;
+    margin-top: var(--spacing-xs);
 }
 
 .todo-image-thumb {
     width: 48px;
     height: 48px;
     object-fit: cover;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
 }
 
 .edit-images-grid {
     display: flex;
-    gap: 8px;
+    gap: var(--spacing-sm);
     flex-wrap: wrap;
-    padding: 8px 0;
+    padding: var(--spacing-sm) 0;
 }
 
 .edit-image-item {
@@ -1508,7 +1629,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     cursor: pointer;
 }
 
@@ -1523,7 +1644,7 @@
     width: 20px;
     height: 20px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     line-height: 20px;
     text-align: center;
 }
@@ -1532,8 +1653,8 @@
 .todo-files {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    margin-top: 4px;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
 }
 
 .todo-file-link {
@@ -1555,18 +1676,18 @@
 .edit-files-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 8px 0;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
 }
 
 .edit-file-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     background: var(--color-surface, #f5f5f5);
-    border-radius: var(--radius-sm, 6px);
-    font-size: 13px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
 }
 
 .edit-file-item .file-name {
@@ -1578,7 +1699,7 @@
 }
 
 .edit-file-item .file-size {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
     flex-shrink: 0;
 }
@@ -1591,7 +1712,7 @@
     width: 20px;
     height: 20px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     line-height: 20px;
     text-align: center;
     flex-shrink: 0;
@@ -1601,20 +1722,20 @@
 .file-upload-sheet {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px 16px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
 }
 
 .file-upload-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: var(--radius-md, 8px);
-    border: 1.5px solid var(--color-border, #e0e0e0);
-    background: var(--color-bg, #fff);
-    font-size: 14px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--color-border);
+    background: var(--color-bg);
+    font-size: var(--font-size-sm);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s;
@@ -1622,7 +1743,7 @@
 
 .file-upload-btn:hover:not(:disabled) {
     border-color: var(--color-primary, #6366f1);
-    background: rgba(99, 102, 241, 0.06);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
 }
 
 .file-upload-btn:disabled {
@@ -1632,7 +1753,7 @@
 
 .file-upload-hint {
     text-align: center;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
     margin: 0;
 }
@@ -1641,28 +1762,28 @@
 .stats-container {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 8px 0;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
 }
 
 .stats-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    padding: 16px;
+    padding: var(--spacing-md);
 }
 
 .stats-card-title {
     font-size: var(--font-size-md);
     font-weight: 600;
-    margin-bottom: 12px;
+    margin-bottom: var(--spacing-md);
 }
 
 .stats-summary-row {
     display: flex;
     justify-content: space-around;
     text-align: center;
-    margin-bottom: 12px;
+    margin-bottom: var(--spacing-md);
 }
 
 .stats-summary-item {
@@ -1685,17 +1806,17 @@
 }
 
 .stats-progress {
-    height: 8px;
+    height: var(--spacing-sm);
     background: var(--color-border);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
-    margin-bottom: 4px;
+    margin-bottom: var(--spacing-xs);
 }
 
 .stats-progress-bar {
     height: 100%;
     background: var(--color-primary);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     transition: width 0.3s;
 }
 
@@ -1708,11 +1829,11 @@
 .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: var(--spacing-sm);
 }
 
 .stats-grid-item {
-    padding: 12px;
+    padding: var(--spacing-md);
     border-radius: var(--radius-sm);
     background: var(--color-bg);
     text-align: center;
@@ -1768,7 +1889,7 @@
 
 .stats-row.clickable:hover {
     background: var(--color-bg-hover, rgba(0, 0, 0, 0.03));
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
 }
 
 .stats-summary-item.clickable {
@@ -1789,15 +1910,15 @@
 }
 
 .dropdown-arrow {
-    font-size: 10px;
-    margin-left: 4px;
+    font-size: var(--font-size-xs);
+    margin-left: var(--spacing-xs);
 }
 
 .stats-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
+    padding: var(--spacing-sm) 0;
     font-size: var(--font-size-sm);
     border-bottom: 1px solid var(--color-border);
 }
@@ -1809,7 +1930,7 @@
 .stats-row-name {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--spacing-sm);
 }
 
 .stats-row-value {
@@ -1827,7 +1948,7 @@
     text-align: center;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
-    padding: 12px 0;
+    padding: var(--spacing-md) 0;
 }
 
 /* ===== 필터 패널 ===== */
@@ -1835,10 +1956,10 @@
     background: var(--color-surface, #f5f5f5);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    padding: 12px;
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--spacing-sm);
     margin-bottom: var(--spacing-sm);
     animation: slideDown 0.15s ease;
 }
@@ -1846,7 +1967,7 @@
 .filter-section {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--spacing-sm);
 }
 
 .filter-section-title {
@@ -1858,14 +1979,14 @@
 .filter-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--spacing-sm);
 }
 
 .filter-chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-full);
     border: 1.5px solid var(--color-border);
     background: var(--color-bg);
@@ -1898,7 +2019,7 @@
 
 .filter-clear-btn {
     align-self: center;
-    padding: 6px 16px;
+    padding: var(--spacing-xs) var(--spacing-md);
     border-radius: var(--radius-full);
     border: 1px solid var(--color-border);
     background: var(--color-bg);
@@ -1922,15 +2043,15 @@
     background: var(--color-bg-card);
     border: 1px solid var(--color-border);
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
     min-width: 160px;
-    padding: 4px 0;
+    padding: var(--spacing-xs) 0;
 }
 
 .csv-dropdown-menu button {
     display: block;
     width: 100%;
-    padding: 10px 16px;
+    padding: var(--spacing-sm) var(--spacing-md);
     text-align: left;
     background: none;
     border: none;

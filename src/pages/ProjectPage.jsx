@@ -31,7 +31,7 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStr = `${today.getFullYear()} -${String(today.getMonth() + 1).padStart(2, '0')} -${String(today.getDate()).padStart(2, '0')} `;
 
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -45,7 +45,7 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
         days.push({ day: prevMonthDays - i, outside: true });
     }
     for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dateStr = `${year} -${String(month + 1).padStart(2, '0')} -${String(d).padStart(2, '0')} `;
         days.push({ day: d, outside: false, dateStr, isToday: dateStr === todayStr });
     }
     while (days.length < 42) {
@@ -95,7 +95,7 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
                             <button
                                 key={i}
                                 type="button"
-                                className={`inline-calendar-month-btn${i === month ? ' active' : ''}${i === today.getMonth() && year === today.getFullYear() ? ' current' : ''}`}
+                                className={`inline - calendar - month - btn${i === month ? ' active' : ''}${i === today.getMonth() && year === today.getFullYear() ? ' current' : ''} `}
                                 onClick={() => handleMonthSelect(i)}
                             >
                                 {name}
@@ -109,14 +109,14 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
             ) : (
                 <>
                     <div className="inline-calendar-weekdays">
-                        {weekDays.map(d => <div key={d} className={`inline-calendar-weekday${d === '일' ? ' sun' : d === '토' ? ' sat' : ''}`}>{d}</div>)}
+                        {weekDays.map(d => <div key={d} className={`inline - calendar - weekday${d === '일' ? ' sun' : d === '토' ? ' sat' : ''} `}>{d}</div>)}
                     </div>
                     <div className="inline-calendar-grid">
                         {days.map((d, i) => (
                             <button
                                 key={i}
                                 type="button"
-                                className={`inline-calendar-day${d.outside ? ' outside' : ''}${d.isToday ? ' today' : ''}${d.dateStr === selectedDate ? ' selected' : ''}`}
+                                className={`inline - calendar - day${d.outside ? ' outside' : ''}${d.isToday ? ' today' : ''}${d.dateStr === selectedDate ? ' selected' : ''} `}
                                 disabled={d.outside}
                                 onClick={() => !d.outside && setSelectedDate(d.dateStr)}
                             >
@@ -131,14 +131,14 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
                 {calendarList !== undefined && (
                     <div style={{ flex: 1, minWidth: 0 }}>
                         {loadingCalendars ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: 11, color: 'var(--color-text-muted)' }}>
+                            <div className="flex-row-gap-xs meta-text-xs">
                                 <span className="spinner" style={{ width: 14, height: 14 }}></span>
                                 <span>캘린더 로딩...</span>
                             </div>
                         ) : (
                             <select
-                                className="input-field"
-                                style={{ width: '100%', fontSize: 11, padding: 'var(--spacing-xs) var(--spacing-sm)', height: 32 }}
+                                className="input-field flex-1"
+                                style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', height: 32 }}
                                 value={selectedCalendar || 'primary'}
                                 onChange={(e) => onCalendarChange && onCalendarChange(e.target.value)}
                             >
@@ -165,7 +165,7 @@ function renderContentWithLinks(text) {
 
     const handleLinkClick = (e, url) => {
         e.preventDefault();
-        if (window.confirm(`이 링크를 열겠습니까?\n\n${url}`)) {
+        if (window.confirm(`이 링크를 열겠습니까 ?\n\n${url} `)) {
             window.open(url, '_blank', 'noopener,noreferrer');
         }
     };
@@ -186,7 +186,7 @@ function renderContentWithLinks(text) {
         }
         // 줄바꿈 처리
         return part.split('\n').map((line, j, arr) => (
-            <React.Fragment key={`${i}-${j}`}>
+            <React.Fragment key={`${i} -${j} `}>
                 {line}
                 {j < arr.length - 1 && <br />}
             </React.Fragment>
@@ -231,7 +231,7 @@ export default function ProjectPage() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
     const [favoriteItems, setFavoriteItems] = useState([]);
-    const favoriteItemSet = useMemo(() => new Set(favoriteItems.map(f => `${f.projectId}_${f.itemId}`)), [favoriteItems]);
+    const favoriteItemSet = useMemo(() => new Set(favoriteItems.map(f => `${f.projectId}_${f.itemId} `)), [favoriteItems]);
 
     const VIEW_MODES = ['card', 'grid', 'list', 'detail'];
     const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋', detail: '📄' };
@@ -305,9 +305,9 @@ export default function ProjectPage() {
             if (!isOverdue && diff < 24 * 60 * 60 * 1000) {
                 const hh = String(due.getHours()).padStart(2, '0');
                 const mm = String(due.getMinutes()).padStart(2, '0');
-                return `${hh}:${mm}`;
+                return `${hh}:${mm} `;
             }
-            return `${due.getMonth() + 1}.${due.getDate()}`;
+            return `${due.getMonth() + 1}.${due.getDate()} `;
         }
     };
     const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -352,6 +352,7 @@ export default function ProjectPage() {
     // 활동명 시스템
     const [showDisplayNamePrompt, setShowDisplayNamePrompt] = useState(false);
     const [myDisplayNameInput, setMyDisplayNameInput] = useState('');
+    const [favoriteFriendIds, setFavoriteFriendIds] = useState(new Set());
 
     // 반복 체크리스트 확인 모달
     const [showRepeatConfirm, setShowRepeatConfirm] = useState(false);
@@ -576,8 +577,8 @@ export default function ProjectPage() {
                         const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
                         const { db } = await import('../services/firebase');
                         await updateDoc(doc(db, 'projects', projectId), {
-                            [`calendarSharedWith.${profile.uid}`]: true,
-                            [`calendarShareAccepted.${profile.uid}`]: true,
+                            [`calendarSharedWith.${profile.uid} `]: true,
+                            [`calendarShareAccepted.${profile.uid} `]: true,
                             updatedAt: serverTimestamp(),
                         });
                     } catch (err) {
@@ -663,10 +664,7 @@ export default function ProjectPage() {
     const getMemberName = React.useCallback((uid) => {
         if (!project?.members?.[uid]) return null;
         const m = project.members[uid];
-        if (project.useDisplayName) {
-            return m.displayName || m.nickname || uid;
-        }
-        return m.nickname || uid;
+        return m.displayName || m.nickname || uid;
     }, [project]);
 
     const allMemberList = useMemo(() => {
@@ -675,6 +673,19 @@ export default function ProjectPage() {
             uid, nickname: getMemberName(uid)
         }));
     }, [project, getMemberName]);
+
+    const sortedMembers = useMemo(() => {
+        if (!project?.members) return [];
+        return Object.entries(project.members).sort((a, b) => {
+            const aRole = a[1].role;
+            const bRole = b[1].role;
+            if (aRole === 'admin' && bRole !== 'admin') return -1;
+            if (bRole === 'admin' && aRole !== 'admin') return 1;
+            const aName = a[1].displayName || a[1].nickname || '';
+            const bName = b[1].displayName || b[1].nickname || '';
+            return aName.localeCompare(bName, 'ko-KR');
+        });
+    }, [project?.members]);
 
     const activeFilterCount = useMemo(() => {
         let c = 0;
@@ -1153,7 +1164,7 @@ export default function ProjectPage() {
             addToast('삭제할 항목을 선택해주세요.', 'warning');
             return;
         }
-        if (!confirm(`${trashSelected.length}개 항목을 영구 삭제합니다. 복원할 수 없습니다.`)) return;
+        if (!confirm(`${trashSelected.length}개 항목을 영구 삭제합니다.복원할 수 없습니다.`)) return;
         try {
             for (const id of trashSelected) {
                 const item = items.find(i => i.id === id);
@@ -1348,11 +1359,11 @@ export default function ProjectPage() {
                             const inAcl = aclEmails.includes(emailLower);
                             if (status === 'pending' && inAcl) {
                                 // 참여자가 이메일에서 참여 완료 → true로 업데이트
-                                updates[`calendarSharedWith.${uid}`] = true;
+                                updates[`calendarSharedWith.${uid} `] = true;
                                 hasChanges = true;
                             } else if (status === true && !inAcl) {
                                 // ACL에서 제거됨 → false로 동기화
-                                updates[`calendarSharedWith.${uid}`] = false;
+                                updates[`calendarSharedWith.${uid} `] = false;
                                 hasChanges = true;
                             }
                         }
@@ -2048,17 +2059,43 @@ export default function ProjectPage() {
     // 활동명 미입력 감지
     useEffect(() => {
         if (!project || !profile) return;
-        if (!project.useDisplayName) return;
         const myMember = project.members?.[profile.uid];
         if (myMember && !myMember.displayName) {
             setShowDisplayNamePrompt(true);
         }
-    }, [project?.useDisplayName, project?.members, profile?.uid]);
+    }, [project?.members, profile?.uid]);
+
+    // 즐겨찾기 친구 목록 구독
+    useEffect(() => {
+        if (!profile?.uid) return;
+        return subscribeToFavoriteFriends(profile.uid, (friends) => {
+            setFavoriteFriendIds(new Set(friends.map(f => f.friendUid)));
+        });
+    }, [profile?.uid]);
+
+    const handleToggleFavoriteMember = async (userId, memberNickname) => {
+        if (!profile?.uid || userId === profile.uid) return;
+        try {
+            if (favoriteFriendIds.has(userId)) {
+                if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
+                    await removeFavoriteFriend(profile.uid, userId);
+                    addToast('즐겨찾기에서 제거했습니다.', 'info');
+                }
+            } else {
+                await addFavoriteFriend(profile.uid, userId, memberNickname);
+                addToast('즐겨찾기에 추가했습니다.', 'success');
+            }
+        } catch (e) {
+            addToast('즐겨찾기 변경에 실패했습니다.', 'error');
+        }
+    };
 
     const handleSaveMyDisplayName = async () => {
         const dn = myDisplayNameInput.trim();
         if (!dn) { addToast('활동명을 입력해주세요.', 'warning'); return; }
-        if (dn.length < 2 || dn.length > 20) { addToast('활동명은 2~20자로 입력해주세요.', 'warning'); return; }
+        if (dn.length < 2) { addToast('활동명은 최소 2자 이상 입력해주세요.', 'warning'); return; }
+        const getPoints = (str) => [...str].reduce((p, ch) => p + (/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch) ? 2 : 1), 0);
+        if (getPoints(dn) > 12) { addToast('활동명이 너무 깁니다. (한글 6자/영문 12자 이내)', 'warning'); return; }
         try {
             await updateMemberDisplayName(projectId, profile.uid, dn);
             setShowDisplayNamePrompt(false);
@@ -2073,7 +2110,7 @@ export default function ProjectPage() {
         return (
             <div className="loading-screen">
                 <div className="spinner spinner-lg"></div>
-                <p style={{ color: 'var(--color-text-secondary)' }}>로딩 중...</p>
+                <p className="meta-text">로딩 중...</p>
             </div>
         );
     }
@@ -2085,9 +2122,9 @@ export default function ProjectPage() {
             <div className="container">
                 {/* 헤더 */}
                 <div className="page-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                    <div className="flex-row-gap-sm">
                         <button className="page-header-back" onClick={() => navigate('/')}>←</button>
-                        <h1 style={{ fontSize: 'var(--font-size-xl)' }}>{project.name}</h1>
+                        <h1 className="page-title">{project.name}</h1>
                     </div>
                     <div className="header-actions">
                         {userCanAdmin && (
@@ -2114,7 +2151,7 @@ export default function ProjectPage() {
                         >
                             {VIEW_MODE_ICONS[pageViewMode]}
                         </button>
-                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <div className="relative-inline">
                             <button className="header-icon-btn" onClick={() => {
                                 if (!effectiveLimits.exportCsv) {
                                     setUpgradeReason('exportCsv'); setShowUpgradeModal(true); return;
@@ -2382,10 +2419,10 @@ export default function ProjectPage() {
                 {activeTab === 'chat' && (
                     <div className="chat-container">
                         {/* 채팅 전용 헤더 */}
-                        <div className="page-header" style={{ padding: 'var(--spacing-md) 0', margin: '0 var(--spacing-md)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                        <div className="page-header padding-y-md-margin-x">
+                            <div className="flex-row-gap-sm">
                                 <button className="page-header-back" onClick={() => navigate('/')}>←</button>
-                                <h1 style={{ fontSize: 'var(--font-size-xl)' }}>{project.name}</h1>
+                                <h1 className="page-title">{project.name}</h1>
                             </div>
                             <div className="header-actions">
                                 {userCanAdmin && (
@@ -2412,7 +2449,7 @@ export default function ProjectPage() {
                                 >
                                     {VIEW_MODE_ICONS[pageViewMode]}
                                 </button>
-                                <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <div className="relative-inline">
                                     <button className="header-icon-btn" onClick={() => {
                                         if (!effectiveLimits.exportCsv) {
                                             setUpgradeReason('exportCsv'); setShowUpgradeModal(true); return;
@@ -2432,7 +2469,7 @@ export default function ProjectPage() {
                             </div>
                         </div>
                         {/* 채팅 전용 탭바 */}
-                        <div className="tab-bar" style={{ margin: '0 var(--spacing-md)', marginBottom: 0, flexShrink: 0 }}>
+                        <div className="tab-bar margin-x-md-margin-b-0-flex-shrink-0">
                             <button className={`tab-item`} onClick={() => setActiveTab('checklist')}>
                                 ✅ 체크리스트
                             </button>
@@ -2469,7 +2506,7 @@ export default function ProjectPage() {
                         {/* 메시지 영역 */}
                         <div className="chat-messages" ref={chatContainerRef}>
                             {loadingOlder && (
-                                <div className="chat-load-more" style={{ textAlign: 'center', padding: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
+                                <div className="chat-load-more text-center padding-sm meta-text-sm">
                                     ⏳ 이전 메시지 불러오는 중...
                                 </div>
                             )}
@@ -2483,7 +2520,7 @@ export default function ProjectPage() {
                                 </button>
                             )}
                             {chatMessages.length === 0 ? (
-                                <div className="empty-state" style={{ padding: '40px 0' }}>
+                                <div className="empty-state padding-y-xl">
                                     <div className="empty-state-icon">💬</div>
                                     <div className="empty-state-title">아직 메시지가 없습니다</div>
                                     <div className="empty-state-text">첫 메시지를 보내보세요!</div>
@@ -2582,7 +2619,7 @@ export default function ProjectPage() {
                                         ref={chatFileInputRef}
                                         type="file"
                                         accept="image/*"
-                                        style={{ display: 'none' }}
+                                        className="hidden"
                                         onChange={handleChatImageSelect}
                                     />
                                 )}
@@ -2615,7 +2652,7 @@ export default function ProjectPage() {
                             <>
                                 {trashSelectMode && (
                                     <div className="trash-select-bar">
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                        <div className="flex-row-gap-xs">
                                             <button className="btn btn-sm btn-secondary" onClick={() => {
                                                 setTrashSelected(trashSelected.length === deletedItems.length ? [] : deletedItems.map(i => i.id));
                                             }}>{trashSelected.length === deletedItems.length ? '전체 해제' : '전체 선택'}</button>
@@ -2910,7 +2947,7 @@ export default function ProjectPage() {
                                     <div className="todo-actions">
                                         {userCanWrite && (
                                             <button
-                                                className={`todo-lock-btn`}
+                                                className="todo-lock-btn icon-btn-opacity"
                                                 onClick={async () => {
                                                     try {
                                                         await updateTodoItem(projectId, item.id, {
@@ -2921,14 +2958,7 @@ export default function ProjectPage() {
                                                     }
                                                 }}
                                                 title={item.locked ? '잠금 해제' : '잠금'}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    fontSize: '1.1rem',
-                                                    padding: '4px',
-                                                    opacity: item.locked ? 1 : 0.5,
-                                                }}
+                                                style={{ opacity: item.locked ? 1 : 0.5 }}
                                             >
                                                 {item.locked ? '🔒' : '🔓'}
                                             </button>
@@ -3031,7 +3061,7 @@ export default function ProjectPage() {
                             {(newImages.length + newFiles.length) > 0 && <span className="edit-toolbar-count">{newImages.length + newFiles.length}</span>}
                         </button>
                     </div>
-                    <input ref={addImageRef} type="file" accept="image/*" style={{ display: 'none' }}
+                    <input ref={addImageRef} type="file" accept="image/*" className="hidden"
                         onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -3042,7 +3072,7 @@ export default function ProjectPage() {
                             e.target.value = '';
                         }}
                     />
-                    <input ref={addDocRef} type="file" accept="*/*" style={{ display: 'none' }}
+                    <input ref={addDocRef} type="file" accept="*/*" className="hidden"
                         onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -3060,7 +3090,7 @@ export default function ProjectPage() {
                                 <span>🏅 중요도 선택</span>
                                 <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
                             </div>
-                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                            <div className="filter-chips flex-row-wrap-xs padding-y-sm-x-md">
                                 {LABEL_COLORS.map(c => (
                                     <button
                                         key={c.id}
@@ -3091,7 +3121,7 @@ export default function ProjectPage() {
                                 <span>⏰ 마감일 설정</span>
                                 <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
                             </div>
-                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                            <div className="padding-y-sm-x-md">
                                 <input
                                     type="datetime-local"
                                     className="input-field"
@@ -3099,7 +3129,7 @@ export default function ProjectPage() {
                                     onChange={(e) => setNewDueDate(e.target.value)}
                                 />
                                 {newDueDate && (
-                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 13 }}>
+                                    <div className="margin-t-xs" style={{ fontSize: 13 }}>
                                         {getDuePriority(new Date(newDueDate)).icon} {getDuePriority(new Date(newDueDate)).level > 0 ? `단계 ${getDuePriority(new Date(newDueDate)).level}` : ''}
                                     </div>
                                 )}
@@ -3114,7 +3144,7 @@ export default function ProjectPage() {
                                 <span>🏷️ 라벨 선택</span>
                                 <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
                             </div>
-                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                            <div className="padding-y-sm-x-md">
                                 <div className="label-selector">
                                     {(project?.projectLabels || []).map(label => (
                                         <button
@@ -3129,7 +3159,7 @@ export default function ProjectPage() {
                                         >
                                             🏷️ {label}
                                             {userCanWrite && (
-                                                <span style={{ marginLeft: 'var(--spacing-xs)', fontSize: 10, color: 'var(--color-danger)', cursor: 'pointer' }}
+                                                <span className="margin-l-xs text-danger" style={{ fontSize: 10, cursor: 'pointer' }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (confirm(`"${label}" 라벨을 삭제하시겠습니까?`)) {
@@ -3142,9 +3172,9 @@ export default function ProjectPage() {
                                     ))}
                                 </div>
                                 {userCanWrite && (
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
-                                        <input type="text" className="input-field" placeholder="새 라벨"
-                                            value={newLabel} onChange={e => setNewLabel(e.target.value)} style={{ flex: 1 }} />
+                                    <div className="flex-row-gap-xs margin-t-xs">
+                                        <input type="text" className="input-field flex-1" placeholder="새 라벨"
+                                            value={newLabel} onChange={e => setNewLabel(e.target.value)} />
                                         <button type="button" className="btn btn-primary btn-sm"
                                             disabled={!newLabel.trim()}
                                             onClick={async () => {
@@ -3165,8 +3195,8 @@ export default function ProjectPage() {
                                 <span>🔄 반복 설정</span>
                                 <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
                             </div>
-                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                                <div className="repeat-selector" style={{ flexWrap: 'wrap' }}>
+                            <div className="padding-y-sm-x-md">
+                                <div className="repeat-selector flex-wrap">
                                     {[
                                         { v: 'none', l: '없음' },
                                         { v: 'daily', l: '매일', e: '🔄' },
@@ -3277,7 +3307,7 @@ export default function ProjectPage() {
                             </div>
                         )}
                         {newFiles.length > 0 && (
-                            <div className="edit-files-list" style={{ padding: '0 var(--spacing-md)' }}>
+                            <div className="edit-files-list padding-x-md">
                                 {newFiles.map((f, i) => (
                                     <div key={i} className="edit-file-item">
                                         <span className="file-name">📄 {f.name} ({(f.size / 1024).toFixed(0)}KB)</span>
@@ -3465,14 +3495,14 @@ export default function ProjectPage() {
                                     ref={editItemImageRef}
                                     type="file"
                                     accept="image/*"
-                                    style={{ display: 'none' }}
+                                    className="hidden"
                                     onChange={handleItemImageAdd}
                                 />
                                 <input
                                     ref={editItemDocRef}
                                     type="file"
                                     accept="*/*"
-                                    style={{ display: 'none' }}
+                                    className="hidden"
                                     onChange={handleItemFileAdd}
                                 />
                             </div>
@@ -3485,7 +3515,7 @@ export default function ProjectPage() {
                                     <span>🏅 중요도 선택</span>
                                     <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                                 </div>
-                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)', padding: 'var(--spacing-sm) 0' }}>
+                                <div className="filter-chips padding-y-sm" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
                                     {LABEL_COLORS.map(c => (
                                         <button
                                             key={c.id}
@@ -3514,12 +3544,12 @@ export default function ProjectPage() {
                             <div className="edit-option-sheet">
                                 <div className="edit-option-sheet-header">
                                     <span>⏰ 마감일 설정</span>
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <div className="flex-row-gap-sm">
                                         <button type="button" className="edit-help-btn" onClick={() => setShowDueHelp(true)} title="도움말">❓</button>
                                         <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                                     </div>
                                 </div>
-                                <div style={{ padding: '8px 16px 16px' }}>
+                                <div style={{ padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md)' }}>
                                     <input
                                         type="datetime-local"
                                         className="input-field"
@@ -3527,7 +3557,7 @@ export default function ProjectPage() {
                                         onChange={(e) => setEditItem({ ...editItem, dueDate: e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null })}
                                     />
                                     {editItem.dueDate && (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'var(--spacing-sm)' }}>
                                             <span>{getDuePriority(editItem.dueDate).icon} 단계 {getDuePriority(editItem.dueDate).level}</span>
                                             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditItem({ ...editItem, dueDate: null })}>삭제</button>
                                         </div>
@@ -3543,7 +3573,7 @@ export default function ProjectPage() {
                                     <span>🏷️ 라벨 선택</span>
                                     <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                                 </div>
-                                <div className="label-selector" style={{ padding: '8px 16px 16px' }}>
+                                <div className="label-selector" style={{ padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md)' }}>
                                     {(project?.projectLabels || []).map(label => (
                                         <button
                                             key={label}
@@ -3559,7 +3589,7 @@ export default function ProjectPage() {
                                         >
                                             🏷️ {label}
                                             {userCanWrite && (
-                                                <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--color-danger)', cursor: 'pointer' }}
+                                                <span className="text-danger pointer" style={{ marginLeft: 'var(--spacing-xs)', fontSize: 10 }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (confirm(`"${label}" 라벨을 삭제하시겠습니까?`)) {
@@ -3572,7 +3602,7 @@ export default function ProjectPage() {
                                     ))}
                                 </div>
                                 {userCanWrite && (
-                                    <div style={{ display: 'flex', gap: 6, padding: '0 16px 16px' }}>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)', padding: '0 var(--spacing-md) var(--spacing-md)' }}>
                                         <input type="text" className="input-field" placeholder="새 라벨"
                                             value={newLabel} onChange={e => setNewLabel(e.target.value)} style={{ flex: 1 }} />
                                         <button type="button" className="btn btn-primary btn-sm"
@@ -3595,7 +3625,7 @@ export default function ProjectPage() {
                                     <span>🔄 반복 설정</span>
                                     <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                                 </div>
-                                <div style={{ padding: '8px 16px 16px' }}>
+                                <div style={{ padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md)' }}>
                                     <div className="repeat-selector">
                                         {[
                                             { v: 'none', l: '없음' },
@@ -3613,7 +3643,7 @@ export default function ProjectPage() {
                                             </button>
                                         ))}
                                     </div>
-                                    <div className="repeat-advanced" style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                                    <div className="repeat-advanced" style={{ marginTop: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-xs)' }}>
                                         <select
                                             className="input-field"
                                             style={{ flex: 1 }}
@@ -3725,7 +3755,7 @@ export default function ProjectPage() {
                                         )}
                                         {/* 첨부 이미지 (읽기 모드) */}
                                         {(editItem.images || []).length > 0 && (
-                                            <div className="edit-images-grid" style={{ marginTop: 12 }}>
+                                            <div className="edit-images-grid margin-t-md">
                                                 {editItem.images.map((url, i) => (
                                                     <div key={i} className="edit-image-item">
                                                         <img src={url} alt={`첨부 ${i + 1}`} onClick={() => setViewerImage(url)} />
@@ -3735,7 +3765,7 @@ export default function ProjectPage() {
                                         )}
                                         {/* 첨부 파일 (읽기 모드) */}
                                         {(editItem.files || []).length > 0 && (
-                                            <div className="edit-files-list" style={{ marginTop: 8 }}>
+                                            <div className="edit-files-list margin-t-sm">
                                                 {(editItem.files || []).map((f, i) => (
                                                     <span key={i} className="todo-file-link" onClick={() => downloadFile(f.url, f.name || `파일_${i + 1}`)}>
                                                         📄 {f.name} ({formatFileSize(f.size)})
@@ -3846,48 +3876,64 @@ export default function ProjectPage() {
                     </div>
                     <div className="fullscreen-editor-body">
                         <div className="settings-section">
-                            <h3 className="settings-section-title">멤버 ({members.length}명)</h3>
+                            <h3 className="settings-section-title">멤버 ({sortedMembers.length}명)</h3>
                             <div className="member-list">
-                                {members.map(([userId, member]) => (
+                                {sortedMembers.map(([userId, member]) => (
                                     <div key={userId} className="member-item">
-                                        <div className="member-info">
-                                            <span className="member-nickname">{getMemberName(userId) || member.nickname}</span>
+                                        {/* 1열: 즐겨찾기 */}
+                                        {userId !== profile?.uid ? (
+                                            <button
+                                                className="btn fav-btn"
+                                                onClick={() => handleToggleFavoriteMember(userId, member.nickname)}
+                                                title="즐겨찾기"
+                                            >
+                                                {favoriteFriendIds.has(userId) ? '⭐' : '☆'}
+                                            </button>
+                                        ) : <div className="fav-placeholder"></div>}
+
+                                        {/* 2열: 활동명(닉네임) */}
+                                        <span
+                                            className={`member-name ${userId === profile?.uid ? 'clickable' : ''}`}
+                                            style={userId === profile?.uid ? { cursor: 'pointer', textDecoration: 'underline' } : {}}
+                                            onClick={userId === profile?.uid ? () => { setMyDisplayNameInput(member.displayName || ''); setShowDisplayNamePrompt(true); } : undefined}
+                                            title={userId === profile?.uid ? '클릭하여 활동명 변경' : ''}
+                                        >
+                                            {member.displayName ? `${member.displayName}(${member.nickname})` : member.nickname}
+                                            {userId === profile?.uid && ' ✏️'}
+                                        </span>
+
+                                        {/* 3열: 권한 (드롭다운 혹은 배지) */}
+                                        {userCanAdmin && userId !== profile?.uid ? (
+                                            <select
+                                                className={`input-field role-select ${member.role}`}
+                                                value={member.role}
+                                                onChange={(e) => handleChangeRole(userId, e.target.value)}
+                                            >
+                                                <option value="editor">편집자</option>
+                                                <option value="viewer">독자</option>
+                                            </select>
+                                        ) : (
                                             <span className={`badge badge-${member.role === 'admin' ? 'primary' : 'success'}`}>
-                                                {getRoleLabel(member.role)}
+                                                {getRoleLabel(member.role).replace(/✏️|👁️|👑/g, '').trim()}
                                             </span>
-                                            {project?.useDisplayName && userId === profile?.uid && (
-                                                <button
-                                                    className="btn btn-secondary btn-sm"
-                                                    style={{ marginLeft: '4px', fontSize: 'var(--font-size-xs)', padding: '2px 6px' }}
-                                                    onClick={() => { setMyDisplayNameInput(member.displayName || ''); setShowDisplayNamePrompt(true); }}
-                                                >📛 활동명 변경</button>
-                                            )}
-                                        </div>
-                                        {userCanAdmin && userId !== profile?.uid && (
-                                            <div className="member-actions">
-                                                <select
-                                                    className="input-field"
-                                                    style={{ width: 'auto', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                                    value={member.role}
-                                                    onChange={(e) => handleChangeRole(userId, e.target.value)}
-                                                >
-                                                    <option value="editor">✏️ 편집자</option>
-                                                    <option value="viewer">👁️ 독자</option>
-                                                </select>
-                                                <button
-                                                    className="btn btn-danger btn-sm"
-                                                    onClick={() => handleRemoveMember(userId, getMemberName(userId) || member.nickname)}
-                                                >
-                                                    내보내기
-                                                </button>
-                                            </div>
                                         )}
+
+                                        {/* 4열: 액션 (내보내기) */}
+                                        {userCanAdmin && userId !== profile?.uid ? (
+                                            <button
+                                                className="action-btn"
+                                                onClick={() => handleRemoveMember(userId, getMemberName(userId) || member.nickname)}
+                                                title="내보내기"
+                                            >
+                                                🚪
+                                            </button>
+                                        ) : <div className="action-placeholder"></div>}
                                         {/* 캘린더 공유 버튼 (관리자: 공유/해제, 비관리자: 요청 표시) */}
                                         {userId !== profile?.uid && myCalendarId && (
                                             userCanAdmin ? (
                                                 <button
                                                     className={`btn btn-sm ${calendarSharedMembers[userId] === true ? 'btn-success' : calendarSharedMembers[userId] === 'pending' ? 'btn-warning' : calendarShareRequested[userId] ? 'btn-warning' : 'btn-secondary'}`}
-                                                    style={{ marginLeft: '4px', fontSize: 'var(--font-size-xs)', minWidth: '32px' }}
+                                                    style={{ marginLeft: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', minWidth: '32px' }}
                                                     onClick={() => handleToggleCalendarShare(userId, member)}
                                                     disabled={sharingCalendar[userId]}
                                                     title={calendarSharedMembers[userId] === true ? '캘린더 공유 해제' : calendarSharedMembers[userId] === 'pending' ? '참여 대기 중 - 클릭하여 해제' : calendarShareRequested[userId] ? '공유 요청됨 - 클릭하여 공유' : '캘린더 공유'}
@@ -3933,8 +3979,8 @@ export default function ProjectPage() {
                                         <strong>팀 공유 캘린더</strong>를 사용하려면 캘린더 ID를 입력.<br />
                                         팀 공유 캘린더를 사용하지 않으면 <strong>개인 캘린더</strong>를 사용.
                                     </p>
-                                    <div className="input-group" style={{ marginBottom: '8px' }}>
-                                        <label className="input-label" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>📋 캘린더 ID</label>
+                                    <div className="input-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                        <label className="input-label" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-xs)' }}>📋 캘린더 ID</label>
                                         <input
                                             type="text"
                                             className="input-field"
@@ -3945,7 +3991,7 @@ export default function ProjectPage() {
                                             style={{ opacity: calendarIdEditing ? 1 : 0.6 }}
                                         />
                                     </div>
-                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
                                         {calendarIdEditing ? (
                                             <>
                                                 <button
@@ -3984,7 +4030,7 @@ export default function ProjectPage() {
 
                             {/* 팀 캘린더 상태 안내 */}
                             {myCalendarId && (
-                                <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ marginTop: 'var(--spacing-md)', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                                     <span style={{ fontSize: 18 }}>{calendarSharedMembers[profile?.uid] === true ? '✅' : '📅'}</span>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.5' }}>
                                         {userCanAdmin
@@ -3999,7 +4045,7 @@ export default function ProjectPage() {
 
                             {/* 캘린더 공유요청 (비관리자 + 공유 미적용) */}
                             {!userCanAdmin && myCalendarId && !calendarSharedMembers[profile?.uid] && (
-                                <div style={{ marginTop: '12px' }}>
+                                <div style={{ marginTop: 'var(--spacing-md)' }}>
                                     <button
                                         className={`btn btn-block ${calendarShareRequested[profile?.uid] ? 'btn-secondary' : 'btn-primary'}`}
                                         onClick={handleRequestCalendarShare}
@@ -4011,10 +4057,10 @@ export default function ProjectPage() {
                             )}
 
                             {showCalendarHelp && userCanAdmin && (
-                                <div className="calendar-help" style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: '14px', marginTop: '4px' }}>
+                                <div className="calendar-help" style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)', marginTop: 'var(--spacing-xs)' }}>
 
                                     {/* 캘린더 설정 (관리자용) */}
-                                    <h4 style={{ fontSize: 'var(--font-size-sm)', marginBottom: '6px', color: 'var(--color-primary)' }}>🔧 팀 캘린더 설정</h4>
+                                    <h4 style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xs)', color: 'var(--color-primary)' }}>🔧 팀 캘린더 설정</h4>
                                     <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
                                         <li><span style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => { e.preventDefault(); window.open('https://calendar.google.com', '_system'); }}>calendar.google.com</span> 접속 <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>(웹브라우저)</span></li>
                                         <li>왼쪽 사이드바에서 공유할 캘린더의 <strong>⋮ → 설정 및 공유</strong></li>
@@ -4022,7 +4068,7 @@ export default function ProjectPage() {
                                         <li><strong>✏️ 편집</strong> 버튼을 눌러 입력란에 붙여넣고 <strong>💾 저장</strong></li>
                                     </ol>
 
-                                    <h4 style={{ fontSize: 'var(--font-size-sm)', marginTop: '14px', marginBottom: '6px', color: 'var(--color-primary)' }}>👥 멤버에게 캘린더 공유하기</h4>
+                                    <h4 style={{ fontSize: 'var(--font-size-sm)', marginTop: 'var(--spacing-md)', marginBottom: 'var(--spacing-xs)', color: 'var(--color-primary)' }}>👥 멤버에게 캘린더 공유하기</h4>
                                     <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
                                         <li>위 멤버 목록에서 각 멤버 옆 <strong>📅 버튼</strong> 클릭</li>
                                         <li>멤버에게 공유 초대 메일이 자동 발송됩니다</li>
@@ -4036,15 +4082,14 @@ export default function ProjectPage() {
 
                         {/* 페이지 나가기 (비관리자만 표시) */}
                         {!userCanAdmin && (
-                            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+                            <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--color-border)' }}>
                                 <button
-                                    className="btn btn-danger"
-                                    style={{ width: '100%' }}
+                                    className="btn btn-danger btn-block"
                                     onClick={handleLeaveProject}
                                 >
                                     🚪 페이지 나가기
                                 </button>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 6, textAlign: 'center' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)', textAlign: 'center' }}>
                                     나가면 관리자가 다시 초대해야 참여할 수 있습니다.
                                 </p>
                             </div>
@@ -4052,15 +4097,14 @@ export default function ProjectPage() {
 
                         {/* 페이지 삭제 (관리자만 표시) */}
                         {userCanAdmin && (
-                            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+                            <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--color-border)' }}>
                                 <button
-                                    className="btn btn-danger"
-                                    style={{ width: '100%' }}
+                                    className="btn btn-danger btn-block"
                                     onClick={handleDeleteProject}
                                 >
                                     🗑️ 페이지 삭제
                                 </button>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 6, textAlign: 'center' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--spacing-xs)', textAlign: 'center' }}>
                                     모든 데이터가 영구적으로 삭제됩니다.
                                 </p>
                             </div>
@@ -4078,7 +4122,7 @@ export default function ProjectPage() {
                             {addingToCalendar ? (
                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px' }}>
                                     <span className="spinner"></span>
-                                    <span style={{ marginLeft: '8px', color: 'var(--color-text-secondary)' }}>등록 중...</span>
+                                    <span style={{ marginLeft: 'var(--spacing-sm)', color: 'var(--color-text-secondary)' }}>등록 중...</span>
                                 </div>
                             ) : (
                                 <InlineCalendar
@@ -4286,16 +4330,16 @@ export default function ProjectPage() {
             {
                 showRepeatConfirm && (
                     <Modal isOpen={showRepeatConfirm} onClose={handleRepeatCancel} title="🔄 반복 항목 생성">
-                        <div style={{ padding: '8px 0' }}>
-                            <p style={{ fontSize: 14, marginBottom: 16 }}>
+                        <div style={{ padding: 'var(--spacing-sm) 0' }}>
+                            <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-md)' }}>
                                 다음 반복 항목을 생성하시겠습니까?
                             </p>
                             {repeatConfirmItem && (
-                                <div style={{ padding: '8px 12px', background: 'var(--color-surface, #f5f5f5)', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                                <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', background: 'var(--color-surface, #f5f5f5)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
                                     <strong>{repeatConfirmItem.title}</strong>
                                 </div>
                             )}
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                                 <button className="btn btn-secondary btn-block" onClick={handleRepeatCancel}>
                                     생성 안 함
                                 </button>
@@ -4320,20 +4364,20 @@ export default function ProjectPage() {
 
             {/* CSV 가져오기 파일 input */}
             <input type="file" accept=".csv" ref={csvFileRef}
-                style={{ display: 'none' }} onChange={handleImportCsvFile} />
+                className="hidden" onChange={handleImportCsvFile} />
 
             {/* CSV 가져오기 충돌 해결 모달 */}
             {
                 csvImportConflicts && (
                     <Modal isOpen onClose={() => setCsvImportConflicts(null)} title="CSV 가져오기 - 중복 항목">
-                        <div style={{ padding: '8px 0' }}>
-                            <p style={{ fontWeight: 600, marginBottom: 8 }}>
+                        <div style={{ padding: 'var(--spacing-sm) 0' }}>
+                            <p style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
                                 "{csvImportConflicts.conflicts[csvImportConflicts.currentIdx]?.title}"
                             </p>
-                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', marginBottom: 16 }}>
+                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>
                                 같은 제목의 체크리스트가 이미 존재합니다. ({csvImportConflicts.currentIdx + 1} / {csvImportConflicts.conflicts.length})
                             </p>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
                                 <button className="btn btn-primary btn-sm" onClick={() => handleConflictDecision('overwrite')}>
                                     덮어쓰기
                                 </button>
@@ -4366,18 +4410,27 @@ export default function ProjectPage() {
             >
                 <p>"{project?.name}" 페이지에서 활동명을 사용합니다.</p>
                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
-                    활동명은 이 페이지 내에서만 사용되는 별도의 이름입니다.<br />
+                    활동명은 이 페이지 내에서만 사용되는 별도의 이름입니다. (한글 6자/영문 12자 이내)<br />
                     같은 페이지 내에서만 중복이 불가합니다.
                 </p>
                 <input
                     type="text"
                     className="input-field"
-                    placeholder="활동명을 입력하세요"
+                    placeholder="활동명을 입력하세요."
                     value={myDisplayNameInput}
                     onChange={e => setMyDisplayNameInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSaveMyDisplayName(); } }}
+                    maxLength={12}
                     autoFocus
                 />
+                <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: 'var(--spacing-xs)', width: '100%' }}
+                    onClick={() => setMyDisplayNameInput(profile?.nickname || '')}
+                    type="button"
+                >
+                    닉네임 사용
+                </button>
             </Modal>
 
             {/* ===== 이미지 뷰어 모달 ===== */}

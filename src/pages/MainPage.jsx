@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
-import { subscribeToMyProjects, createProject, updateProject, getRoleLabel, getCachedProjects, deltaFetchProjects, updateProjectDisplayNameMode } from '../services/projectService';
+import { subscribeToMyProjects, createProject, updateProject, getRoleLabel, getCachedProjects, deltaFetchProjects } from '../services/projectService';
 import { subscribeToMyInvitations, subscribeToSentInvitations, acceptInvitation, rejectInvitation, cancelInvitation } from '../services/invitationService';
 import { getUserPlan, getEffectivePlan, getUserLimits, LIMITS } from '../services/subscriptionService';
 import UpgradeModal from '../components/common/UpgradeModal';
@@ -49,9 +49,17 @@ export default function MainPage() {
     const [editingMemoId, setEditingMemoId] = useState(null);
     const [memoInput, setMemoInput] = useState('');
 
-    // 활동명 (createProject/acceptInvitation용)
-    const [useDisplayName, setUseDisplayName] = useState(false);
+    // 활동명 (createProject용) — 필수 입력
     const [displayNameInput, setDisplayNameInput] = useState('');
+
+    // 글자수 포인트 계산 (한글=2, 영문=1, 최대 12포인트)
+    const getNamePoints = (str) => {
+        let points = 0;
+        for (const ch of str) {
+            points += /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch) ? 2 : 1;
+        }
+        return points;
+    };
 
     // 드래그 앤 드롭
     const dragItem = useRef(null);
@@ -390,17 +398,21 @@ export default function MainPage() {
             setShowUpgradeModal(true);
             return;
         }
-        if (useDisplayName && !displayNameInput.trim()) {
+        if (!displayNameInput.trim()) {
             addToast('활동명을 입력해주세요.', 'warning');
             return;
         }
-        if (useDisplayName && (displayNameInput.trim().length < 2 || displayNameInput.trim().length > 20)) {
-            addToast('활동명은 2~20자로 입력해주세요.', 'warning');
+        if (displayNameInput.trim().length < 2) {
+            addToast('활동명은 최소 2자 이상 입력해주세요.', 'warning');
+            return;
+        }
+        if (getNamePoints(displayNameInput.trim()) > 12) {
+            addToast('활동명이 너무 깁니다. (한글 6자/영문 12자 이내)', 'warning');
             return;
         }
         setCreating(true);
         try {
-            const projectId = await createProject(profile.uid, profile.nickname, projectName.trim(), projectDesc.trim(), actualPlan, useDisplayName, displayNameInput.trim());
+            const projectId = await createProject(profile.uid, profile.nickname, projectName.trim(), projectDesc.trim(), actualPlan, displayNameInput.trim());
             if (projectColor) {
                 await updateProject(projectId, { color: projectColor });
             }
@@ -413,7 +425,6 @@ export default function MainPage() {
             setProjectColor(null);
             setProjectTags([]);
             setNewProjectTag('');
-            setUseDisplayName(false);
             setDisplayNameInput('');
             addToast('페이지가 생성되었습니다!', 'success');
             navigate(`/project/${projectId}`);
@@ -984,7 +995,7 @@ export default function MainPage() {
                         )}
 
                         {/* 결과 헤더 (결과 수 + 정렬 드롭다운) */}
-                        <div className="search-result-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                        <div className="search-result-header flex-row-between-center margin-b-sm">
                             <div className="search-result-count" style={{ marginBottom: 0 }}>
                                 {searchLoading ? '검색 중...'
                                     : searchKeyword.trim().length >= 1
@@ -1315,11 +1326,11 @@ export default function MainPage() {
                                             <p className="invitation-from">
                                                 → {invite.inviteeNickname}님에게 초대
                                             </p>
-                                            <div className="invitation-detail" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                            <div className="invitation-detail flex-row-wrap-xs">
                                                 {getStatusBadge(invite.status)}
-                                                <span className="badge badge-primary" style={{ marginLeft: 'var(--spacing-xs)' }}>{invite.role === 'readwrite' ? '읽기/쓰기' : invite.role}</span>
+                                                <span className="badge badge-primary margin-l-xs">{invite.role === 'readwrite' ? '읽기/쓰기' : invite.role}</span>
                                                 {invite.createdAt && <span className="invitation-time">{formatTime(invite.createdAt)}</span>}
-                                                <span style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                                <span className="flex-row-center margin-l-auto">
                                                     {invite.status === 'pending' && (
                                                         <button
                                                             className="btn btn-danger btn-sm"
@@ -1412,9 +1423,9 @@ export default function MainPage() {
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{noti.projectName}</h3>
                                             <p className="invitation-from">{noti.text}</p>
-                                            <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                                            <div className="flex-row-center margin-t-sm">
                                                 {noti.createdAt && (
-                                                    <span className="invitation-time" style={{ marginRight: 'auto' }}>{formatTime(new Date(noti.createdAt))}</span>
+                                                    <span className="invitation-time margin-l-auto">{formatTime(new Date(noti.createdAt))}</span>
                                                 )}
                                                 <button
                                                     className="btn btn-primary btn-sm"
@@ -1479,11 +1490,11 @@ export default function MainPage() {
                                         <div className="invitation-info">
                                             <h3 className="invitation-project">{dm.senderNickname}</h3>
                                             <p className="invitation-from" style={{ whiteSpace: 'pre-wrap' }}>{dm.message}</p>
-                                            <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                                            <div className="flex-row-center margin-t-sm">
                                                 {dm.createdAt && (
-                                                    <span className="invitation-time" style={{ marginRight: 'auto' }}>{formatTime(dm.createdAt)}</span>
+                                                    <span className="invitation-time margin-l-auto">{formatTime(dm.createdAt)}</span>
                                                 )}
-                                                <button className="btn btn-sm" style={{ fontSize: '16px', padding: '2px 6px', minWidth: 'auto' }}
+                                                <button className="btn btn-sm" style={{ fontSize: 'var(--font-size-lg)', padding: 'var(--spacing-xs) var(--spacing-sm)', minWidth: 'auto' }}
                                                     onClick={() => {
                                                         const isFav = favoriteFriends.some(f => f.friendUid === dm.senderUid);
                                                         if (isFav) {
@@ -1538,7 +1549,7 @@ export default function MainPage() {
                 if (activeTab === 'requests') {
                     setShowDmModal(true);
                 } else {
-                    setProjectColor(null); setProjectTags([]); setNewProjectTag(''); setUseDisplayName(false); setDisplayNameInput(''); setCreateOptionSheet(null); setShowCreateModal(true);
+                    setProjectColor(null); setProjectTags([]); setNewProjectTag(''); setDisplayNameInput(''); setCreateOptionSheet(null); setShowCreateModal(true);
                 }
             }} title={activeTab === 'requests' ? '메시지 보내기' : '새 페이지'}>
                 {activeTab === 'requests' ? '✉️' : '+'}
@@ -1548,7 +1559,7 @@ export default function MainPage() {
             {showCreateModal && (
                 <div className="fullscreen-editor">
                     <div className="fullscreen-editor-header">
-                        <button className="fullscreen-editor-back" onClick={() => { setCreateOptionSheet(null); setShowCreateModal(false); setProjectTags([]); setNewProjectTag(''); setUseDisplayName(false); setDisplayNameInput(''); }}>←</button>
+                        <button className="fullscreen-editor-back" onClick={() => { setCreateOptionSheet(null); setShowCreateModal(false); setProjectTags([]); setNewProjectTag(''); setDisplayNameInput(''); }}>←</button>
                         <div className="fullscreen-editor-actions">
                             <button
                                 className="btn btn-primary btn-sm"
@@ -1577,14 +1588,6 @@ export default function MainPage() {
                         >
                             <span>🏷️</span><span className="edit-toolbar-label">태그</span>
                             {projectTags.length > 0 && <span className="edit-toolbar-count">{projectTags.length}</span>}
-                        </button>
-                        <button
-                            type="button"
-                            className={`edit-toolbar-btn ${createOptionSheet === 'displayName' ? 'active' : ''}`}
-                            onClick={() => setCreateOptionSheet(createOptionSheet === 'displayName' ? null : 'displayName')}
-                        >
-                            <span>📛</span><span className="edit-toolbar-label">활동명</span>
-                            {useDisplayName && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
                         </button>
                     </div>
 
@@ -1651,37 +1654,31 @@ export default function MainPage() {
                         </div>
                     )}
 
-                    {/* 옵션 시트: 활동명 */}
-                    {createOptionSheet === 'displayName' && (
-                        <div className="edit-option-sheet">
-                            <div className="edit-option-sheet-header">
-                                <span>📛 활동명 설정</span>
-                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
-                            </div>
-                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={useDisplayName}
-                                        onChange={e => setUseDisplayName(e.target.checked)}
-                                    />
-                                    활동명 사용
-                                </label>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', margin: '0 0 var(--spacing-xs)' }}>
-                                    페이지 내에서 닉네임 대신 별도의 활동명을 사용합니다.
-                                </p>
-                                {useDisplayName && (
-                                    <input
-                                        type="text"
-                                        className="input-field"
-                                        placeholder="나의 활동명을 입력하세요"
-                                        value={displayNameInput}
-                                        onChange={e => setDisplayNameInput(e.target.value)}
-                                    />
-                                )}
-                            </div>
+                    {/* 활동명 필수 입력 인라인 섹션 */}
+                    <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', borderBottom: '1px solid var(--color-border)' }}>
+                        <label className="input-label" style={{ marginBottom: 'var(--spacing-xs)' }}>📛 활동명 <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>*필수</span></label>
+                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-xs)' }}>
+                            이 페이지 내에서 사용할 이름입니다. (한글 6자/영문 12자 이내)
+                        </p>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                            <input
+                                type="text"
+                                className="input-field flex-1"
+                                placeholder="활동명을 입력하세요"
+                                value={displayNameInput}
+                                onChange={e => setDisplayNameInput(e.target.value)}
+                                maxLength={12}
+                            />
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setDisplayNameInput(profile?.nickname || '')}
+                                title="닉네임을 활동명으로 사용"
+                            >
+                                닉네임 사용
+                            </button>
                         </div>
-                    )}
+                    </div>
 
                     <div className="fullscreen-editor-body">
                         <input
@@ -1732,14 +1729,6 @@ export default function MainPage() {
                             <span>🏷️</span><span className="edit-toolbar-label">태그</span>
                             {projectTags.length > 0 && <span className="edit-toolbar-count">{projectTags.length}</span>}
                         </button>
-                        <button
-                            type="button"
-                            className={`edit-toolbar-btn ${editOptionSheet === 'displayName' ? 'active' : ''}`}
-                            onClick={() => setEditOptionSheet(editOptionSheet === 'displayName' ? null : 'displayName')}
-                        >
-                            <span>📛</span><span className="edit-toolbar-label">활동명</span>
-                            {editTarget?.useDisplayName && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
-                        </button>
                     </div>
 
                     {/* 옵션 시트: 중요도 */}
@@ -1749,7 +1738,7 @@ export default function MainPage() {
                                 <span>🏅 중요도 선택</span>
                                 <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                             </div>
-                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6, padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                            <div className="filter-chips padding-y-sm-x-md" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
                                 {LABEL_COLORS.map(c => (
                                     <button
                                         key={c.id}
@@ -1780,8 +1769,8 @@ export default function MainPage() {
                                 <span>🏷️ 태그 설정</span>
                                 <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                             </div>
-                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 6 }}>
+                            <div className="padding-y-sm-x-md">
+                                <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
                                     {projectTags.map(tag => (
                                         <button key={tag} type="button" className="filter-chip active"
                                             onClick={() => setProjectTags(prev => prev.filter(t => t !== tag))}>
@@ -1789,10 +1778,9 @@ export default function MainPage() {
                                         </button>
                                     ))}
                                 </div>
-                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
-                                    <input type="text" className="input-field" placeholder="새 태그"
-                                        value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)}
-                                        style={{ flex: 1 }} />
+                                <div className="flex-row-gap-xs margin-t-xs">
+                                    <input type="text" className="input-field flex-1" placeholder="새 태그"
+                                        value={newProjectTag} onChange={e => setNewProjectTag(e.target.value)} />
                                     <button type="button" className="btn btn-primary btn-sm"
                                         disabled={!newProjectTag.trim()}
                                         onClick={() => {
@@ -1805,42 +1793,7 @@ export default function MainPage() {
                         </div>
                     )}
 
-                    {/* 옵션 시트: 활동명 */}
-                    {editOptionSheet === 'displayName' && (
-                        <div className="edit-option-sheet">
-                            <div className="edit-option-sheet-header">
-                                <span>📛 표시 이름 설정</span>
-                                <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
-                            </div>
-                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-sm)' }}>
-                                    활동명은 이 페이지 내에서만 사용되는 이름입니다.
-                                </p>
-                                <div className="filter-chips" style={{ gap: 'var(--spacing-xs)' }}>
-                                    <button type="button"
-                                        className={`filter-chip ${!editTarget?.useDisplayName ? 'active' : ''}`}
-                                        onClick={async () => {
-                                            try {
-                                                await updateProjectDisplayNameMode(editTarget.id, false);
-                                                setEditTarget(prev => ({ ...prev, useDisplayName: false }));
-                                                addToast('닉네임 모드로 변경되었습니다.', 'success');
-                                            } catch (e) { addToast('변경 실패', 'error'); }
-                                        }}
-                                    >닉네임 사용</button>
-                                    <button type="button"
-                                        className={`filter-chip ${editTarget?.useDisplayName ? 'active' : ''}`}
-                                        onClick={async () => {
-                                            try {
-                                                await updateProjectDisplayNameMode(editTarget.id, true);
-                                                setEditTarget(prev => ({ ...prev, useDisplayName: true }));
-                                                addToast('활동명 모드로 변경되었습니다.', 'success');
-                                            } catch (e) { addToast('변경 실패', 'error'); }
-                                        }}
-                                    >활동명 사용</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+
 
                     <div className="fullscreen-editor-body">
                         <input
@@ -1897,11 +1850,10 @@ export default function MainPage() {
                     <label className="input-label">📧 받는 사람 (이메일 또는 닉네임)</label>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                         <input
-                            className="input-field"
+                            className="input-field flex-1"
                             placeholder="이메일 또는 닉네임을 입력하세요"
                             value={dmRecipient}
                             onChange={(e) => { setDmRecipient(e.target.value); setDmSearchResult(null); }}
-                            style={{ flex: 1 }}
                         />
                         <button
                             className="btn btn-primary btn-sm"
@@ -1925,7 +1877,7 @@ export default function MainPage() {
                         {dmSearchResult && (
                             <button
                                 className="btn btn-sm"
-                                style={{ fontSize: '16px', padding: '2px 8px', minWidth: 'auto' }}
+                                style={{ fontSize: 'var(--font-size-lg)', padding: 'var(--spacing-xs) var(--spacing-md)', minWidth: 'auto' }}
                                 onClick={() => {
                                     const isFav = favoriteFriends.some(f => f.friendUid === dmSearchResult.id);
                                     if (isFav) {
@@ -1941,10 +1893,10 @@ export default function MainPage() {
                         )}
                     </div>
                     {dmSearchResult && (
-                        <div className="card" style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                        <div className="card padding-y-sm-x-md margin-t-sm">
                             <strong>{dmSearchResult.nickname}</strong>
                             {dmRecipient.includes('@') && (
-                                <span style={{ color: 'var(--color-text-secondary)', marginLeft: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
+                                <span className="meta-text-sm" style={{ marginLeft: 'var(--spacing-sm)' }}>
                                     {dmSearchResult.email}
                                 </span>
                             )}

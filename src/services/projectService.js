@@ -141,7 +141,7 @@ function cleanupOrphanedCaches(validIds) {
 }
 
 // 프로젝트 생성
-export async function createProject(userId, nickname, name, description = '', ownerPlan = 'free', useDisplayName = false, displayName = '') {
+export async function createProject(userId, nickname, name, description = '', ownerPlan = 'free', displayName = '') {
     const projectRef = await addDoc(collection(db, 'projects'), {
         name,
         description,
@@ -152,7 +152,6 @@ export async function createProject(userId, nickname, name, description = '', ow
         memberCount: 1,
         subscriptionActive: false,
         order: -1,
-        useDisplayName,
         memberUIDs: [userId],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -168,8 +167,21 @@ export async function createProject(userId, nickname, name, description = '', ow
     return projectRef.id;
 }
 
+// 글자수 포인트 계산 (한글=2, 그 외=1, 최대 12포인트 = 한글6자/영문12자)
+function getNamePoints(str) {
+    let points = 0;
+    for (const ch of str) {
+        points += /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch) ? 2 : 1;
+    }
+    return points;
+}
+
 // 멤버 활동명 업데이트
 export async function updateMemberDisplayName(projectId, targetUid, newDisplayName) {
+    // 글자수 포인트 검사 (한글 6자 / 영문 12자 이내)
+    if (getNamePoints(newDisplayName) > 12) {
+        throw new Error('활동명이 너무 깁니다. (한글 6자/영문 12자 이내)');
+    }
     const projectDoc = await getDoc(doc(db, 'projects', projectId));
     const members = projectDoc.data()?.members || {};
     // 페이지 내 중복 검사 (자신 제외)
@@ -184,13 +196,7 @@ export async function updateMemberDisplayName(projectId, targetUid, newDisplayNa
     });
 }
 
-// 활동명 모드 토글
-export async function updateProjectDisplayNameMode(projectId, value) {
-    await updateDoc(doc(db, 'projects', projectId), {
-        useDisplayName: value,
-        updatedAt: serverTimestamp(),
-    });
-}
+
 
 // 내 프로젝트 목록 실시간 구독 (+ 캐시 자동 갱신)
 export function subscribeToMyProjects(userId, callback) {

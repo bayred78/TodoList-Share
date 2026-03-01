@@ -3,6 +3,21 @@
     margin-bottom: var(--spacing-md);
 }
 
+.page-header-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.dev-version-text {
+    cursor: default;
+    user-select: none;
+}
+
+.dev-exit-btn {
+    margin-top: var(--spacing-sm);
+}
+
 .settings-card-header {
     display: flex;
     align-items: center;

@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-03-02 04:36 — 디자인 시스템 토큰화 및 멤버 관리 UI 개선
+- `ProjectPage.jsx` & `ProjectPage.css`: 인라인 스타일 전면 제거 및 700여 개 하드코딩 수치를 디자인 토큰(`var(--spacing-*)`, `color-mix` 등)으로 교체, 멤버 리스트 Grid 레이아웃 및 권한 드롭다운 UI 통합
+- `MainPage.jsx` & `MainPage.css`: 페이지 생성/수정 모달 내 활동명 옵션 정규화 및 디자인 토큰 적용
+- `SettingsPage.jsx` & `SettingsPage.css`: 프로필 설정 및 글자수 제한 로직 하드코딩 제거, 디자인 토큰 적용
+- `projectService.js`: `useDisplayName` 옵션 제거 및 활동명 상시 사용 로직 적용
+- Git 태그: `v260302-0436`
+- 복원: `git checkout v260302-0436`
+
 ## 2026-03-02 01:41 — 파일 다운로드 크래시 수정 및 검색 UI/디자인 고도화
 - `storageService.js` & `FileSaver.java`: 대용량 파일 다운로드 시 OOM(메모리 부족) 방지를 위해 스트리밍 방식(Cache 디스크 경유)으로 전면 리팩토링 및 `try-with-resources` 도입
 - `App.jsx` & `storageService.js`: 시스템 다운로드 창 종료 시 발생하는 뒤로가기 이벤트 레이스 컨디션 해결 (500ms 지연 및 이벤트 차단)

@@ -1182,7 +1182,10 @@ export default function MainPage() {
                                     favoriteItems.map((fav) => (
                                         <div key={fav.id} className="card fav-item-card" onClick={() => navigate(`/project/${fav.projectId}?openItem=${fav.itemId}`)}>
                                             <div className="fav-item-header">
-                                                <span className="fav-item-project">{fav.projectName}</span>
+                                                <div className="fav-item-info-row">
+                                                    <span className="fav-item-project">{fav.projectName}</span>
+                                                    <span className="fav-item-title">{fav.title}</span>
+                                                </div>
                                                 <button className="fav-remove-btn" onClick={(e) => {
                                                     e.stopPropagation();
                                                     if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
@@ -1190,7 +1193,6 @@ export default function MainPage() {
                                                     }
                                                 }} title="즐겨찾기 해제">⭐</button>
                                             </div>
-                                            <h4 className="fav-item-title">{fav.title}</h4>
                                         </div>
                                     ))
                                 )}
@@ -1210,8 +1212,19 @@ export default function MainPage() {
                                         <div key={friend.id} className="card friend-card">
                                             <div className="friend-row">
                                                 <div className="friend-info">
-                                                    <span className="friend-nickname">{friend.nickname}</span>
+                                                    <div className="friend-name-row">
+                                                        <span className="friend-nickname">{friend.nickname}</span>
+                                                        {editingMemoId !== friend.id && friend.memo && (
+                                                            <span className="friend-memo-inline">({friend.memo})</span>
+                                                        )}
+                                                    </div>
                                                     <div className="friend-actions">
+                                                        {editingMemoId !== friend.id && (
+                                                            <button className="btn btn-secondary btn-sm" onClick={() => {
+                                                                setEditingMemoId(friend.id);
+                                                                setMemoInput(friend.memo || '');
+                                                            }}>별명 편집</button>
+                                                        )}
                                                         <button className="btn btn-primary btn-sm" onClick={() => {
                                                             setDmRecipient(friend.nickname);
                                                             setDmSearchResult({ id: friend.friendUid, nickname: friend.nickname });
@@ -1221,34 +1234,25 @@ export default function MainPage() {
                                                         <button className="fav-remove-btn" onClick={() => { if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, friend.friendUid); }} title="즐겨찾기 해제">⭐</button>
                                                     </div>
                                                 </div>
-                                                <div className="friend-memo-row">
-                                                    {editingMemoId === friend.id ? (
-                                                        <>
-                                                            <input
-                                                                className="input-field friend-memo-input"
-                                                                value={memoInput}
-                                                                onChange={(e) => setMemoInput(e.target.value)}
-                                                                placeholder="비고 입력"
-                                                            />
-                                                            <button className="btn btn-primary btn-sm" onClick={async () => {
-                                                                try {
-                                                                    await updateFriendMemo(profile.uid, friend.id, memoInput);
-                                                                    setEditingMemoId(null);
-                                                                } catch (e) {
-                                                                    addToast('비고 저장에 실패했습니다.', 'error');
-                                                                }
-                                                            }}>저장</button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <span className="friend-memo-text">{friend.memo || '(비고 없음)'}</span>
-                                                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                                                setEditingMemoId(friend.id);
-                                                                setMemoInput(friend.memo || '');
-                                                            }}>편집</button>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                {editingMemoId === friend.id && (
+                                                    <div className="friend-memo-row">
+                                                        <input
+                                                            className="input-field friend-memo-input"
+                                                            value={memoInput}
+                                                            onChange={(e) => setMemoInput(e.target.value)}
+                                                            placeholder="별명 입력"
+                                                        />
+                                                        <button className="btn btn-primary btn-sm" onClick={async () => {
+                                                            try {
+                                                                await updateFriendMemo(profile.uid, friend.id, memoInput);
+                                                                setEditingMemoId(null);
+                                                            } catch (e) {
+                                                                addToast('별명 저장에 실패했습니다.', 'error');
+                                                            }
+                                                        }}>저장</button>
+                                                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingMemoId(null)}>취소</button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))

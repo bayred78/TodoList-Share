@@ -518,6 +518,8 @@ ol {
   display: flex;
   flex-direction: column;
   padding: var(--spacing-md);
+  padding-bottom: calc(var(--banner-height) + 80px);
+  /* 배너광고 높이 + 여유 공간 (배너 없으면 20px만 적용) */
   overflow-y: auto;
 }
 

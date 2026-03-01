@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import './BannerAd.css';
 
 // Capacitor AdMob 플러그인 - 네이티브에서만 동작
@@ -33,12 +33,14 @@ export async function showBannerAd() {
 
 export default function BannerAd({ userPlan = 'free' }) {
     const [isNative, setIsNative] = useState(false);
+    const keyboardOpenRef = useRef(false);
+    const sizeListenerRef = useRef(null);
 
     useEffect(() => {
         // ★ 구독자(Pro/Team): 광고 숨김
         if (userPlan !== 'free') {
             document.body.classList.remove('has-banner-ad');
-            document.documentElement.style.setProperty('--banner-height', '0px');
+            document.body.style.setProperty('--banner-height', '0px');
             loadAdMob().then(() => {
                 if (AdMob) {
                     AdMob.hideBanner?.().catch(() => { });
@@ -49,31 +51,42 @@ export default function BannerAd({ userPlan = 'free' }) {
         // 무료 사용자: 광고 초기화
         document.body.classList.add('has-banner-ad');
         // ★ CSS 변수를 즉시 설정 — initAd 비동기 완료를 기다리지 않음
-        document.documentElement.style.setProperty('--banner-height', '60px');
+        document.body.style.setProperty('--banner-height', '60px');
         initAd();
 
         // ★ 키보드 활성 감지 → 배너 숨김/복원 (앱 전체 적용)
         const vv = window.visualViewport;
-        let keyboardOpen = false;
+        let maxViewportHeight = vv?.height || 0;
+
         const onViewportResize = () => {
-            if (!AdMob) return;
-            const ratio = vv.height / window.screen.height;
-            if (ratio < 0.75 && !keyboardOpen) {
-                keyboardOpen = true;
-                AdMob.hideBanner?.().catch(() => { });
-                document.documentElement.style.setProperty('--banner-height', '0px');
-            } else if (ratio >= 0.75 && keyboardOpen) {
-                keyboardOpen = false;
-                AdMob.resumeBanner?.().catch(() => { });
-                document.documentElement.style.setProperty('--banner-height', '60px');
+            // 화면 회전 등으로 높이가 최대치 갱신된 경우 저장
+            if (vv.height > maxViewportHeight) {
+                maxViewportHeight = vv.height;
+            }
+
+            // 기존보다 높이가 150px 이상 급감하면 키보드가 올라온 것으로 판단
+            const isKeyboardOpen = (maxViewportHeight - vv.height) > 150;
+
+            if (isKeyboardOpen && !keyboardOpenRef.current) {
+                keyboardOpenRef.current = true;
+                document.body.style.setProperty('--banner-height', '0px');
+                if (AdMob) AdMob.hideBanner?.().catch(() => { });
+            } else if (!isKeyboardOpen && keyboardOpenRef.current) {
+                keyboardOpenRef.current = false;
+                document.body.style.setProperty('--banner-height', '60px');
+                if (AdMob) AdMob.resumeBanner?.().catch(() => { });
             }
         };
         if (vv) vv.addEventListener('resize', onViewportResize);
 
         return () => {
             document.body.classList.remove('has-banner-ad');
-            document.documentElement.style.setProperty('--banner-height', '0px');
+            document.body.style.setProperty('--banner-height', '0px');
             if (vv) vv.removeEventListener('resize', onViewportResize);
+            if (sizeListenerRef.current) {
+                sizeListenerRef.current.remove();
+                sizeListenerRef.current = null;
+            }
         };
     }, [userPlan]);
 
@@ -91,9 +104,12 @@ export default function BannerAd({ userPlan = 'free' }) {
 
             // ★ 배너 크기 변경 감지 → CSS 변수에 실제 높이 반영
             if (BannerAdPluginEvents) {
-                AdMob.addListener(BannerAdPluginEvents.SizeChanged, (info) => {
-                    const h = info.height || 60;
-                    document.documentElement.style.setProperty('--banner-height', h + 'px');
+                sizeListenerRef.current = await AdMob.addListener(BannerAdPluginEvents.SizeChanged, (info) => {
+                    // 키보드가 활성화되어 있지 않을 때만 배너 높이 갱신
+                    if (!keyboardOpenRef.current) {
+                        const h = info.height || 60;
+                        document.body.style.setProperty('--banner-height', h + 'px');
+                    }
                 });
             }
 
@@ -106,7 +122,9 @@ export default function BannerAd({ userPlan = 'free' }) {
             });
 
             // SizeChanged가 발동하지 않을 경우를 대비한 기본값
-            document.documentElement.style.setProperty('--banner-height', '60px');
+            if (!keyboardOpenRef.current) {
+                document.body.style.setProperty('--banner-height', '60px');
+            }
         } catch (error) {
             console.log('AdMob 초기화 실패 (웹 환경에서는 정상):', error);
         }

@@ -544,7 +544,7 @@
 .filter-color-dot {
     width: 24px;
     height: 24px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     border: 2px solid transparent;
     cursor: pointer;
     transition: transform var(--transition-fast);
@@ -642,7 +642,7 @@
 .search-result-dot {
     width: 10px;
     height: 10px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     flex-shrink: 0;
 }
 
@@ -714,7 +714,7 @@
 }
 
 .dropdown-arrow {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     margin-left: var(--spacing-xs);
 }
 
@@ -722,7 +722,7 @@
     display: inline-block;
     width: 12px;
     height: 12px;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     vertical-align: middle;
     margin-right: var(--spacing-xs);
 }
@@ -778,7 +778,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 4px;
+    gap: var(--spacing-sm);
+}
+
+.fav-item-info-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
+    min-width: 0;
 }
 
 .fav-item-project {
@@ -831,6 +839,21 @@
 .friend-nickname {
     font-size: var(--font-size-sm);
     font-weight: 600;
+}
+
+.friend-name-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.friend-memo-inline {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .friend-memo-row {

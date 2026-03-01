@@ -7,14 +7,14 @@ import { getProjectLimits, getUserLimits, getUserPlan, getEffectivePlan, LIMITS 
 import UpgradeModal from '../components/common/UpgradeModal';
 import { subscribeToAllItems, addTodoItem, updateTodoItem, deleteTodoItem, toggleCheck, createRepeatItem, updateMemberCheck, updateCalendarSync, restoreTodoItem, permanentDeleteItem, getCachedItems, deltaFetchItems } from '../services/todoService';
 import { Timestamp } from 'firebase/firestore';
-import { sendMessage, subscribeToRecentMessages, loadOlderMessages, updateLastRead, getCachedMessages, setCachedMessages } from '../services/chatService';
+import { sendMessage, subscribeToRecentMessages, loadOlderMessages, updateLastRead, getCachedMessages, setCachedMessages, sendDirectMessage } from '../services/chatService';
 import { inviteUser } from '../services/invitationService';
 import { findUserByNicknameOrEmail } from '../services/userService';
 import { getUserProfile } from '../services/authService';
 import { addEventToCalendar, removeEventFromCalendar, shareCalendarWithUser, unshareCalendarWithUser, checkEventExists, getCalendarAclEmails, hasCalendarToken, getCalendarList } from '../services/calendarService';
-import { uploadChatImage, uploadItemImage, uploadItemFile, downloadFile } from '../services/storageService';
+import { uploadChatImage, uploadItemImage, uploadItemFile, downloadFile, deleteStorageFile } from '../services/storageService';
 import { formatFileSize } from '../utils/imageUtils';
-import { subscribeToFavoriteItems, addFavoriteItem, removeFavoriteItem } from '../services/favoriteService';
+import { subscribeToFavoriteItems, addFavoriteItem, removeFavoriteItem, subscribeToFavoriteFriends, addFavoriteFriend, removeFavoriteFriend } from '../services/favoriteService';
 import { exportItemsToCsv, parseCsv } from '../services/csvService';
 import Modal from '../components/common/Modal';
 import ImageViewer from '../components/common/ImageViewer';
@@ -267,6 +267,14 @@ export default function ProjectPage() {
     const addImageRef = React.useRef(null);
     const addDocRef = React.useRef(null);
     const [showDueHelp, setShowDueHelp] = useState(false);
+    // DM 모달 상태
+    const [showChatDm, setShowChatDm] = useState(false);
+    const [chatDmRecipient, setChatDmRecipient] = useState('');
+    const [chatDmSearchResult, setChatDmSearchResult] = useState(null);
+    const [chatDmSearching, setChatDmSearching] = useState(false);
+    const [chatDmMessage, setChatDmMessage] = useState('');
+    const [chatDmSending, setChatDmSending] = useState(false);
+    const [chatFavFriends, setChatFavFriends] = useState([]);
     const [dueDisplayMode, setDueDisplayMode] = useState(() => localStorage.getItem('dueDisplayMode') || 'date'); // 'date' | 'remaining'
     const [filters, setFilters] = useState({
         colors: [], due: [], labels: [], repeat: null, attachment: null, status: null, members: [],
@@ -434,7 +442,8 @@ export default function ProjectPage() {
     useEffect(() => {
         if (!profile?.uid) return;
         const unsub = subscribeToFavoriteItems(profile.uid, setFavoriteItems);
-        return () => unsub();
+        const unsubFriends = subscribeToFavoriteFriends(profile.uid, setChatFavFriends);
+        return () => { unsub(); unsubFriends(); };
     }, [profile?.uid]);
 
     // 채팅 구독은 채팅 탭이 활성화된 때만 (비용 절감)
@@ -2468,7 +2477,24 @@ export default function ProjectPage() {
                                     return (
                                         <div key={msg.id} className={`chat-bubble-wrapper ${isMe ? 'mine' : 'others'}`}>
                                             {!isMe && (
-                                                <div className="chat-sender">{getMemberName(msg.senderId) || msg.senderNickname}</div>
+                                                <div className="chat-sender"
+                                                    style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                                                    onClick={async () => {
+                                                        if (profile.uid === msg.senderId) return;
+                                                        const name = getMemberName(msg.senderId) || msg.senderNickname;
+                                                        setChatDmRecipient(name);
+                                                        setChatDmSearchResult(null);
+                                                        setChatDmMessage('');
+                                                        setShowChatDm(true);
+                                                        // 자동 검색
+                                                        setChatDmSearching(true);
+                                                        const user = await findUserByNicknameOrEmail(name);
+                                                        setChatDmSearchResult(user || null);
+                                                        if (!user) addToast('사용자를 찾을 수 없습니다.', 'error');
+                                                        setChatDmSearching(false);
+                                                    }}
+                                                    title="클릭하여 메시지 보내기"
+                                                >{getMemberName(msg.senderId) || msg.senderNickname}</div>
                                             )}
                                             <div className={`chat-bubble ${isMe ? 'mine' : 'others'}`}>
                                                 {msg.type === 'image' && msg.mediaUrl ? (
@@ -3214,15 +3240,14 @@ export default function ProjectPage() {
                                 ))}
                             </div>
                         )}
-                        {/* 첨부 서류 목록 */}
                         {newFiles.length > 0 && (
                             <div className="edit-files-list" style={{ padding: '0 var(--spacing-md)' }}>
                                 {newFiles.map((f, i) => (
                                     <div key={i} className="edit-file-item">
-                                        <span>📄 {f.name} ({(f.size / 1024).toFixed(0)}KB)</span>
+                                        <span className="file-name">📄 {f.name} ({(f.size / 1024).toFixed(0)}KB)</span>
                                         <button
                                             type="button"
-                                            className="edit-image-remove"
+                                            className="file-remove"
                                             onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))}
                                         >×</button>
                                     </div>
@@ -3241,6 +3266,19 @@ export default function ProjectPage() {
                             <button
                                 className="fullscreen-editor-back"
                                 onClick={() => {
+                                    // 업로드 중이면 경고 + 정리
+                                    if (itemImageUploading || itemFileUploading) {
+                                        if (window.confirm('파일 업로드가 진행 중입니다. 나가면 업로드된 파일이 삭제됩니다. 나가시겠습니까?')) {
+                                            // 원본 대비 새로 추가된 이미지/파일 URL 정리
+                                            const origImages = editItemOriginal?.images || [];
+                                            const origFiles = (editItemOriginal?.files || []).map(f => f.url);
+                                            const newImages = (editItem?.images || []).filter(url => !origImages.includes(url));
+                                            const newFileUrls = (editItem?.files || []).filter(f => !origFiles.includes(f.url)).map(f => f.url);
+                                            [...newImages, ...newFileUrls].forEach(url => deleteStorageFile(url));
+                                            setShowEditModal(false); setEditItem(null); setEditItemOriginal(null); setIsEditingContent(false); setEditOptionSheet(null);
+                                        }
+                                        return;
+                                    }
                                     // 수정사항이 있는지 확인
                                     if (isEditingContent && editItem && editItemOriginal) {
                                         const hasChanges = editItem.title !== editItemOriginal.title
@@ -3320,8 +3358,15 @@ export default function ProjectPage() {
                                 {isEditingContent && (
                                     <button
                                         className="btn btn-primary btn-sm"
-                                        onClick={() => { handleEditItem(); setIsEditingContent(false); setEditOptionSheet(null); }}
-                                    >💾 저장</button>
+                                        onClick={() => {
+                                            if (itemImageUploading || itemFileUploading) {
+                                                addToast('파일 업로드가 진행 중입니다. 완료 후 저장해주세요.', 'warning');
+                                                return;
+                                            }
+                                            handleEditItem(); setIsEditingContent(false); setEditOptionSheet(null);
+                                        }}
+                                        disabled={itemImageUploading || itemFileUploading}
+                                    >{(itemImageUploading || itemFileUploading) ? '⏳ 업로드 중...' : '💾 저장'}</button>
                                 )}
                             </div>
                         </div>
@@ -4014,6 +4059,110 @@ export default function ProjectPage() {
                     </div>
                 )
             }
+
+            {/* DM(직접 메시지) 모달 */}
+            <Modal
+                isOpen={showChatDm}
+                onClose={() => { setShowChatDm(false); setChatDmRecipient(''); setChatDmMessage(''); setChatDmSearchResult(null); }}
+                title="메시지 보내기"
+                footer={
+                    <>
+                        <button className="btn btn-secondary" onClick={() => { setShowChatDm(false); setChatDmRecipient(''); setChatDmMessage(''); setChatDmSearchResult(null); }}>
+                            취소
+                        </button>
+                        <button
+                            className="btn btn-primary"
+                            disabled={!chatDmSearchResult || !chatDmMessage.trim() || chatDmSending}
+                            onClick={async () => {
+                                if (!chatDmSearchResult || !chatDmMessage.trim()) return;
+                                setChatDmSending(true);
+                                try {
+                                    await sendDirectMessage(profile.uid, chatDmSearchResult.id, chatDmMessage.trim());
+                                    addToast('메시지를 보냈습니다', 'success');
+                                    setShowChatDm(false);
+                                    setChatDmRecipient(''); setChatDmMessage(''); setChatDmSearchResult(null);
+                                } catch (e) {
+                                    addToast('전송에 실패했습니다.', 'error');
+                                }
+                                setChatDmSending(false);
+                            }}
+                        >
+                            {chatDmSending ? '전송 중...' : '보내기'}
+                        </button>
+                    </>
+                }
+            >
+                <div className="input-group">
+                    <label className="input-label">📧 받는 사람 (이메일 또는 닉네임)</label>
+                    <div className="friend-name-row" style={{ gap: 'var(--spacing-sm)' }}>
+                        <input
+                            className="input-field"
+                            placeholder="이메일 또는 닉네임을 입력하세요"
+                            value={chatDmRecipient}
+                            onChange={(e) => { setChatDmRecipient(e.target.value); setChatDmSearchResult(null); }}
+                            style={{ flex: 1 }}
+                        />
+                        <button
+                            className="btn btn-primary btn-sm"
+                            disabled={!chatDmRecipient.trim() || chatDmSearching}
+                            onClick={async () => {
+                                if (!chatDmRecipient.trim()) return;
+                                setChatDmSearching(true);
+                                const user = await findUserByNicknameOrEmail(chatDmRecipient.trim());
+                                if (user && user.id === profile.uid) {
+                                    setChatDmSearchResult(null);
+                                    addToast('자기 자신에게는 메시지를 보낼 수 없습니다.', 'error');
+                                } else {
+                                    setChatDmSearchResult(user);
+                                    if (!user) addToast('사용자를 찾을 수 없습니다.', 'error');
+                                }
+                                setChatDmSearching(false);
+                            }}
+                        >
+                            {chatDmSearching ? '...' : '검색'}
+                        </button>
+                        {chatDmSearchResult && (
+                            <button
+                                className="btn btn-sm"
+                                style={{ fontSize: 'var(--font-size-md)', padding: '2px 8px', minWidth: 'auto' }}
+                                onClick={() => {
+                                    const isFav = chatFavFriends.some(f => f.friendUid === chatDmSearchResult.id);
+                                    if (isFav) {
+                                        if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, chatDmSearchResult.id);
+                                    } else {
+                                        addFavoriteFriend(profile.uid, chatDmSearchResult.id, chatDmSearchResult.nickname);
+                                        addToast('친구 즐겨찾기에 추가했습니다.', 'success');
+                                    }
+                                }}
+                                title="친구 즐겨찾기"
+                            >
+                                {chatFavFriends.some(f => f.friendUid === chatDmSearchResult.id) ? '⭐' : '☆'}
+                            </button>
+                        )}
+                    </div>
+                    {chatDmSearchResult && (
+                        <div className="card" style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                            <strong>{chatDmSearchResult.nickname}</strong>
+                            {chatDmRecipient.includes('@') && (
+                                <span style={{ color: 'var(--color-text-secondary)', marginLeft: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
+                                    {chatDmSearchResult.email}
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="input-group" style={{ marginTop: 'var(--spacing-md)' }}>
+                    <label className="input-label">💬 메시지</label>
+                    <textarea
+                        className="input-field"
+                        placeholder="메시지를 입력하세요"
+                        value={chatDmMessage}
+                        onChange={(e) => setChatDmMessage(e.target.value)}
+                        rows={4}
+                        style={{ resize: 'vertical' }}
+                    />
+                </div>
+            </Modal>
 
             {/* 수정사항 저장 확인 모달 */}
             {

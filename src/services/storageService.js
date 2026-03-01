@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './firebase';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -81,6 +81,20 @@ export async function uploadItemFile(projectId, itemId, file) {
     await withTimeout(uploadBytes(storageRef, file, { contentType: file.type }));
     const downloadUrl = await withTimeout(getDownloadURL(storageRef));
     return { downloadUrl, fileName: file.name, fileSize: file.size, fileType: file.type };
+}
+
+/**
+ * Storage 파일 삭제 (URL 기반)
+ * 업로드 중 취소 시 더미 파일 정리용
+ */
+export async function deleteStorageFile(downloadUrl) {
+    try {
+        const storageRef = ref(storage, downloadUrl);
+        await deleteObject(storageRef);
+    } catch (e) {
+        // 삭제 실패해도 무시 (이미 삭제됐거나 권한 부족)
+        console.warn('Storage 파일 삭제 실패:', e.message);
+    }
 }
 
 /**

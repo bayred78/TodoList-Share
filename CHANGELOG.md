@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-03-01 23:20 — 채팅 키보드 버그 수정 및 디자인 일관성 정규화
+- `BannerAd.jsx`: 키보드 활성 시 빈 공간 버그 수정 (AdMob 이벤트 차단 및 `useRef` 도입), 메모리 누수 방지 리스너 해제 추가
+- `ProjectPage.jsx`: DM 모달을 MainPage 스타일로 통합 및 친구 즐겨찾기 기능 추가, 닉네임 클릭 시 DM 모달 자동 연결
+- `MainPage.jsx`: 즐겨찾기 목록 내 아이템 및 친구 정보 표시 레이아웃 개선, 친구 별명(메모) 편집 기능 강화
+- `storageService.js`: 파일 업로드 취소 시 정리를 위한 `deleteStorageFile` 함수 추가
+- `global.css`, `MainPage.css`, `ProjectPage.css`: 10px 폰트, 50% 반경 등 하드코딩 제거 및 디자인 토큰(`var(--font-size-*)`, `var(--radius-*)`) 적용
+- Git 태그: `v260301-2320`
+- 복원: `git checkout v260301-2320`
+
 ## 2026-02-26 04:42 — 앱 아이콘 갱신, 용어 통일 및 UI 토큰 적용
 - 안드로이드 버저닝 설정 업데이트 (`build.gradle` 버전 1.8 / 8)
 - 신규 앱 아이콘 반영 (`@capacitor/assets` 플러그인 이용 안드로이드 에셋 생성)

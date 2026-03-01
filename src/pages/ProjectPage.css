@@ -599,7 +599,7 @@
 }
 
 .chat-activity-meta {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     margin-top: 2px;
 }
@@ -612,8 +612,7 @@
     border-top: 1px solid var(--color-border);
     background: var(--color-bg-secondary);
     flex-shrink: 0;
-    /* 배너 광고 높이만큼 아래 여백 */
-    margin-bottom: 60px;
+    margin-bottom: var(--banner-height);
     touch-action: manipulation;
     /* 터치 드래그로 스크롤되지 않도록 */
 }

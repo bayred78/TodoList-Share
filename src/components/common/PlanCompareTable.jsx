@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import useToastStore from '../../stores/toastStore';
 import { isTrialUsed, isTrialActive, startFreeTrial, getTrialRemainingDays } from '../../services/subscriptionService';
 import RewardedAd from '../ads/RewardedAd';
 
@@ -41,6 +42,7 @@ const FREE_ACCESS_FEATURES = [
 
 export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, profile, onTrialStart }) {
     const [selectedPlan, setSelectedPlan] = useState(null);
+    const addToast = useToastStore((s) => s.addToast);
 
     const handleSubscribe = (plan, period) => {
         if (onSubscribe) {
@@ -120,7 +122,17 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, pr
                 <div style={{ marginTop: 'var(--spacing-md)', textAlign: 'center' }}>
                     {!isTrialUsed(profile) && (
                         <button className="btn btn-secondary btn-block" style={{ marginBottom: 'var(--spacing-sm)' }}
-                            onClick={async () => { await startFreeTrial(profile?.uid || profile?.id, profile); onTrialStart?.(); }}>
+                            onClick={async () => {
+                                if (window.confirm('Pro 7일 체험을 시작하시겠습니까?\n체험 기간 동안 모든 Pro 기능을 무료로 사용할 수 있습니다.')) {
+                                    try {
+                                        await startFreeTrial(profile?.uid || profile?.id, profile);
+                                        onTrialStart?.();
+                                    } catch (e) {
+                                        console.error(e);
+                                        addToast('체험 시작 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
+                                    }
+                                }
+                            }}>
                             🎁 7일 무료 체험 시작
                         </button>
                     )}

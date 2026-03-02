@@ -4,7 +4,7 @@ import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
 import { changeNickname } from '../services/userService';
 import PlanCompareTable from '../components/common/PlanCompareTable';
-import { getEffectivePlan, getUserPlan, isTrialActive } from '../services/subscriptionService';
+import { getEffectivePlan, getUserPlan, isTrialActive, isTrialUsed, startFreeTrial } from '../services/subscriptionService';
 import { getNotificationSettings, saveNotificationSettings, registerPushNotifications } from '../services/notificationService';
 import RewardedAd from '../components/ads/RewardedAd';
 import './SettingsPage.css';
@@ -204,7 +204,7 @@ export default function SettingsPage() {
                 {/* 구독 */}
                 <div className="settings-card card">
                     <h3 className="settings-card-title">💎 프리미엄 구독</h3>
-                    <p className="settings-description">
+                    <p className="settings-description" style={{ marginBottom: getUserPlan(profile) === 'free' ? 'var(--spacing-sm)' : 'var(--spacing-md)' }}>
                         현재 플랜: <strong>
                             {(() => {
                                 const ep = getEffectivePlan(profile);
@@ -213,7 +213,29 @@ export default function SettingsPage() {
                             {isTrialActive(profile) && ' (체험 중)'}
                         </strong>
                     </p>
-                    <RewardedAd profile={profile} />
+
+                    {/* 무과금자용 빠른 혜택 버튼 모음 (상단 배치) */}
+                    {getUserPlan(profile) === 'free' && (
+                        <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                            {!isTrialUsed(profile) && (
+                                <button className="btn btn-secondary btn-block" style={{ marginBottom: 'var(--spacing-sm)' }}
+                                    onClick={async () => {
+                                        if (window.confirm('Pro 7일 체험을 시작하시겠습니까?\n체험 기간 동안 모든 Pro 기능을 무료로 사용할 수 있습니다.')) {
+                                            try {
+                                                await startFreeTrial(profile?.uid || profile?.id, profile);
+                                                refreshProfile();
+                                            } catch (e) {
+                                                console.error(e);
+                                                addToast('체험 시작 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
+                                            }
+                                        }
+                                    }}>
+                                    🎁 7일 무료 체험 시작
+                                </button>
+                            )}
+                            <RewardedAd profile={profile} />
+                        </div>
+                    )}
 
                     {/* 공유 플랜 비교표 (구독 버튼 활성화) */}
                     <PlanCompareTable

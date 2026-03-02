@@ -793,6 +793,10 @@ ol {
   background: var(--color-text-muted);
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* ===== Mobile Responsive ===== */
 @media (max-width: 480px) {
   :root {

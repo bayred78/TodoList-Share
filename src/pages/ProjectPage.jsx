@@ -231,7 +231,7 @@ export default function ProjectPage() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
     const [favoriteItems, setFavoriteItems] = useState([]);
-    const favoriteItemSet = useMemo(() => new Set(favoriteItems.map(f => `${f.projectId}_${f.itemId} `)), [favoriteItems]);
+    const favoriteItemSet = useMemo(() => new Set(favoriteItems.map(f => `${f.projectId}_${f.itemId}`)), [favoriteItems]);
 
     const VIEW_MODES = ['card', 'grid', 'list', 'detail'];
     const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋', detail: '📄' };
@@ -260,8 +260,9 @@ export default function ProjectPage() {
     const [newDueDate, setNewDueDate] = useState('');
     const [newLabels, setNewLabels] = useState([]);
     const [newRepeatType, setNewRepeatType] = useState('none');
-    const [editOptionSheet, setEditOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'file'|null
-    const [addOptionSheet, setAddOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'file'|null
+    const [editOptionSheet, setEditOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'assign'|'file'|null
+    const [addOptionSheet, setAddOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'assign'|'file'|null
+    const [newAssignees, setNewAssignees] = useState([]); // UID[]
     const [newImages, setNewImages] = useState([]); // { file: File, preview: string }[]
     const [newFiles, setNewFiles] = useState([]);   // File[]
     const addImageRef = React.useRef(null);
@@ -750,9 +751,14 @@ export default function ProjectPage() {
         if (f.status === 'checked') list = list.filter(i => i.checked);
         if (f.status === 'unchecked') list = list.filter(i => !i.checked);
 
-        // 구성원 (다중 선택, OR 조건)
+        // 구성원 (다중 선택, OR 조건 — assignees 기준)
         if (f.members.length > 0) {
-            list = list.filter(i => f.members.includes(i.createdBy));
+            list = list.filter(i => {
+                const itemAssignees = (i.assignees && i.assignees.length > 0)
+                    ? i.assignees
+                    : [i.createdBy]; // 기존 데이터 호환: assignees 없으면 생성자로 폴백
+                return f.members.some(m => itemAssignees.includes(m));
+            });
         }
 
         // 정렬 (기존 유지)
@@ -791,15 +797,19 @@ export default function ProjectPage() {
             if (item.checked) byColor[colorName].checked++;
         });
 
-        // 구성원별
+        // 구성원별 (참여자 기준)
         const byMember = {};
         checklistItems.forEach(item => {
-            const uid = item.createdBy || '';
-            const m = getMemberName(uid) || item.createdByNickname || '알 수 없음';
-            const key = uid || m; // UID 기준 그룹핑 (UID 없으면 표시명 기준)
-            if (!byMember[key]) byMember[key] = { name: m, uid, created: 0, checked: 0 };
-            byMember[key].created++;
-            if (item.checked) byMember[key].checked++;
+            const itemAssignees = (item.assignees && item.assignees.length > 0)
+                ? item.assignees
+                : [item.createdBy]; // 기존 데이터 호환
+            itemAssignees.forEach(uid => {
+                if (!uid) return;
+                const m = getMemberName(uid) || '알 수 없음';
+                if (!byMember[uid]) byMember[uid] = { name: m, uid, total: 0, checked: 0 };
+                byMember[uid].total++;
+                if (item.checked) byMember[uid].checked++;
+            });
         });
 
         // 마감일 현황 (미완료만)
@@ -912,6 +922,12 @@ export default function ProjectPage() {
             addToast('제목을 입력해주세요.', 'warning');
             return;
         }
+        // ★ 참여자 최소 1명 필수
+        if (newAssignees.length === 0) {
+            addToast('참여자를 최소 1명 선택해주세요.', 'warning');
+            setAddOptionSheet('assign');
+            return;
+        }
 
         // ★ 항목 수 제한 체크
         if (items.filter(i => !i.deleted).length >= effectiveLimits.maxItems) {
@@ -952,6 +968,7 @@ export default function ProjectPage() {
                 dueDate: newDueDate ? Timestamp.fromDate(new Date(newDueDate)) : null,
                 labels: newLabels,
                 repeatType: newRepeatType !== 'none' ? newRepeatType : null,
+                assignees: newAssignees,
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
@@ -1002,6 +1019,7 @@ export default function ProjectPage() {
             setNewDueDate('');
             setNewLabels([]);
             setNewRepeatType('none');
+            setNewAssignees([]);
             setNewImages([]);
             setNewFiles([]);
             setShowAddModal(false);
@@ -1058,17 +1076,21 @@ export default function ProjectPage() {
 
             const updatedChecks = await updateMemberCheck(projectId, item.id, userId, newChecked);
 
-            // 모든 구성원이 체크했는지 확인
+            // 모든 참여자가 체크했는지 확인 (assignees 기준, 없으면 전체 구성원)
             if (updatedChecks && project?.members) {
-                const memberUIDs = Object.keys(project.members);
+                const memberUIDs = (item.assignees && item.assignees.length > 0)
+                    ? item.assignees
+                    : Object.keys(project.members);
                 const allChecked = memberUIDs.every(uid => updatedChecks[uid] === true);
                 if (allChecked && !item.checked) {
-                    await toggleCheck(projectId, item.id, true, item, profile?.uid);
-                    addToast('모든 구성원이 확인하여 자동 체크되었습니다!', 'success');
-                    // 반복 항목이면 확인 모달 표시
-                    if (item.repeatType && item.repeatType !== 'none') {
-                        setRepeatConfirmItem(item);
-                        setShowRepeatConfirm(true);
+                    if (window.confirm('모든 참여자가 완료했습니다. 체크리스트를 완료 처리하시겠습니까?')) {
+                        await toggleCheck(projectId, item.id, true, item, profile?.uid);
+                        addToast('체크리스트가 완료 처리되었습니다!', 'success');
+                        // 반복 항목이면 확인 모달 표시
+                        if (item.repeatType && item.repeatType !== 'none') {
+                            setRepeatConfirmItem(item);
+                            setShowRepeatConfirm(true);
+                        }
                     }
                 }
             }
@@ -1768,7 +1790,13 @@ export default function ProjectPage() {
 
     const handleEditItem = async (e) => {
         e?.preventDefault();
-        if (!editItem) return;
+        if (!editItem) return false;
+        // ★ 참여자 최소 1명 필수
+        if (!(editItem.assignees && editItem.assignees.length > 0)) {
+            addToast('참여자를 최소 1명 선택해주세요.', 'warning');
+            setEditOptionSheet('assign');
+            return false;
+        }
 
         // ★ 편집 시 신규 마감일 추가 제한 (기존 마감일 수정은 허용)
         const hadDueDate = !!editItemOriginal?.dueDate;
@@ -1778,7 +1806,7 @@ export default function ProjectPage() {
             if (dueDateCount >= effectiveLimits.freeDueDateLimit) {
                 setUpgradeReason('freeDueDate');
                 setShowUpgradeModal(true);
-                return;
+                return false;
             }
         }
         // ★ 편집 시 신규 라벨 추가 제한 (기존 라벨 수정은 허용)
@@ -1789,7 +1817,7 @@ export default function ProjectPage() {
             if (labelCount >= effectiveLimits.freeLabelLimit) {
                 setUpgradeReason('freeLabel');
                 setShowUpgradeModal(true);
-                return;
+                return false;
             }
         }
         try {
@@ -1816,6 +1844,7 @@ export default function ProjectPage() {
                 dueDate: editItem.dueDate || null,
                 labels: editItem.labels || [],
                 repeatType: editItem.repeatType || null,
+                assignees: editItem.assignees || [],
                 updatedBy: profile?.uid,
             }, { expectedVersion: editItem.version || 1 });
             // 활동 알림 전송 (메인페이지 메세지탭에 표시)
@@ -1835,8 +1864,6 @@ export default function ProjectPage() {
                     }),
                 });
             } catch (e) { /* 알림 실패해도 수정은 완료 */ }
-            setShowEditModal(false);
-            setEditItem(null);
             setEditOptionSheet(null);
             addToast('수정되었습니다.', 'success');
         } catch (error) {
@@ -1848,6 +1875,7 @@ export default function ProjectPage() {
                         images: editItem.images || [], files: editItem.files || [],
                         color: editItem.color || null, dueDate: editItem.dueDate || null,
                         labels: editItem.labels || [], repeatType: editItem.repeatType || null,
+                        assignees: editItem.assignees || [],
                     },
                     itemId: editItem.id,
                 });
@@ -1870,11 +1898,11 @@ export default function ProjectPage() {
                 dueDate: conflictData.myData.dueDate || null,
                 labels: conflictData.myData.labels || [],
                 repeatType: conflictData.myData.repeatType || null,
+                assignees: conflictData.myData.assignees || [],
             }, { forceOverwrite: true });
             addToast('덮어쓰기로 저장되었습니다.', 'success');
             setConflictData(null);
-            setShowEditModal(false);
-            setEditItem(null);
+            setIsEditingContent(false);
             setEditOptionSheet(null);
         } catch (error) {
             addToast('덮어쓰기에 실패했습니다.', 'error');
@@ -1894,13 +1922,13 @@ export default function ProjectPage() {
                 dueDate: conflictData.myData.dueDate || null,
                 labels: conflictData.myData.labels || [],
                 repeatType: conflictData.myData.repeatType || null,
+                assignees: conflictData.myData.assignees || [],
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
             addToast('새 항목으로 저장되었습니다.', 'success');
             setConflictData(null);
-            setShowEditModal(false);
-            setEditItem(null);
+            setIsEditingContent(false);
             setEditOptionSheet(null);
         } catch (error) {
             addToast('새 항목 저장에 실패했습니다.', 'error');
@@ -2554,14 +2582,14 @@ export default function ProjectPage() {
                                                     style={{ cursor: 'pointer', textDecoration: 'underline' }}
                                                     onClick={async () => {
                                                         if (profile.uid === msg.senderId) return;
-                                                        const name = getMemberName(msg.senderId) || msg.senderNickname;
-                                                        setChatDmRecipient(name);
+                                                        const nickname = msg.senderNickname || getMemberName(msg.senderId);
+                                                        setChatDmRecipient(nickname);
                                                         setChatDmSearchResult(null);
                                                         setChatDmMessage('');
                                                         setShowChatDm(true);
                                                         // 자동 검색
                                                         setChatDmSearching(true);
-                                                        const user = await findUserByNicknameOrEmail(name);
+                                                        const user = await findUserByNicknameOrEmail(nickname);
                                                         setChatDmSearchResult(user || null);
                                                         if (!user) addToast('사용자를 찾을 수 없습니다.', 'error');
                                                         setChatDmSearching(false);
@@ -2724,30 +2752,34 @@ export default function ProjectPage() {
                         {/* 마감일 현황 */}
                         <div className="stats-card">
                             <h3 className="stats-card-title">⏰ 마감일 현황 (미완료)</h3>
-                            <div className="stats-grid cols-3">
-                                <div className="stats-grid-item danger clickable" onClick={() => handleStatsClick({ due: ['overdue'], status: 'unchecked' })}>
-                                    <span className="stats-grid-number">{statsData.overdue}</span>
-                                    <span className="stats-grid-label">🔴 기한초과</span>
+                            <div className="stats-due-list">
+                                <div className="stats-row clickable danger" onClick={() => handleStatsClick({ due: ['overdue'], status: 'unchecked' })}>
+                                    <span className="stats-row-name">🔴 기한 초과</span>
+                                    <span className="stats-row-value">{statsData.overdue}개</span>
                                 </div>
-                                <div className="stats-grid-item warning clickable" onClick={() => handleStatsClick({ due: ['day1'], status: 'unchecked' })}>
-                                    <span className="stats-grid-number">{statsData.day1}</span>
-                                    <span className="stats-grid-label">🟠 ~1일</span>
+                                <div className="stats-row clickable warning" onClick={() => handleStatsClick({ due: ['day1'], status: 'unchecked' })}>
+                                    <span className="stats-row-name">🟠 1일 이내</span>
+                                    <span className="stats-row-value">{statsData.day1}개</span>
                                 </div>
-                                <div className="stats-grid-item caution clickable" onClick={() => handleStatsClick({ due: ['day3'], status: 'unchecked' })}>
-                                    <span className="stats-grid-number">{statsData.day3}</span>
-                                    <span className="stats-grid-label">🟡 1~3일</span>
+                                <div className="stats-row clickable caution" onClick={() => handleStatsClick({ due: ['day3'], status: 'unchecked' })}>
+                                    <span className="stats-row-name">🟡 3일 이내</span>
+                                    <span className="stats-row-value">{statsData.day3}개</span>
                                 </div>
-                                <div className="stats-grid-item info clickable" onClick={() => handleStatsClick({ due: ['day7'], status: 'unchecked' })}>
-                                    <span className="stats-grid-number">{statsData.day7}</span>
-                                    <span className="stats-grid-label">🔵 3~7일</span>
+                                <div className="stats-row clickable info" onClick={() => handleStatsClick({ due: ['day7'], status: 'unchecked' })}>
+                                    <span className="stats-row-name">🟢 7일 이내</span>
+                                    <span className="stats-row-value">{statsData.day7}개</span>
                                 </div>
-                                <div className="stats-grid-item purple clickable" onClick={() => handleStatsClick({ due: ['day14'], status: 'unchecked' })}>
-                                    <span className="stats-grid-number">{statsData.day14}</span>
-                                    <span className="stats-grid-label">🟣 7~14일</span>
+                                <div className="stats-row clickable purple" onClick={() => handleStatsClick({ due: ['day14'], status: 'unchecked' })}>
+                                    <span className="stats-row-name">🔵 14일 이내</span>
+                                    <span className="stats-row-value">{statsData.day14}개</span>
                                 </div>
-                                <div className="stats-grid-item clickable" onClick={() => handleStatsClick({ due: ['later'], status: 'unchecked' })}>
-                                    <span className="stats-grid-number">{statsData.later}</span>
-                                    <span className="stats-grid-label">⚪ 이후</span>
+                                <div className="stats-row clickable" onClick={() => handleStatsClick({ due: ['later'], status: 'unchecked' })}>
+                                    <span className="stats-row-name">⬜ 14일 이후</span>
+                                    <span className="stats-row-value">{statsData.later}개</span>
+                                </div>
+                                <div className="stats-row clickable muted" onClick={() => handleStatsClick({ status: 'unchecked' })}>
+                                    <span className="stats-row-name">⚫ 마감 미설정</span>
+                                    <span className="stats-row-value">{statsData.noDue}개</span>
                                 </div>
                             </div>
                         </div>
@@ -2807,7 +2839,7 @@ export default function ProjectPage() {
                             {Object.entries(statsData.byMember).map(([key, data]) => (
                                 <div key={key} className="stats-row clickable" onClick={() => handleStatsClick({ members: [data.uid || key] })}>
                                     <span className="stats-row-name">{data.name}</span>
-                                    <span className="stats-row-value">생성 {data.created} / 완료 {data.checked}</span>
+                                    <span className="stats-row-value">참여 {data.total} / 완료 {data.checked}</span>
                                 </div>
                             ))}
                             {Object.keys(statsData.byMember).length === 0 && (
@@ -2993,7 +3025,7 @@ export default function ProjectPage() {
 
             {/* FAB - 체크리스트 탭에서만 표시 */}
             {userCanWrite && activeTab === 'checklist' && (
-                <button className="fab" onClick={() => { setNewColor(null); setNewTitle(''); setNewContent(''); setNewDueDate(''); setNewLabels([]); setNewRepeatType('none'); setAddOptionSheet(null); setNewImages([]); setNewFiles([]); setShowAddModal(true); }} title="새 체크리스트">
+                <button className="fab" onClick={() => { setNewColor(null); setNewTitle(''); setNewContent(''); setNewDueDate(''); setNewLabels([]); setNewRepeatType('none'); setNewAssignees(allMemberList.map(m => m.uid)); setAddOptionSheet(null); setNewImages([]); setNewFiles([]); setShowAddModal(true); }} title="새 체크리스트">
                     +
                 </button>
             )}
@@ -3002,7 +3034,7 @@ export default function ProjectPage() {
             {showAddModal && (
                 <div className="fullscreen-editor">
                     <div className="fullscreen-editor-header">
-                        <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); setNewImages([]); setNewFiles([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
+                        <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); setNewImages([]); setNewFiles([]); setNewAssignees([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
                         <div className="fullscreen-editor-actions">
                             <button className="btn btn-primary btn-sm" onClick={handleAddItem}>추가</button>
                         </div>
@@ -3049,7 +3081,15 @@ export default function ProjectPage() {
                             }}
                         >
                             <span>🔄</span><span className="edit-toolbar-label">반복</span>
-                            {newRepeatType && newRepeatType !== 'none' && <span className="edit-toolbar-dot" style={{ background: '#6366f1' }}></span>}
+                            {newRepeatType && newRepeatType !== 'none' && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${addOptionSheet === 'assign' ? 'active' : ''}`}
+                            onClick={() => setAddOptionSheet(addOptionSheet === 'assign' ? null : 'assign')}
+                        >
+                            <span>👥</span><span className="edit-toolbar-label">참여</span>
+                            {newAssignees.length > 0 && <span className="edit-toolbar-count">{newAssignees.length}</span>}
                         </button>
                         <button
                             type="button"
@@ -3244,6 +3284,37 @@ export default function ProjectPage() {
                         </div>
                     )}
 
+                    {/* 옵션 시트: 참여자 선택 */}
+                    {addOptionSheet === 'assign' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>👥 참여자 선택</span>
+                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                            </div>
+                            <div className="padding-y-sm-x-md">
+                                <div className="assign-actions">
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setNewAssignees(allMemberList.map(m => m.uid))}>전체선택</button>
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setNewAssignees([])}>전체해제</button>
+                                </div>
+                                <div className="assign-member-list">
+                                    {allMemberList.map(m => (
+                                        <label key={m.uid} className="assign-member-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={newAssignees.includes(m.uid)}
+                                                onChange={() => setNewAssignees(prev =>
+                                                    prev.includes(m.uid) ? prev.filter(u => u !== m.uid) : [...prev, m.uid]
+                                                )}
+                                            />
+                                            <span className="assign-member-name">{m.nickname}</span>
+                                            <span className="assign-member-role">{getRoleLabel(project?.members?.[m.uid]?.role)}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 옵션 시트: 파일 첨부 */}
                     {addOptionSheet === 'file' && (
                         <div className="edit-option-sheet">
@@ -3332,34 +3403,42 @@ export default function ProjectPage() {
                             <button
                                 className="fullscreen-editor-back"
                                 onClick={() => {
-                                    // 업로드 중이면 경고 + 정리
-                                    if (itemImageUploading || itemFileUploading) {
-                                        if (window.confirm('파일 업로드가 진행 중입니다. 나가면 업로드된 파일이 삭제됩니다. 나가시겠습니까?')) {
-                                            // 원본 대비 새로 추가된 이미지/파일 URL 정리
-                                            const origImages = editItemOriginal?.images || [];
-                                            const origFiles = (editItemOriginal?.files || []).map(f => f.url);
-                                            const newImages = (editItem?.images || []).filter(url => !origImages.includes(url));
-                                            const newFileUrls = (editItem?.files || []).filter(f => !origFiles.includes(f.url)).map(f => f.url);
-                                            Promise.all([...newImages, ...newFileUrls].map(url => deleteStorageFile(url))).catch(console.error);
-                                            setShowEditModal(false); setEditItem(null); setEditItemOriginal(null); setIsEditingContent(false); setEditOptionSheet(null);
-                                        }
-                                        return;
-                                    }
-                                    // 수정사항이 있는지 확인
-                                    if (isEditingContent && editItem && editItemOriginal) {
-                                        const hasChanges = editItem.title !== editItemOriginal.title
-                                            || (editItem.content || '') !== (editItemOriginal.content || '')
-                                            || (editItem.color || null) !== (editItemOriginal.color || null)
-                                            || JSON.stringify(editItem.images || []) !== JSON.stringify(editItemOriginal.images || [])
-                                            || JSON.stringify(editItem.files || []) !== JSON.stringify(editItemOriginal.files || [])
-                                            || (editItem.dueDate || null) !== (editItemOriginal.dueDate || null)
-                                            || JSON.stringify(editItem.labels || []) !== JSON.stringify(editItemOriginal.labels || [])
-                                            || (editItem.repeatType || null) !== (editItemOriginal.repeatType || null);
-                                        if (hasChanges) {
-                                            setShowUnsavedModal(true);
+                                    // 편집 모드일 때는 뷰어로만 돌아감
+                                    if (isEditingContent) {
+                                        // 업로드 중이면 경고 + 정리
+                                        if (itemImageUploading || itemFileUploading) {
+                                            if (window.confirm('파일 업로드가 진행 중입니다. 나가면 업로드된 파일이 삭제됩니다. 나가시겠습니까?')) {
+                                                const origImages = editItemOriginal?.images || [];
+                                                const origFiles = (editItemOriginal?.files || []).map(f => f.url);
+                                                const newImages = (editItem?.images || []).filter(url => !origImages.includes(url));
+                                                const newFileUrls = (editItem?.files || []).filter(f => !origFiles.includes(f.url)).map(f => f.url);
+                                                Promise.all([...newImages, ...newFileUrls].map(url => deleteStorageFile(url))).catch(console.error);
+                                                setIsEditingContent(false);
+                                                setEditOptionSheet(null);
+                                            }
                                             return;
                                         }
+                                        // 수정사항 확인
+                                        if (editItem && editItemOriginal) {
+                                            const hasChanges = editItem.title !== editItemOriginal.title
+                                                || (editItem.content || '') !== (editItemOriginal.content || '')
+                                                || (editItem.color || null) !== (editItemOriginal.color || null)
+                                                || JSON.stringify(editItem.images || []) !== JSON.stringify(editItemOriginal.images || [])
+                                                || JSON.stringify(editItem.files || []) !== JSON.stringify(editItemOriginal.files || [])
+                                                || (editItem.dueDate || null) !== (editItemOriginal.dueDate || null)
+                                                || JSON.stringify(editItem.labels || []) !== JSON.stringify(editItemOriginal.labels || [])
+                                                || (editItem.repeatType || null) !== (editItemOriginal.repeatType || null)
+                                                || JSON.stringify(editItem.assignees || []) !== JSON.stringify(editItemOriginal.assignees || []);
+                                            if (hasChanges) {
+                                                setShowUnsavedModal(true);
+                                                return;
+                                            }
+                                        }
+                                        setIsEditingContent(false);
+                                        setEditOptionSheet(null);
+                                        return;
                                     }
+                                    // 뷰어 모드일 때 모달 닫기
                                     setShowEditModal(false); setEditItem(null); setEditItemOriginal(null); setIsEditingContent(false); setEditOptionSheet(null);
                                 }}
                             >←</button>
@@ -3385,28 +3464,38 @@ export default function ProjectPage() {
                                         <button
                                             className="btn btn-secondary btn-sm"
                                             onClick={() => setShowMemberCheckDropdown(!showMemberCheckDropdown)}
-                                            title="구성원 확인"
-                                        >✅ 확인</button>
+                                            title="구성원 완료"
+                                        >✅ 완료</button>
                                         {showMemberCheckDropdown && (
                                             <div className="member-check-dropdown">
-                                                <div className="member-check-title">구성원 확인</div>
-                                                {Object.entries(project.members).map(([uid, member]) => (
-                                                    <label key={uid} className="member-check-item">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={!!(editItem.memberChecks && editItem.memberChecks[uid])}
-                                                            onChange={() => handleMemberCheckToggle(editItem, uid)}
-                                                        />
-                                                        <span className="member-check-name">{getMemberName(uid) || member.nickname}</span>
-                                                        <span className="member-check-role">{getRoleLabel(member.role)}</span>
-                                                    </label>
-                                                ))}
+                                                <div className="member-check-title">구성원 완료</div>
                                                 {(() => {
-                                                    const memberUIDs = Object.keys(project.members);
+                                                    const targetUIDs = (editItem.assignees && editItem.assignees.length > 0)
+                                                        ? editItem.assignees.filter(uid => project.members[uid])
+                                                        : Object.keys(project.members);
+                                                    return targetUIDs.map(uid => {
+                                                        const member = project.members[uid];
+                                                        return (
+                                                            <label key={uid} className="member-check-item">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={!!(editItem.memberChecks && editItem.memberChecks[uid])}
+                                                                    onChange={() => handleMemberCheckToggle(editItem, uid)}
+                                                                />
+                                                                <span className={`member-check-name ${editItem.memberChecks?.[uid] ? 'checked' : ''}`}>{getMemberName(uid) || member.nickname}</span>
+                                                                <span className="member-check-role">{getRoleLabel(member.role)}</span>
+                                                            </label>
+                                                        );
+                                                    });
+                                                })()}
+                                                {(() => {
+                                                    const memberUIDs = (editItem.assignees && editItem.assignees.length > 0)
+                                                        ? editItem.assignees.filter(uid => project.members[uid])
+                                                        : Object.keys(project.members);
                                                     const checkedCount = memberUIDs.filter(uid => editItem.memberChecks?.[uid]).length;
                                                     return (
                                                         <div className="member-check-summary">
-                                                            {checkedCount}/{memberUIDs.length}명 확인
+                                                            {checkedCount}/{memberUIDs.length}명 완료
                                                         </div>
                                                     );
                                                 })()}
@@ -3429,7 +3518,11 @@ export default function ProjectPage() {
                                                 addToast('파일 업로드가 진행 중입니다. 완료 후 저장해주세요.', 'warning');
                                                 return;
                                             }
-                                            handleEditItem(); setIsEditingContent(false); setEditOptionSheet(null);
+                                            handleEditItem().then((result) => {
+                                                if (result !== false) {
+                                                    setIsEditingContent(false); setEditOptionSheet(null);
+                                                }
+                                            });
                                         }}
                                         disabled={itemImageUploading || itemFileUploading}
                                     >{(itemImageUploading || itemFileUploading) ? '⏳ 업로드 중...' : '💾 저장'}</button>
@@ -3479,7 +3572,15 @@ export default function ProjectPage() {
                                     }}
                                 >
                                     <span>🔄</span><span className="edit-toolbar-label">반복</span>
-                                    {editItem.repeatType && editItem.repeatType !== 'none' && <span className="edit-toolbar-dot" style={{ background: '#6366f1' }}></span>}
+                                    {editItem.repeatType && editItem.repeatType !== 'none' && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`edit-toolbar-btn ${editOptionSheet === 'assign' ? 'active' : ''}`}
+                                    onClick={() => setEditOptionSheet(editOptionSheet === 'assign' ? null : 'assign')}
+                                >
+                                    <span>👥</span><span className="edit-toolbar-label">참여</span>
+                                    {(editItem.assignees || []).length > 0 && <span className="edit-toolbar-count">{(editItem.assignees || []).length}</span>}
                                 </button>
                                 {/* 📎 파일 첨부 버튼 — 플랜 제한 없음 */}
                                 <button
@@ -3666,6 +3767,38 @@ export default function ProjectPage() {
                                                 <option key={d} value={`monthday:${d}`}>매달 {d}일</option>
                                             ))}
                                         </select>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 옵션 시트: 참여자 선택 */}
+                        {editOptionSheet === 'assign' && (
+                            <div className="edit-option-sheet">
+                                <div className="edit-option-sheet-header">
+                                    <span>👥 참여자 선택</span>
+                                    <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
+                                </div>
+                                <div className="padding-y-sm-x-md">
+                                    <div className="assign-actions">
+                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => setEditItem(prev => ({ ...prev, assignees: allMemberList.map(m => m.uid) }))}>전체선택</button>
+                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => setEditItem(prev => ({ ...prev, assignees: [] }))}>전체해제</button>
+                                    </div>
+                                    <div className="assign-member-list">
+                                        {allMemberList.map(m => (
+                                            <label key={m.uid} className="assign-member-item">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(editItem.assignees || []).includes(m.uid)}
+                                                    onChange={() => setEditItem(prev => {
+                                                        const curr = prev.assignees || [];
+                                                        return { ...prev, assignees: curr.includes(m.uid) ? curr.filter(u => u !== m.uid) : [...curr, m.uid] };
+                                                    })}
+                                                />
+                                                <span className="assign-member-name">{m.nickname}</span>
+                                                <span className="assign-member-role">{getRoleLabel(project?.members?.[m.uid]?.role)}</span>
+                                            </label>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -4268,7 +4401,8 @@ export default function ProjectPage() {
                                     style={{ flex: 1 }}
                                     onClick={() => {
                                         setShowUnsavedModal(false);
-                                        setShowEditModal(false); setEditItem(null); setEditItemOriginal(null); setIsEditingContent(false); setEditOptionSheet(null);
+                                        setIsEditingContent(false); setEditOptionSheet(null);
+                                        setEditItem(editItemOriginal ? { ...editItemOriginal } : editItem);
                                     }}
                                 >나가기</button>
                                 <button
@@ -4281,8 +4415,11 @@ export default function ProjectPage() {
                                     style={{ flex: 1 }}
                                     onClick={() => {
                                         setShowUnsavedModal(false);
-                                        handleEditItem();
-                                        setIsEditingContent(false);
+                                        handleEditItem().then((result) => {
+                                            if (result !== false) {
+                                                setIsEditingContent(false); setEditOptionSheet(null);
+                                            }
+                                        });
                                     }}
                                 >저장</button>
                             </div>

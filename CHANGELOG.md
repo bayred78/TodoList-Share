@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-03-03 02:21 — 체크리스트 참여자(assignees) 기능 구현 + 버그 수정 8건 + 디자인 토큰 정리
+- `ProjectPage.jsx`: 체크리스트 참여자(assignees) 선택 UI/로직 구현, 필터·통계·확인을 assignees 기반으로 변경
+- `ProjectPage.jsx`: 저장/나가기 시 2단계 네비게이션 버그 3곳 수정 (편집→뷰어 복귀로 통일)
+- `ProjectPage.jsx`: 참여자 0명 저장 방지, 확인→완료 명칭, 전원완료 시 confirm 대화상자, 즐겨찾기 trailing space, DM 닉네임 검색
+- `ProjectPage.jsx`: 충돌 처리 함수 뷰어 복귀, 반복 도트 `#6366f1`→`var(--color-primary)`
+- `ProjectPage.css`: assignee/member-check CSS 추가, 완료 스타일(취소선+회색), 하드코딩 토큰 대체 4곳
+- `SettingsPage.jsx`: 설정 페이지 크래시 수정 (import 누락)
+- `todoService.js`: assignees 필드 지원
+- `global.css`: 디자인 토큰 추가
+- Git 태그: `v260303-0221`
+- 복원: `git checkout v260303-0221`
+
 ## 2026-03-02 04:36 — 디자인 시스템 토큰화 및 멤버 관리 UI 개선
 - `ProjectPage.jsx` & `ProjectPage.css`: 인라인 스타일 전면 제거 및 700여 개 하드코딩 수치를 디자인 토큰(`var(--spacing-*)`, `color-mix` 등)으로 교체, 멤버 리스트 Grid 레이아웃 및 권한 드롭다운 UI 통합
 - `MainPage.jsx` & `MainPage.css`: 페이지 생성/수정 모달 내 활동명 옵션 정규화 및 디자인 토큰 적용

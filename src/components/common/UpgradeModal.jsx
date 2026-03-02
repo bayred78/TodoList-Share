@@ -16,7 +16,6 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', re
         maxItems: '체크리스트 항목 수가 최대 한도에 도달했습니다.',
         chatHistory: '더 많은 채팅 기록은 Pro 이상 구독이 필요합니다.',
         calendar: '구글 캘린더 연동은 Pro 이상에서 사용 가능합니다.',
-        exportCsv: 'CSV 관리는 프리미엄 기능입니다.',
         imageChat: '이미지 채팅은 본인 구독이 필요합니다.',
         repeat: '반복 기능은 Pro 이상 구독이 필요합니다.',
         priority: '마감일 기능은 Pro 이상 구독이 필요합니다.',

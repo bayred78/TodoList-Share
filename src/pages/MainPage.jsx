@@ -7,6 +7,7 @@ import { subscribeToMyInvitations, subscribeToSentInvitations, acceptInvitation,
 import { getUserPlan, getEffectivePlan, getUserLimits, LIMITS } from '../services/subscriptionService';
 import UpgradeModal from '../components/common/UpgradeModal';
 import Modal from '../components/common/Modal';
+import PageHeader from '../components/common/PageHeader';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
 import './MainPage.css';
 import { toggleCheck } from '../services/todoService';
@@ -633,8 +634,11 @@ export default function MainPage() {
     return (
         <div className="page">
             <div className="container">
-                <div className="page-header">
-                    <h1>TodoList Share</h1>
+                <PageHeader>
+                    <div className="flex-row-gap-sm">
+                        <div style={{ width: 40, flexShrink: 0 }} />
+                        <h1>TodoList Share</h1>
+                    </div>
                     <div className="header-actions">
                         <button
                             className="header-icon-btn"
@@ -660,7 +664,7 @@ export default function MainPage() {
                             ⚙️
                         </button>
                     </div>
-                </div>
+                </PageHeader>
 
                 {/* 탭 */}
                 <div className="tab-bar">
@@ -1139,9 +1143,6 @@ export default function MainPage() {
                                                         onClick={(e) => handleEditOpen(e, project)}
                                                         title="페이지 수정"
                                                     >✏️</button>
-                                                )}
-                                                {project.ownerId === profile?.uid && (
-                                                    <span className="badge badge-primary">관리자</span>
                                                 )}
                                                 {(project.ownerPlan || 'free') === 'free' && project.memberCount > LIMITS.free.maxMembers && (
                                                     <span className="badge badge-danger">읽기 전용</span>

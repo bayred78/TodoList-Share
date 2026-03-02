@@ -15,8 +15,8 @@ import { addEventToCalendar, removeEventFromCalendar, shareCalendarWithUser, uns
 import { uploadChatImage, uploadItemImage, uploadItemFile, downloadFile, deleteStorageFile } from '../services/storageService';
 import { formatFileSize } from '../utils/imageUtils';
 import { subscribeToFavoriteItems, addFavoriteItem, removeFavoriteItem, subscribeToFavoriteFriends, addFavoriteFriend, removeFavoriteFriend } from '../services/favoriteService';
-import { exportItemsToCsv, parseCsv } from '../services/csvService';
 import Modal from '../components/common/Modal';
+import PageHeader from '../components/common/PageHeader';
 import ImageViewer from '../components/common/ImageViewer';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
 import CalendarView from '../components/CalendarView';
@@ -314,9 +314,7 @@ export default function ProjectPage() {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [showMemberFilter, setShowMemberFilter] = useState(false);
     const [showCalendarFilter, setShowCalendarFilter] = useState(false);
-    const [showCsvMenu, setShowCsvMenu] = useState(false);
-    const [csvImportConflicts, setCsvImportConflicts] = useState(null);
-    const csvFileRef = React.useRef(null);
+
 
     // 채팅
     const [chatMessages, setChatMessages] = useState([]);
@@ -1686,107 +1684,6 @@ export default function ProjectPage() {
         }));
     };
 
-    // CSV 내보내기
-    const handleExportCsv = async () => {
-        if (!effectiveLimits.exportCsv) {
-            setUpgradeReason('exportCsv');
-            setShowUpgradeModal(true);
-            return;
-        }
-        try {
-            await exportItemsToCsv(items, project.name);
-            addToast('CSV 파일이 다운로드되었습니다.', 'success');
-        } catch (err) {
-            addToast('CSV 내보내기에 실패했습니다.', 'error');
-        }
-    };
-
-    // CSV 가져오기
-    const handleImportCsvClick = () => {
-        csvFileRef.current?.click();
-    };
-
-    const handleImportCsvFile = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        e.target.value = '';
-        try {
-            const text = await file.text();
-            const parsed = parseCsv(text);
-            if (parsed.length === 0) {
-                addToast('가져올 항목이 없습니다.', 'warning');
-                return;
-            }
-            const existingTitles = items.filter(i => !i.deleted).map(i => i.title);
-            const conflicts = [];
-            const noConflicts = [];
-            parsed.forEach(item => {
-                if (existingTitles.includes(item.title)) {
-                    conflicts.push(item);
-                } else {
-                    noConflicts.push(item);
-                }
-            });
-            if (conflicts.length === 0) {
-                await importItems(noConflicts);
-                addToast(`${noConflicts.length}개 항목을 가져왔습니다.`, 'success');
-            } else {
-                setCsvImportConflicts({ noConflicts, conflicts, currentIdx: 0, decisions: [] });
-            }
-        } catch (err) {
-            addToast(err.message || 'CSV 파일을 읽을 수 없습니다.', 'error');
-        }
-    };
-
-    const handleConflictDecision = async (action) => {
-        const state = { ...csvImportConflicts };
-        state.decisions.push({ action, item: state.conflicts[state.currentIdx] });
-        if (state.currentIdx + 1 < state.conflicts.length) {
-            state.currentIdx += 1;
-            setCsvImportConflicts(state);
-        } else {
-            setCsvImportConflicts(null);
-            await processImportDecisions(state.noConflicts, state.decisions);
-        }
-    };
-
-    const processImportDecisions = async (noConflicts, decisions) => {
-        const toAdd = [...noConflicts];
-        let overwriteCount = 0;
-        for (const { action, item } of decisions) {
-            if (action === 'skip') continue;
-            if (action === 'overwrite') {
-                const existing = items.find(i => !i.deleted && i.title === item.title);
-                if (existing) {
-                    await updateTodoItem(projectId, existing.id, {
-                        content: item.content, color: item.color,
-                        dueDate: item.dueDate ? Timestamp.fromDate(new Date(item.dueDate)) : null,
-                        labels: item.labels, repeatType: item.repeatType,
-                    }, { expectedVersion: existing.version || 1 });
-                    overwriteCount++;
-                }
-            } else if (action === 'rename') {
-                item.title = item.title + ' (가져옴)';
-                toAdd.push(item);
-            }
-        }
-        await importItems(toAdd);
-        const total = toAdd.length + overwriteCount;
-        addToast(`${total}개 항목을 처리했습니다.`, 'success');
-    };
-
-    const importItems = async (parsedItems) => {
-        for (const item of parsedItems) {
-            await addTodoItem(projectId, {
-                type: 'checklist', title: item.title, content: item.content,
-                checked: item.checked || false,
-                color: item.color,
-                dueDate: item.dueDate ? Timestamp.fromDate(new Date(item.dueDate)) : null,
-                labels: item.labels, repeatType: item.repeatType,
-                createdBy: profile.uid, createdByNickname: getMemberName(profile.uid) || profile.nickname,
-            });
-        }
-    };
 
     const handleEditItem = async (e) => {
         e?.preventDefault();
@@ -2149,10 +2046,10 @@ export default function ProjectPage() {
         <div className="page">
             <div className="container">
                 {/* 헤더 */}
-                <div className="page-header">
+                <PageHeader>
                     <div className="flex-row-gap-sm">
                         <button className="page-header-back" onClick={() => navigate('/')}>←</button>
-                        <h1 className="page-title">{project.name}</h1>
+                        <h1>{project.name}</h1>
                     </div>
                     <div className="header-actions">
                         {userCanAdmin && (
@@ -2179,25 +2076,11 @@ export default function ProjectPage() {
                         >
                             {VIEW_MODE_ICONS[pageViewMode]}
                         </button>
-                        <div className="relative-inline">
-                            <button className="header-icon-btn" onClick={() => {
-                                if (!effectiveLimits.exportCsv) {
-                                    setUpgradeReason('exportCsv'); setShowUpgradeModal(true); return;
-                                }
-                                setShowCsvMenu(prev => !prev);
-                            }} title="CSV 관리">🗂️</button>
-                            {showCsvMenu && (
-                                <div className="csv-dropdown-menu">
-                                    <button onClick={() => { handleExportCsv(); setShowCsvMenu(false); }}>📥 CSV 내보내기</button>
-                                    <button onClick={() => { handleImportCsvClick(); setShowCsvMenu(false); }}>📤 CSV 가져오기</button>
-                                </div>
-                            )}
-                        </div>
                         <button className="header-icon-btn" onClick={() => setShowSettingsModal(true)} title="페이지 설정">
                             ⚙️
                         </button>
                     </div>
-                </div>
+                </PageHeader>
 
                 {/* 읽기 전용 배너 — 무료 플랜에서 멤버 수 초과 시 */}
                 {(project?.ownerPlan || 'free') === 'free' && project?.memberCount > LIMITS.free.maxMembers && (
@@ -2477,20 +2360,6 @@ export default function ProjectPage() {
                                 >
                                     {VIEW_MODE_ICONS[pageViewMode]}
                                 </button>
-                                <div className="relative-inline">
-                                    <button className="header-icon-btn" onClick={() => {
-                                        if (!effectiveLimits.exportCsv) {
-                                            setUpgradeReason('exportCsv'); setShowUpgradeModal(true); return;
-                                        }
-                                        setShowCsvMenu(prev => !prev);
-                                    }} title="CSV 관리">🗂️</button>
-                                    {showCsvMenu && (
-                                        <div className="csv-dropdown-menu">
-                                            <button onClick={() => { handleExportCsv(); setShowCsvMenu(false); }}>📥 CSV 내보내기</button>
-                                            <button onClick={() => { handleImportCsvClick(); setShowCsvMenu(false); }}>📤 CSV 가져오기</button>
-                                        </div>
-                                    )}
-                                </div>
                                 <button className="header-icon-btn" onClick={() => setShowSettingsModal(true)} title="페이지 설정">
                                     ⚙️
                                 </button>
@@ -4499,36 +4368,6 @@ export default function ProjectPage() {
                 onTrialStart={() => refreshProfile()}
             />
 
-            {/* CSV 가져오기 파일 input */}
-            <input type="file" accept=".csv" ref={csvFileRef}
-                className="hidden" onChange={handleImportCsvFile} />
-
-            {/* CSV 가져오기 충돌 해결 모달 */}
-            {
-                csvImportConflicts && (
-                    <Modal isOpen onClose={() => setCsvImportConflicts(null)} title="CSV 가져오기 - 중복 항목">
-                        <div style={{ padding: 'var(--spacing-sm) 0' }}>
-                            <p style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                                "{csvImportConflicts.conflicts[csvImportConflicts.currentIdx]?.title}"
-                            </p>
-                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-                                같은 제목의 체크리스트가 이미 존재합니다. ({csvImportConflicts.currentIdx + 1} / {csvImportConflicts.conflicts.length})
-                            </p>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
-                                <button className="btn btn-primary btn-sm" onClick={() => handleConflictDecision('overwrite')}>
-                                    덮어쓰기
-                                </button>
-                                <button className="btn btn-secondary btn-sm" onClick={() => handleConflictDecision('rename')}>
-                                    이름 변경
-                                </button>
-                                <button className="btn btn-danger btn-sm" onClick={() => handleConflictDecision('skip')}>
-                                    건너뛰기
-                                </button>
-                            </div>
-                        </div>
-                    </Modal>
-                )
-            }
 
             {/* 활동명 입력 팝업 (필수) */}
             <Modal

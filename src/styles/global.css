@@ -582,7 +582,6 @@ ol {
 /* ===== Page Layout ===== */
 .page {
   flex: 1;
-  padding-top: env(safe-area-inset-top);
   padding-bottom: 140px;
   /* AdMob 배너(60px) + FAB(56px) + 여유 공간 */
 }
@@ -591,9 +590,14 @@ ol {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) 0;
-  position: sticky;
+  padding: var(--spacing-md) var(--spacing-md);
+  padding-top: max(var(--spacing-md), env(safe-area-inset-top));
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
+  max-width: 640px;
+  margin: 0 auto;
   background: var(--color-bg);
   z-index: 10;
 }

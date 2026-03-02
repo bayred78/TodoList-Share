@@ -7,6 +7,7 @@ import PlanCompareTable from '../components/common/PlanCompareTable';
 import { getEffectivePlan, getUserPlan, isTrialActive, isTrialUsed, startFreeTrial } from '../services/subscriptionService';
 import { getNotificationSettings, saveNotificationSettings, registerPushNotifications } from '../services/notificationService';
 import RewardedAd from '../components/ads/RewardedAd';
+import PageHeader from '../components/common/PageHeader';
 import './SettingsPage.css';
 
 export default function SettingsPage() {
@@ -130,12 +131,12 @@ export default function SettingsPage() {
     return (
         <div className="page">
             <div className="container">
-                <div className="page-header">
+                <PageHeader>
                     <div className="page-header-nav">
                         <button className="page-header-back" onClick={() => navigate('/')}>←</button>
                         <h1>설정</h1>
                     </div>
-                </div>
+                </PageHeader>
 
                 {/* 프로필 섹션 */}
                 <div className="settings-card card">

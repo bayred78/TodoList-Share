@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-03-03 03:21 — 헤더 고정 + CSV 삭제 + 관리자 배지 삭제 + 코드 정리
+- `PageHeader.jsx` [NEW]: ResizeObserver 기반 동적 fixed 헤더 컴포넌트
+- `global.css`: 헤더 sticky→fixed 전환, `.page-title` 중복 삭제
+- `MainPage.jsx`/`ProjectPage.jsx`/`SettingsPage.jsx`: PageHeader 적용 + 관리자 배지 삭제
+- `MainPage.css`/`ProjectPage.css`: `flex-row-gap-sm` 유틸리티 클래스 추가
+- CSV 기능 전체 삭제: `csvService.js` 파일 삭제, 6개 파일에서 관련 코드 제거
+- `subscriptionService.js`/`UpgradeModal.jsx`/`PlanCompareTable.jsx`: exportCsv 관련 코드 삭제
+- 워크플로우 5개에 스킬 통합 (bugfix/pdca/review/design/git)
+- Git 태그: `v260303-0321`
+- 복원: `git checkout v260303-0321`
+
 ## 2026-03-03 02:21 — 체크리스트 참여자(assignees) 기능 구현 + 버그 수정 8건 + 디자인 토큰 정리
 - `ProjectPage.jsx`: 체크리스트 참여자(assignees) 선택 UI/로직 구현, 필터·통계·확인을 assignees 기반으로 변경
 - `ProjectPage.jsx`: 저장/나가기 시 2단계 네비게이션 버그 3곳 수정 (편집→뷰어 복귀로 통일)

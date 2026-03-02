@@ -18,6 +18,12 @@
     gap: var(--spacing-xs);
 }
 
+.flex-row-gap-sm {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 .flex-row-wrap-xs {
     display: flex;
     align-items: center;

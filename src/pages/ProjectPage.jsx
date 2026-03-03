@@ -2759,6 +2759,27 @@ export default function ProjectPage() {
                                             >
                                                 {item.checked && '✓'}
                                             </button>
+                                            {pageViewMode !== 'list' && (
+                                                <button
+                                                    className="todo-fav-btn"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const isFav = favoriteItemSet.has(`${projectId}_${item.id}`);
+                                                        if (isFav) {
+                                                            if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
+                                                                removeFavoriteItem(profile.uid, projectId, item.id);
+                                                            }
+                                                        } else {
+                                                            addFavoriteItem(profile.uid, projectId, item.id, item.title, project?.name || '');
+                                                        }
+                                                    }}
+                                                    title="즐겨찾기"
+                                                >
+                                                    {favoriteItemSet.has(`${projectId}_${item.id}`) ? '⭐' : '☆'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {pageViewMode === 'list' && (
                                             <button
                                                 className="todo-fav-btn"
                                                 onClick={(e) => {
@@ -2776,7 +2797,7 @@ export default function ProjectPage() {
                                             >
                                                 {favoriteItemSet.has(`${projectId}_${item.id}`) ? '⭐' : '☆'}
                                             </button>
-                                        </div>
+                                        )}
                                         <div className="todo-content" onClick={() => {
                                             if (userCanWrite && !item.locked) {
                                                 const copy = { ...item };
@@ -2827,64 +2848,119 @@ export default function ProjectPage() {
                                                     <p className="todo-desc">{item.content}</p>
                                                 </div>
                                             )}
-                                            {((item.images || []).length > 0 || (item.files || []).length > 0) && (
-                                                <span className="todo-attach-icons">
-                                                    {(item.images || []).length > 0 && <span>📷 {item.images.length}</span>}
-                                                    {(item.files || []).length > 0 && <span>📄 {item.files.length}</span>}
+                                            {/* 리스트 이외 모드: 작성자/첨부/라벨/액션 재구성 */}
+                                            {pageViewMode !== 'list' && (() => {
+                                                const attachIcons = ((item.images || []).length > 0 || (item.files || []).length > 0) && (
+                                                    <span className="todo-attach-icons">
+                                                        {(item.images || []).length > 0 && <span>📷{item.images.length}</span>}
+                                                        {(item.files || []).length > 0 && <span>📄{item.files.length}</span>}
+                                                    </span>
+                                                );
+                                                const actionBtns = userCanWrite && (
+                                                    <span className="todo-actions-inline">
+                                                        <button
+                                                            className="todo-lock-btn icon-btn-opacity"
+                                                            onClick={async (e) => { e.stopPropagation(); try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); } catch { addToast('잠금 상태 변경에 실패했습니다.', 'error'); } }}
+                                                            title={item.locked ? '잠금 해제' : '잠금'}
+                                                            style={{ opacity: item.locked ? 1 : 0.5 }}
+                                                        >{item.locked ? '🔒' : '🔓'}</button>
+                                                        <button
+                                                            className={`todo-calendar-btn ${item.calendarSynced ? 'synced' : ''}`}
+                                                            onClick={(e) => { e.stopPropagation(); handleToggleCalendar(item); }}
+                                                            title={item.calendarSynced ? '캘린더에서 제거' : '캘린더에 추가'}
+                                                            disabled={item.locked}
+                                                        >{item.calendarSynced ? '📅✓' : '📅'}</button>
+                                                        <button
+                                                            className="todo-delete-btn"
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
+                                                            title="휴지통으로"
+                                                            disabled={item.locked}
+                                                        >🗑️</button>
+                                                    </span>
+                                                );
+                                                const isRow1Actions = true; // 모든 비리스트 모드: 액션을 작성자 줄 오른쪽 끝에 배치
+                                                return (
+                                                    <div className="todo-meta-wrap">
+                                                        {/* Row 1: 작성자 + 첨부파일 + (2열/상세: 액션 오른쪽 끝) */}
+                                                        <div className="todo-meta-row">
+                                                            <span className="todo-author">{getMemberName(item.createdBy) || item.createdByNickname}</span>
+                                                            {attachIcons}
+                                                            {isRow1Actions && actionBtns}
+                                                        </div>
+                                                        {/* Row 2: 라벨 + (카드: 액션 오른쪽 끝) */}
+                                                        <div className="todo-meta-row">
+                                                            {(item.labels || []).length > 0 && (
+                                                                <span className="item-labels">
+                                                                    {item.labels.map(l => <span key={l} className="item-label-badge">{l}</span>)}
+                                                                </span>
+                                                            )}
+                                                            {!isRow1Actions && actionBtns}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                            {/* 리스트 모드: 기존 메타 (CSS로 desc/meta 숨김 처리됨) */}
+                                            {pageViewMode === 'list' && (
+                                                <span className="todo-meta">
+                                                    {getMemberName(item.createdBy) || item.createdByNickname}
+                                                    {(item.labels || []).length > 0 && (
+                                                        <span className="item-labels">
+                                                            {item.labels.map(l => <span key={l} className="item-label-badge">{l}</span>)}
+                                                        </span>
+                                                    )}
                                                 </span>
                                             )}
-                                            <span className="todo-meta">
-                                                {getMemberName(item.createdBy) || item.createdByNickname}
-                                                {(item.labels || []).length > 0 && (
-                                                    <span className="item-labels">
-                                                        {item.labels.map(l => (
-                                                            <span key={l} className="item-label-badge">{l}</span>
-                                                        ))}
-                                                    </span>
-                                                )}
-                                            </span>
                                         </div>
                                     </div>
-                                    <div className="todo-actions">
-                                        {userCanWrite && (
-                                            <button
-                                                className="todo-lock-btn icon-btn-opacity"
-                                                onClick={async () => {
-                                                    try {
-                                                        await updateTodoItem(projectId, item.id, {
-                                                            locked: !item.locked,
-                                                        });
-                                                    } catch (err) {
-                                                        addToast('잠금 상태 변경에 실패했습니다.', 'error');
-                                                    }
-                                                }}
-                                                title={item.locked ? '잠금 해제' : '잠금'}
-                                                style={{ opacity: item.locked ? 1 : 0.5 }}
-                                            >
-                                                {item.locked ? '🔒' : '🔓'}
-                                            </button>
-                                        )}
-                                        {userCanWrite && (
-                                            <button
-                                                className={`todo-calendar-btn ${item.calendarSynced ? 'synced' : ''}`}
-                                                onClick={() => handleToggleCalendar(item)}
-                                                title={item.calendarSynced ? '캘린더에서 제거' : '날짜를 선택하여 캘린더에 추가'}
-                                                disabled={item.locked}
-                                            >
-                                                {item.calendarSynced ? '📅✓' : '📅'}
-                                            </button>
-                                        )}
-                                        {userCanWrite && (
-                                            <button
-                                                className="todo-delete-btn"
-                                                onClick={() => handleDeleteItem(item.id)}
-                                                title="휴지통으로"
-                                                disabled={item.locked}
-                                            >
-                                                🗑️
-                                            </button>
-                                        )}
-                                    </div>
+                                    {/* 외부 액션: 리스트 모드에서만 표시 */}
+                                    {pageViewMode === 'list' && (
+                                        <div className="todo-actions">
+                                            {pageViewMode === 'list' && ((item.images || []).length > 0 || (item.files || []).length > 0) && (
+                                                <span className="todo-attach-icons-compact">
+                                                    {(item.images || []).length > 0 && <span>📷{item.images.length}</span>}
+                                                    {(item.files || []).length > 0 && <span>📄{item.files.length}</span>}
+                                                </span>
+                                            )}
+                                            {userCanWrite && (
+                                                <button
+                                                    className="todo-lock-btn icon-btn-opacity"
+                                                    onClick={async () => {
+                                                        try {
+                                                            await updateTodoItem(projectId, item.id, {
+                                                                locked: !item.locked,
+                                                            });
+                                                        } catch (err) {
+                                                            addToast('잠금 상태 변경에 실패했습니다.', 'error');
+                                                        }
+                                                    }}
+                                                    title={item.locked ? '잠금 해제' : '잠금'}
+                                                    style={{ opacity: item.locked ? 1 : 0.5 }}
+                                                >
+                                                    {item.locked ? '🔒' : '🔓'}
+                                                </button>
+                                            )}
+                                            {userCanWrite && (
+                                                <button
+                                                    className={`todo-calendar-btn ${item.calendarSynced ? 'synced' : ''}`}
+                                                    onClick={() => handleToggleCalendar(item)}
+                                                    title={item.calendarSynced ? '캘린더에서 제거' : '날짜를 선택하여 캘린더에 추가'}
+                                                    disabled={item.locked}
+                                                >
+                                                    {item.calendarSynced ? '📅✓' : '📅'}
+                                                </button>
+                                            )}
+                                            {userCanWrite && (
+                                                <button
+                                                    className="todo-delete-btn"
+                                                    onClick={() => handleDeleteItem(item.id)}
+                                                    title="휴지통으로"
+                                                    disabled={item.locked}
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))
                         )}

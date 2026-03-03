@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-03-03 15:25 — 체크리스트 보기 모드별 UI 레이아웃 최적화
+- `ProjectPage.jsx`: 리스트 모드 — 즐겨찾기 버튼을 체크박스↔제목 사이로 이동, 첨부파일 아이콘을 🔒 왼쪽에 배치, 제목 1줄 말줄임
+- `ProjectPage.jsx`: 카드/2열/상세 모드 — `todo-meta-wrap` 구조 도입, 작성자+첨부파일 Row1, 라벨 Row2
+- `ProjectPage.jsx`: 카드/2열/상세 모드 — 🔒📅🗑️ 아이콘을 작성자 줄 오른쪽 끝에 인라인 배치
+- `ProjectPage.css`: `todo-meta-wrap`, `todo-meta-row`, `todo-author`, `todo-actions-inline` 스타일 추가
+- `ProjectPage.css`: 리스트 compact 모드 `todo-title` 말줄임, `todo-attach-icons` 숨김, `todo-attach-icons-compact` 추가
+- Git 태그: `v260303-1525`
+- 복원: `git checkout v260303-1525`
+
 ## 2026-03-03 03:21 — 헤더 고정 + CSV 삭제 + 관리자 배지 삭제 + 코드 정리
 - `PageHeader.jsx` [NEW]: ResizeObserver 기반 동적 fixed 헤더 컴포넌트
 - `global.css`: 헤더 sticky→fixed 전환, `.page-title` 중복 삭제

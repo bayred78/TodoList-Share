@@ -169,9 +169,11 @@
     border: none;
     cursor: pointer;
     font-size: var(--font-size-md);
-    padding: 0;
+    padding: 0 var(--spacing-xs);
     line-height: 1;
     opacity: 0.6;
+    align-self: center;
+    flex-shrink: 0;
     transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
@@ -201,6 +203,49 @@
 .todo-title.line-through {
     text-decoration: line-through;
     color: var(--color-text-muted);
+}
+
+/* 보기 모드별 메타/액션 래퍼 */
+.todo-meta-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: var(--spacing-xs);
+}
+
+.todo-meta-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.todo-author {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.todo-actions-inline {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.todo-actions-inline button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    padding: 2px;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+    line-height: 1;
+}
+
+.todo-actions-inline button:hover {
+    opacity: 1;
 }
 
 .todo-desc {
@@ -444,12 +489,25 @@
 }
 
 .todo-list-compact .todo-desc,
-.todo-list-compact .todo-meta {
+.todo-list-compact .todo-meta,
+.todo-list-compact .todo-attach-icons {
     display: none;
 }
 
 .todo-list-compact .todo-title {
     font-size: var(--font-size-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.todo-attach-icons-compact {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: var(--font-size-xs);
+    opacity: 0.7;
+    flex-shrink: 0;
 }
 
 /* ===== Color Filter Bar ===== */

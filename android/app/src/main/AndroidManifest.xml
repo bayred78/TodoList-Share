@@ -20,6 +20,36 @@
             </intent-filter>
         </activity>
 
+        <!-- === 위젯 컴포넌트 === -->
+        <activity
+            android:name=".widget.TodoWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/>
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widget.TodoWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="com.todolistshare.WIDGET_PREV"/>
+                <action android:name="com.todolistshare.WIDGET_NEXT"/>
+                <action android:name="com.todolistshare.WIDGET_REFRESH"/>
+                <action android:name="com.todolistshare.WIDGET_LIST_CLICK"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/todo_widget_info"/>
+        </receiver>
+
+        <service
+            android:name=".widget.TodoWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false"/>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

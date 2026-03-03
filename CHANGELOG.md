@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-03-04 00:13 — 위젯 기능 개선 및 최적화
+- `todo_widget_info.xml`: 위젯 초기 크기 3×2 셀, 자유 리사이징, reconfigurable 설정
+- `widget_config_activity.xml`: 설정창 레이아웃 개선(여백, 미리보기 둥근 모서리, 앱 브랜드 색상)
+- `widget_todo.xml`, `widget_todo_item.xml`: 빈 상태 색상 통일, 체크박스 영역 확대
+- `TodoWidgetProvider.java`: 딥링크(페이지 제목→프로젝트, 체크리스트→항목), 새로고침 피드백(⏳→⟳), 시간대별 자동갱신(낮 30분/밤 2시간), 페이지 전환 items 갱신 수정
+- `TodoWidgetService.java`: 체크리스트 정렬(미완료 우선+최신순), 캐시 우선 최적화, 설정 캐싱
+- `WidgetDataHelper.java`: fontSize 저장/로드, toggleItem/Cache, shouldFetch, deleteConfig 완전화
+- `TodoWidgetConfigActivity.java`: 설정값 복원, 글씨크기 SeekBar, 저장 버튼 브랜드 색상
+- `MainActivity.java`: 위젯 딥링크 처리(onNewIntent, NPE 방어)
+- `AndroidManifest.xml`: 위젯 액션 intent-filter 추가, NoActionBar 테마 적용
+- Git 태그: `v260304-0013`
+- 복원: `git checkout v260304-0013`
+
 ## 2026-03-03 15:25 — 체크리스트 보기 모드별 UI 레이아웃 최적화
 - `ProjectPage.jsx`: 리스트 모드 — 즐겨찾기 버튼을 체크박스↔제목 사이로 이동, 첨부파일 아이콘을 🔒 왼쪽에 배치, 제목 1줄 말줄임
 - `ProjectPage.jsx`: 카드/2열/상세 모드 — `todo-meta-wrap` 구조 도입, 작성자+첨부파일 Row1, 라벨 Row2

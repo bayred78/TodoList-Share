@@ -4,4 +4,5 @@
     <string name="title_activity_main">TodoList Share</string>
     <string name="package_name">com.todolistshare.app</string>
     <string name="custom_url_scheme">com.todolistshare.app</string>
+    <string name="widget_description">체크리스트 위젯</string>
 </resources>

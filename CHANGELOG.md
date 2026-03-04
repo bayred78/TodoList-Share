@@ -4,6 +4,12 @@
 
 ---
 
+## 2026-03-05 01:47 — 채팅탭 헤더 UI 일관성 개선 및 구조 정돈
+- `ProjectPage.jsx`: 채팅 전용 헤더/탭바 중복 코드 삭제 및 공용 헤더/탭바 하단으로 `.chat-container` 동적 위치 조정
+- `ProjectPage.css`: 채팅 관련 불필요한 오버라이드 CSS 속성 제거 및 레이아웃 정리
+- Git 태그: `v260305-0147`
+- 복원: `git checkout v260305-0147`
+
 ## 2026-03-04 00:13 — 위젯 기능 개선 및 최적화
 - `todo_widget_info.xml`: 위젯 초기 크기 3×2 셀, 자유 리사이징, reconfigurable 설정
 - `widget_config_activity.xml`: 설정창 레이아웃 개선(여백, 미리보기 둥근 모서리, 앱 브랜드 색상)

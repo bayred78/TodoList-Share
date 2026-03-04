@@ -660,32 +660,20 @@
 /* ===== Chat Tab ===== */
 .chat-container {
     position: fixed;
-    top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    height: 100dvh;
     display: flex;
     flex-direction: column;
     background: var(--color-bg);
     z-index: 11;
-    padding-top: env(safe-area-inset-top);
     max-width: 640px;
     margin: 0 auto;
     overflow: hidden;
     overscroll-behavior: none;
 }
 
-.chat-container .page-header {
-    position: relative;
-    top: auto;
-    z-index: auto;
-    flex-shrink: 0;
-}
 
-.chat-header-spacer {
-    flex-shrink: 0;
-}
 
 .chat-messages {
     flex: 1;

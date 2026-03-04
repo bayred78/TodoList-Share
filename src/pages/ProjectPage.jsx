@@ -327,6 +327,8 @@ export default function ProjectPage() {
     const chatEndRef = React.useRef(null);
     const chatContainerRef = React.useRef(null);
     const chatFileInputRef = React.useRef(null);
+    const tabBarRef = React.useRef(null);
+    const [chatTopOffset, setChatTopOffset] = useState(0);
 
     // 체크리스트 첨부파일
     const [itemImageUploading, setItemImageUploading] = useState(false);
@@ -445,6 +447,22 @@ export default function ProjectPage() {
         const unsubFriends = subscribeToFavoriteFriends(profile.uid, setChatFavFriends);
         return () => { unsub(); unsubFriends(); };
     }, [profile?.uid]);
+
+    // 채팅 탭 활성 시 공용 헤더+탭바 높이로 offset 계산
+    useEffect(() => {
+        if (activeTab !== 'chat') return;
+        const updateOffset = () => {
+            const tabBarEl = tabBarRef.current;
+            if (tabBarEl) {
+                const rect = tabBarEl.getBoundingClientRect();
+                setChatTopOffset(rect.bottom);
+            }
+        };
+        updateOffset();
+        const observer = new ResizeObserver(updateOffset);
+        if (tabBarRef.current) observer.observe(tabBarRef.current);
+        return () => observer.disconnect();
+    }, [activeTab]);
 
     // 채팅 구독은 채팅 탭이 활성화된 때만 (비용 절감)
     useEffect(() => {
@@ -2090,7 +2108,7 @@ export default function ProjectPage() {
                 )}
 
                 {/* 탭 필터 */}
-                <div className="tab-bar">
+                <div className="tab-bar" ref={tabBarRef}>
                     <button
                         className={`tab-item ${activeTab === 'checklist' ? 'active' : ''}`}
                         onClick={() => {
@@ -2328,78 +2346,7 @@ export default function ProjectPage() {
 
                 {/* 채팅 탭 - 전체화면 */}
                 {activeTab === 'chat' && (
-                    <div className="chat-container">
-                        {/* 채팅 전용 헤더 */}
-                        <div className="page-header padding-y-md-margin-x">
-                            <div className="flex-row-gap-sm">
-                                <button className="page-header-back" onClick={() => navigate('/')}>←</button>
-                                <h1 className="page-title">{project.name}</h1>
-                            </div>
-                            <div className="header-actions">
-                                {userCanAdmin && (
-                                    <button className="header-icon-btn" onClick={() => setShowInviteModal(true)} title="초대">
-                                        👤+
-                                    </button>
-                                )}
-                                <button
-                                    className="header-icon-btn"
-                                    onClick={() => {
-                                        setRefreshing(true);
-                                        setRefreshKey(k => k + 1);
-                                        setTimeout(() => setRefreshing(false), 500);
-                                    }}
-                                    title="새로고침"
-                                    disabled={refreshing}
-                                >
-                                    {refreshing ? '⏳' : '🔄'}
-                                </button>
-                                <button
-                                    className="header-icon-btn"
-                                    onClick={togglePageViewMode}
-                                    title={`보기: ${VIEW_MODE_LABELS[pageViewMode]}`}
-                                >
-                                    {VIEW_MODE_ICONS[pageViewMode]}
-                                </button>
-                                <button className="header-icon-btn" onClick={() => setShowSettingsModal(true)} title="페이지 설정">
-                                    ⚙️
-                                </button>
-                            </div>
-                        </div>
-                        {/* 채팅 전용 탭바 */}
-                        <div className="tab-bar margin-x-md-margin-b-0-flex-shrink-0">
-                            <button className={`tab-item`} onClick={() => setActiveTab('checklist')}>
-                                ✅ 체크리스트
-                            </button>
-                            <button className={`tab-item active`}>
-                                💬 채팅
-                            </button>
-                            <button className={`tab-item`} onClick={() => {
-                                if (!effectiveLimits.calendar) {
-                                    setUpgradeReason('calendar');
-                                    setShowUpgradeModal(true);
-                                    return;
-                                }
-                                setActiveTab('calendar');
-                            }}>
-                                📅 캘린더{!effectiveLimits.calendar && ' 🔒'}
-                            </button>
-                            <button className={`tab-item`} onClick={() => {
-                                if (!effectiveLimits.statistics) {
-                                    setUpgradeReason('statistics');
-                                    setShowUpgradeModal(true);
-                                    return;
-                                }
-                                setActiveTab('stats');
-                            }}>
-                                📊 통계{!effectiveLimits.statistics && ' 🔒'}
-                            </button>
-                            <button className={`tab-item`} onClick={() => {
-                                if (activeTab === 'trash') { setTrashSelectMode(v => !v); setTrashSelected([]); }
-                                else { setActiveTab('trash'); setTrashSelectMode(false); setTrashSelected([]); }
-                            }}>
-                                🗑️ {deletedItems.length > 0 && ` (${deletedItems.length})`}
-                            </button>
-                        </div>
+                    <div className="chat-container" style={{ top: chatTopOffset, height: `calc(100dvh - ${chatTopOffset}px)` }}>
                         {/* 메시지 영역 */}
                         <div className="chat-messages" ref={chatContainerRef}>
                             {loadingOlder && (

@@ -40,15 +40,8 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', re
                     현재 플랜: <strong>{getPlanLabel(currentPlan)}</strong>
                 </div>
 
-                {/* 공유 플랜 비교표 */}
-                <PlanCompareTable currentPlan={currentPlan} onSubscribe={onSubscribe} profile={profile} onTrialStart={onTrialStart} />
-
-                {/* 리워드 광고 — 무료 사용자에게만 */}
-                {currentPlan === 'free' && (
-                    <div style={{ marginTop: 'var(--spacing-md)' }}>
-                        <RewardedAd profile={profile} onReward={onClose} />
-                    </div>
-                )}
+                {/* 공유 플랜 비교표 (이벤트 시 창 닫기) */}
+                <PlanCompareTable currentPlan={currentPlan} onSubscribe={onSubscribe} profile={profile} onTrialStart={onTrialStart} onReward={onClose} />
 
                 {/* 닫기 */}
                 <div className="upgrade-actions">

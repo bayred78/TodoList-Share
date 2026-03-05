@@ -8,6 +8,9 @@ import { getEffectivePlan, getUserPlan, isTrialActive, isTrialUsed, startFreeTri
 import { getNotificationSettings, saveNotificationSettings, registerPushNotifications } from '../services/notificationService';
 import RewardedAd from '../components/ads/RewardedAd';
 import PageHeader from '../components/common/PageHeader';
+import { Capacitor } from '@capacitor/core';
+import { Purchases } from '@revenuecat/purchases-capacitor';
+import { getStoreProducts, purchaseStoreProduct } from '../services/revenueCatService';
 import './SettingsPage.css';
 
 export default function SettingsPage() {
@@ -22,6 +25,7 @@ export default function SettingsPage() {
     const [devMode, setDevMode] = useState(() => localStorage.getItem('devMode') === 'true');
     const [notiSettings, setNotiSettings] = useState(() => getNotificationSettings(profile));
     const [notiSaving, setNotiSaving] = useState(false);
+    const [products, setProducts] = useState(null);
 
     useEffect(() => {
         if (profile) {
@@ -29,6 +33,20 @@ export default function SettingsPage() {
             setNotiSettings(getNotificationSettings(profile));
         }
     }, [profile]);
+
+    useEffect(() => {
+        let isMounted = true;
+        // App 구동 환경이 네이티브일 때 구독 상품 정보 미리 조회
+        if (Capacitor.isNativePlatform()) {
+            getStoreProducts(['pro:monthly', 'pro:annual', 'team:monthly', 'team:annual'])
+                .then(prods => {
+                    if (isMounted) setProducts(prods);
+                })
+                .catch(e => console.error('RevenueCat products fetch error:', e));
+        }
+
+        return () => { isMounted = false; };
+    }, []);
 
     // 알림 설정 변경 핸들러
     const handleNotiToggle = async (key) => {
@@ -215,36 +233,59 @@ export default function SettingsPage() {
                         </strong>
                     </p>
 
-                    {/* 무과금자용 빠른 혜택 버튼 모음 (상단 배치) */}
-                    {getUserPlan(profile) === 'free' && (
-                        <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                            {!isTrialUsed(profile) && (
-                                <button className="btn btn-secondary btn-block" style={{ marginBottom: 'var(--spacing-sm)' }}
-                                    onClick={async () => {
-                                        if (window.confirm('Pro 7일 체험을 시작하시겠습니까?\n체험 기간 동안 모든 Pro 기능을 무료로 사용할 수 있습니다.')) {
-                                            try {
-                                                await startFreeTrial(profile?.uid || profile?.id, profile);
-                                                refreshProfile();
-                                            } catch (e) {
-                                                console.error(e);
-                                                addToast('체험 시작 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
-                                            }
-                                        }
-                                    }}>
-                                    🎁 7일 무료 체험 시작
-                                </button>
-                            )}
-                            <RewardedAd profile={profile} />
-                        </div>
-                    )}
-
                     {/* 공유 플랜 비교표 (구독 버튼 활성화) */}
                     <PlanCompareTable
                         currentPlan={getUserPlan(profile)}
                         profile={profile}
                         onTrialStart={() => refreshProfile()}
-                        onSubscribe={(plan, period) => {
-                            addToast(`${plan === 'pro' ? 'Pro' : 'Team'} ${period === 'monthly' ? '월간' : '연간'} 구독을 준비 중입니다...`, 'info');
+                        onSubscribe={async (plan, period) => {
+                            if (!Capacitor.isNativePlatform()) {
+                                addToast('인앱 결제는 모바일 앱 환경에서만 지원됩니다.', 'warning');
+                                return;
+                            }
+
+                            if (!products || products.length === 0) {
+                                addToast('스토어 상품 정보를 불러오는 중입니다. 잠시 후 진행해주세요.', 'warning');
+                                return;
+                            }
+
+                            const productIdMap = {
+                                pro: { monthly: 'pro:monthly', yearly: 'pro:annual' },
+                                team: { monthly: 'team:monthly', yearly: 'team:annual' },
+                            };
+                            const targetId = productIdMap[plan][period];
+                            const targetProduct = products.find(p => p.identifier === targetId);
+
+                            if (!targetProduct) {
+                                addToast('해당 상품 정보를 찾을 수 없습니다.', 'error');
+                                return;
+                            }
+
+                            addToast('결제를 준비 중입니다...', 'info');
+                            try {
+                                let oldSku = null;
+                                const effectivePlan = getEffectivePlan(profile); // 실제 적용 중인 플랜
+
+                                // Pro에서 Team으로 업그레이드 시 Proration 지원
+                                if (effectivePlan === 'pro' && plan === 'team') {
+                                    try {
+                                        const { customerInfo } = await Purchases.getCustomerInfo();
+                                        const activeSubs = customerInfo?.activeSubscriptions || [];
+                                        // 활성 구독 중 pro로 시작하는 Identifier를 찾음
+                                        oldSku = activeSubs.find(sku => sku.startsWith('pro:'));
+                                    } catch (e) {
+                                        console.warn("기존 프로 플랜 구독 SKU 정보를 찾을 수 없습니다.", e);
+                                    }
+                                }
+
+                                await purchaseStoreProduct(targetProduct, oldSku);
+                                addToast('구독 설정이 성공적으로 처리되었습니다!', 'success');
+                                refreshProfile();
+                            } catch (e) {
+                                if (!e.userCancelled) {
+                                    addToast(`결제 실패: ${e.message}`, 'error');
+                                }
+                            }
                         }}
                     />
                 </div>

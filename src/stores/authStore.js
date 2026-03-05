@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { onAuthChange, getUserProfile, signInWithGoogle, signOutUser, setupNickname } from '../services/authService';
+import { onAuthChange, getUserProfile, signInWithGoogle, signOutUser, setupNickname, subscribeToUserProfile } from '../services/authService';
+import { initializeRevenueCat, subscribeToCustomerInfoUpdate } from '../services/revenueCatService';
 
 const useAuthStore = create((set, get) => ({
     user: null,
@@ -9,21 +10,49 @@ const useAuthStore = create((set, get) => ({
 
     // 인증 상태 초기화
     initialize: () => {
-        return onAuthChange(async (firebaseUser) => {
+        let profileUnsub = null;
+        let rcListenerUnsub = null;
+        let activeSessionId = 0; // 세션 구분용 플래그
+
+        const authUnsub = onAuthChange((firebaseUser) => {
+            activeSessionId++;
+            const currentSession = activeSessionId;
+            if (profileUnsub) {
+                profileUnsub();
+                profileUnsub = null;
+            }
+            if (rcListenerUnsub) {
+                try { rcListenerUnsub.remove(); } catch (e) { }
+                rcListenerUnsub = null;
+            }
+
             if (firebaseUser) {
-                const profile = await getUserProfile(firebaseUser.uid);
-                set({
-                    user: firebaseUser,
-                    profile: profile,
-                    loading: false,
-                    isNewUser: !profile,
+                // RevenueCat 초기화
+                initializeRevenueCat(firebaseUser.uid).then(() => {
+                    if (currentSession !== activeSessionId) return; // 세션이 변경되었다면 리스너 등록 생략
+                    rcListenerUnsub = subscribeToCustomerInfoUpdate((customerInfo) => {
+                        console.log('RevenueCat CustomerInfo updated:', customerInfo);
+                        // 구독 정보 변경 시 동기화는 Firestore (subscribeToUserProfile)가 수행함.
+                    });
                 });
-                // FCM 토큰 자동 등록 (알림 설정 활성화 시)
-                if (profile?.notificationSettings?.enabled !== false) {
-                    import('../services/notificationService').then(({ registerPushNotifications }) => {
-                        registerPushNotifications(firebaseUser.uid);
-                    }).catch((e) => console.warn('FCM 등록 실패:', e));
-                }
+
+                let isFirstLoad = true;
+                profileUnsub = subscribeToUserProfile(firebaseUser.uid, (profile) => {
+                    set({
+                        user: firebaseUser,
+                        profile: profile,
+                        loading: false,
+                        isNewUser: !profile,
+                    });
+
+                    // FCM 토큰 자동 등록 (알림 설정 활성화 시)
+                    if (isFirstLoad && profile?.notificationSettings?.enabled !== false) {
+                        isFirstLoad = false;
+                        import('../services/notificationService').then(({ registerPushNotifications }) => {
+                            registerPushNotifications(firebaseUser.uid);
+                        }).catch((e) => console.warn('FCM 등록 실패:', e));
+                    }
+                });
             } else {
                 set({
                     user: null,
@@ -33,6 +62,18 @@ const useAuthStore = create((set, get) => ({
                 });
             }
         });
+
+        return () => {
+            authUnsub();
+            if (profileUnsub) {
+                profileUnsub();
+                profileUnsub = null;
+            }
+            if (rcListenerUnsub) {
+                try { rcListenerUnsub.remove(); } catch (e) { }
+                rcListenerUnsub = null;
+            }
+        };
     },
 
     // Google 로그인

@@ -4,6 +4,16 @@
 
 ---
 
+## 2026-03-05 20:44 — RevenueCat 인앱 결제 연동 및 UI 버그 수정
+- `authStore.js` / `authService.js`: RevenueCat 연동(`@revenuecat/purchases-capacitor`) 및 구독 상태 실시간 동기화
+- `revenueCatService.js` [NEW]: RevenueCat 초기화, 상품 정보 조회, 구매 비즈니스 로직 작성
+- `SettingsPage.jsx` / `PlanCompareTable.jsx` / `UpgradeModal.jsx`: Pro/Team 구독 및 업그레이드 UI 연결 (결제 처리, Proration 반영)
+- `PlanCompareTable.jsx` / `UpgradeModal.jsx`: 무료 혜택(리워드 광고 등) 중복 컴포넌트 호출 제거
+- `PlanCompareTable.jsx` / `RewardedAd.css`: 연간 플랜 결제 버튼 텍스트가 잘리는 현상 해결(`.discount-badge` 제거)
+- `package.json` / `build.gradle`: RevenueCat capacitor 모듈 종속성 반영
+- Git 태그: `v260305-2044`
+- 복원: `git checkout v260305-2044`
+
 ## 2026-03-05 01:47 — 채팅탭 헤더 UI 일관성 개선 및 구조 정돈
 - `ProjectPage.jsx`: 채팅 전용 헤더/탭바 중복 코드 삭제 및 공용 헤더/탭바 하단으로 `.chat-container` 동적 위치 조정
 - `ProjectPage.css`: 채팅 관련 불필요한 오버라이드 CSS 속성 제거 및 레이아웃 정리

@@ -5,7 +5,7 @@ import {
     onAuthStateChanged,
     GoogleAuthProvider,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
 import { Capacitor } from '@capacitor/core';
 
@@ -138,4 +138,15 @@ export async function getUserProfile(userId) {
         return { id: userDoc.id, ...userDoc.data() };
     }
     return null;
+}
+
+// 사용자 정보 실시간 감시 (인앱 구독/체험판/리워드 동적으로 동기화 용도)
+export function subscribeToUserProfile(userId, callback) {
+    return onSnapshot(doc(db, 'users', userId), (docSnap) => {
+        if (docSnap.exists()) {
+            callback({ id: docSnap.id, ...docSnap.data() });
+        } else {
+            callback(null);
+        }
+    });
 }

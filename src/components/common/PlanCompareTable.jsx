@@ -38,13 +38,19 @@ const FREE_ACCESS_FEATURES = [
     { label: '통합 검색', free: '❌', access: '✅ 사용 가능' },
 ];
 
-export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, profile, onTrialStart }) {
+export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, profile, onTrialStart, onReward }) {
     const [selectedPlan, setSelectedPlan] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const addToast = useToastStore((s) => s.addToast);
 
-    const handleSubscribe = (plan, period) => {
+    const handleSubscribe = async (plan, period) => {
         if (onSubscribe) {
-            onSubscribe(plan, period);
+            setIsSubmitting(true);
+            try {
+                await onSubscribe(plan, period);
+            } finally {
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -77,16 +83,16 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, pr
                                 <span className="current-plan-label">현재 플랜</span>
                             ) : selectedPlan === 'pro' ? (
                                 <div className="plan-period-btns">
-                                    <button className="btn btn-primary btn-xs btn-block" onClick={() => handleSubscribe('pro', 'monthly')}>
+                                    <button className="btn btn-primary btn-xs btn-block" disabled={isSubmitting} onClick={() => handleSubscribe('pro', 'monthly')}>
                                         월간 ₩3,900
                                     </button>
-                                    <button className="btn btn-primary btn-xs btn-block yearly-btn" onClick={() => handleSubscribe('pro', 'yearly')}>
-                                        연간 ₩33,000 <span className="discount-badge">30%↓</span>
+                                    <button className="btn btn-primary btn-xs btn-block yearly-btn" disabled={isSubmitting} onClick={() => handleSubscribe('pro', 'yearly')}>
+                                        연간 ₩33,000
                                     </button>
-                                    <button className="btn btn-secondary btn-xs btn-block" onClick={() => setSelectedPlan(null)}>취소</button>
+                                    <button className="btn btn-secondary btn-xs btn-block" disabled={isSubmitting} onClick={() => setSelectedPlan(null)}>취소</button>
                                 </div>
                             ) : (
-                                <button className="btn btn-secondary btn-sm btn-block" onClick={() => setSelectedPlan('pro')} disabled={currentPlan === 'team'}>
+                                <button className="btn btn-secondary btn-sm btn-block" onClick={() => setSelectedPlan('pro')} disabled={currentPlan === 'team' || isSubmitting}>
                                     ₩3,900/월~
                                 </button>
                             )}
@@ -97,16 +103,16 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, pr
                                 <span className="current-plan-label">현재 플랜</span>
                             ) : selectedPlan === 'team' ? (
                                 <div className="plan-period-btns">
-                                    <button className="btn btn-primary btn-xs btn-block" onClick={() => handleSubscribe('team', 'monthly')}>
+                                    <button className="btn btn-primary btn-xs btn-block" disabled={isSubmitting} onClick={() => handleSubscribe('team', 'monthly')}>
                                         월간 ₩6,900
                                     </button>
-                                    <button className="btn btn-primary btn-xs btn-block yearly-btn" onClick={() => handleSubscribe('team', 'yearly')}>
-                                        연간 ₩55,000 <span className="discount-badge">34%↓</span>
+                                    <button className="btn btn-primary btn-xs btn-block yearly-btn" disabled={isSubmitting} onClick={() => handleSubscribe('team', 'yearly')}>
+                                        연간 ₩55,000
                                     </button>
-                                    <button className="btn btn-secondary btn-xs btn-block" onClick={() => setSelectedPlan(null)}>취소</button>
+                                    <button className="btn btn-secondary btn-xs btn-block" disabled={isSubmitting} onClick={() => setSelectedPlan(null)}>취소</button>
                                 </div>
                             ) : (
-                                <button className="btn btn-primary btn-sm btn-block" onClick={() => setSelectedPlan('team')}>
+                                <button className="btn btn-primary btn-sm btn-block" disabled={isSubmitting} onClick={() => setSelectedPlan('team')}>
                                     ₩6,900/월~
                                 </button>
                             )}
@@ -139,7 +145,7 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, pr
                             🎉 Pro 체험 중 ({getTrialRemainingDays(profile)}일 남음)
                         </div>
                     )}
-                    <RewardedAd profile={profile} />
+                    <RewardedAd profile={profile} onReward={onReward} />
                 </div>
             )}
 

@@ -31,7 +31,7 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     const today = new Date();
-    const todayStr = `${today.getFullYear()} -${String(today.getMonth() + 1).padStart(2, '0')} -${String(today.getDate()).padStart(2, '0')} `;
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -45,7 +45,7 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
         days.push({ day: prevMonthDays - i, outside: true });
     }
     for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${year} -${String(month + 1).padStart(2, '0')} -${String(d).padStart(2, '0')} `;
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         days.push({ day: d, outside: false, dateStr, isToday: dateStr === todayStr });
     }
     while (days.length < 42) {
@@ -95,7 +95,7 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
                             <button
                                 key={i}
                                 type="button"
-                                className={`inline - calendar - month - btn${i === month ? ' active' : ''}${i === today.getMonth() && year === today.getFullYear() ? ' current' : ''} `}
+                                className={`inline-calendar-month-btn${i === month ? ' active' : ''}${i === today.getMonth() && year === today.getFullYear() ? ' current' : ''}`}
                                 onClick={() => handleMonthSelect(i)}
                             >
                                 {name}
@@ -109,14 +109,14 @@ function InlineCalendar({ initialDate, onConfirm, onCancel, calendarList, select
             ) : (
                 <>
                     <div className="inline-calendar-weekdays">
-                        {weekDays.map(d => <div key={d} className={`inline - calendar - weekday${d === '일' ? ' sun' : d === '토' ? ' sat' : ''} `}>{d}</div>)}
+                        {weekDays.map(d => <div key={d} className={`inline-calendar-weekday${d === '일' ? ' sun' : d === '토' ? ' sat' : ''}`}>{d}</div>)}
                     </div>
                     <div className="inline-calendar-grid">
                         {days.map((d, i) => (
                             <button
                                 key={i}
                                 type="button"
-                                className={`inline - calendar - day${d.outside ? ' outside' : ''}${d.isToday ? ' today' : ''}${d.dateStr === selectedDate ? ' selected' : ''} `}
+                                className={`inline-calendar-day${d.outside ? ' outside' : ''}${d.isToday ? ' today' : ''}${d.dateStr === selectedDate ? ' selected' : ''}`}
                                 disabled={d.outside}
                                 onClick={() => !d.outside && setSelectedDate(d.dateStr)}
                             >
@@ -186,7 +186,7 @@ function renderContentWithLinks(text) {
         }
         // 줄바꿈 처리
         return part.split('\n').map((line, j, arr) => (
-            <React.Fragment key={`${i} -${j} `}>
+            <React.Fragment key={`${i}-${j}`}>
                 {line}
                 {j < arr.length - 1 && <br />}
             </React.Fragment>

@@ -141,11 +141,12 @@ function cleanupOrphanedCaches(validIds) {
 }
 
 // 프로젝트 생성
-export async function createProject(userId, nickname, name, description = '', ownerPlan = 'free', displayName = '') {
+export async function createProject(userId, nickname, name, description = '', ownerPlan = 'free', displayName = '', icon = null) {
     const projectRef = await addDoc(collection(db, 'projects'), {
         name,
         description,
         color: null,
+        icon: icon || null,
         ownerId: userId,
         ownerNickname: nickname,
         ownerPlan,

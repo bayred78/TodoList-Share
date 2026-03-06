@@ -1,6 +1,6 @@
 import {
     collection, doc, addDoc, updateDoc, deleteDoc, getDocs, getDoc,
-    query, orderBy, where, limit, onSnapshot, serverTimestamp, increment, Timestamp
+    query, orderBy, where, limit, onSnapshot, serverTimestamp, increment, Timestamp, writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -451,4 +451,40 @@ export async function updateCalendarSync(projectId, itemId, calendarEventId, syn
         updateData.calendarRegisteredId = calendarId;
     }
     await updateDoc(doc(db, 'projects', projectId, 'items', itemId), updateData);
+}
+
+// 템플릿 체크리스트 항목 일괄 생성 (페이지 생성 시 자동 등록)
+export async function createTemplateItems(projectId, items, creatorInfo) {
+    if (!items || items.length === 0) return;
+    // Firestore writeBatch 제한: 500 writes/batch. 현재 템플릿 최대 4개이므로 안전.
+    const batch = writeBatch(db);
+    const itemsRef = collection(db, 'projects', projectId, 'items');
+
+    items.forEach((item, index) => {
+        const newDocRef = doc(itemsRef);
+        batch.set(newDocRef, {
+            type: 'checklist',
+            title: item.title,
+            content: item.content || '',
+            checked: false,
+            calendarEventId: null,
+            calendarSynced: false,
+            deleted: false,
+            deletedAt: null,
+            color: null,
+            priority: 0,
+            labels: [],
+            repeatType: null,
+            dueDate: null,
+            assignees: [],
+            createdBy: creatorInfo.uid,
+            createdByNickname: creatorInfo.nickname,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            order: -(index + 1),
+            version: 1,
+        });
+    });
+
+    await batch.commit();
 }

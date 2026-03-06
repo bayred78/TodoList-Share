@@ -477,6 +477,18 @@ ol {
   animation: fadeIn 0.15s ease;
 }
 
+/* PC 환경: 에디터 폭 제한 (다른 UI와 통일) */
+@media (min-width: 641px) {
+  .fullscreen-editor {
+    left: 0;
+    right: 0;
+    width: 640px;
+    margin: 0 auto;
+    border-left: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+  }
+}
+
 .fullscreen-editor-header {
   display: flex;
   align-items: center;

@@ -21,9 +21,10 @@ const PRO_TEAM_FEATURES = [
     { label: '구글 캘린더 연동', pro: '✅', team: '✅' },
     { label: '광고 제거', pro: '✅', team: '✅' },
     { label: '페이지 통계', pro: '❌', team: '✅' },
-    { label: '뷰어 초대', pro: '❌', team: '✅' },
-    { label: '이미지 채팅', pro: '❌', team: '✅' },
+    { label: '독자 초대', pro: '❌', team: '✅' },
+    { label: '채팅 이미지 첨부', pro: '✅', team: '✅' },
     { label: '통합 검색', pro: '✅', team: '✅' },
+    { label: '대표 아이콘', pro: '✅', team: '✅' },
 ];
 
 // 무료/참여 기능 비교 행 데이터
@@ -36,9 +37,10 @@ const FREE_ACCESS_FEATURES = [
     { label: '반복', free: '❌', access: '✅ 관리자 기준' },
     { label: '구글 캘린더 연동', free: '❌', access: '✅ 관리자 기준' },
     { label: '페이지 통계', free: '❌', access: '✅ 관리자기준' },
-    { label: '채팅 이미지 첨부', free: '❌', access: '✅ 관리자기준' },
+    { label: '채팅 이미지 첨부', free: '❌', access: '❌ 본인 구독 필요' },
     { label: '계정 광고 제거', free: '❌', access: '❌ 본인 구독 필요' },
     { label: '통합 검색', free: '❌', access: '✅ 관리자 기준' },
+    { label: '대표 아이콘', free: '❌ 본인 구독 필요', access: '❌ 본인 구독 필요' },
 ];
 
 export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, profile, onTrialStart, onReward }) {

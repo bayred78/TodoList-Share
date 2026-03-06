@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-03-07 02:23 — 버그 수정 9건 + 코드·디자인 리뷰 수정
+- `MainPage.jsx`: 새 페이지 생성 시 활동명 선택 입력 허용 (미입력 시 진입 후 프롬프트), `*필수` 레이블 제거
+- `MainPage.jsx`: 즐겨찾기 친구 추가 모달 공통 `<Modal>` 컴포넌트로 교체 (디자인 통일)
+- `MainPage.jsx`: 페이지 편집 뒤로가기 시 수정사항 감지 — "나가기/취소/저장" 확인 모달 표시 (`isEditDirty` 더티체크)
+- `MainPage.jsx`: `handleSaveEdit` 저장 후 `setProjectTags`/`setNewProjectTag` 초기화 누락 수정
+- `MainPage.jsx`: catch 블록에 `console.error` 로깅 추가, `isEditDirty` 태그 비교 순서 무관 배열 비교로 교체
+- `MainPage.jsx`: `TEMPLATE_DATA` import 위치 이동, state 주석 통일, unsaved 모달 CSS 토큰화
+- `searchService.js`: `sortResults` default case `[...results]` 복사본 반환으로 교체
+- Git 태그: `v260307-0223`
+- 복원: `git checkout v260307-0223`
+
 ## 2026-03-06 21:30 — 백엔드 성능 최적화 및 결제 연동 고도화
 - `functions/index.js`: 데이터 삭제 시 병렬 처리(`Promise.all`) 및 청크 단위 조회를 통한 성능 최적화 (Cloud Functions 타임아웃 및 OOM 방지)
 - `firestore.indexes.json`: 데이터 삭제 및 조회를 위한 복합 인덱스 추가

@@ -5,7 +5,7 @@ import {
 import { db } from './firebase';
 
 // 사용자 초대
-export async function inviteUser(projectId, projectName, inviterId, inviterNickname, inviteeId, inviteeNickname, role = 'readwrite') {
+export async function inviteUser(projectId, projectName, inviterId, inviterNickname, inviteeId, inviteeNickname, role = 'editor') {
     // 이미 멤버인지 확인
     const projectDoc = await getDoc(doc(db, 'projects', projectId));
     const project = projectDoc.data();

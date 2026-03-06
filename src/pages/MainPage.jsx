@@ -2,15 +2,15 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
-import { subscribeToMyProjects, createProject, updateProject, getRoleLabel, getCachedProjects, deltaFetchProjects } from '../services/projectService';
-import { subscribeToMyInvitations, subscribeToSentInvitations, acceptInvitation, rejectInvitation, cancelInvitation } from '../services/invitationService';
+import { subscribeToMyProjects, createProject, updateProject, updateMemberDisplayName, getRoleLabel, normalizeRole, getCachedProjects, deltaFetchProjects } from '../services/projectService';
+import { subscribeToMyInvitations, subscribeToSentInvitations, acceptInvitation, rejectInvitation, cancelInvitation, inviteUser } from '../services/invitationService';
 import { getUserPlan, getEffectivePlan, getUserLimits, LIMITS } from '../services/subscriptionService';
 import UpgradeModal from '../components/common/UpgradeModal';
 import Modal from '../components/common/Modal';
 import PageHeader from '../components/common/PageHeader';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
 import './MainPage.css';
-import { toggleCheck } from '../services/todoService';
+import { toggleCheck, createTemplateItems } from '../services/todoService';
 import {
     searchProjects, searchItems, sortResults, highlightText,
     getRecentSearches, addRecentSearch, clearRecentSearches, preloadAllItems
@@ -18,10 +18,12 @@ import {
 import { sendDirectMessage } from '../services/chatService';
 import { findUserByNicknameOrEmail } from '../services/userService';
 import { subscribeToFavoriteItems, subscribeToFavoriteFriends, addFavoriteFriend, removeFavoriteFriend, updateFriendMemo, removeFavoriteItem } from '../services/favoriteService';
+import { TEMPLATE_DATA } from '../data/templateData';
 
 const VIEW_MODES = ['card', 'grid', 'list'];
 const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋' };
 const VIEW_MODE_LABELS = { card: '카드', grid: '2열', list: '리스트' };
+
 
 export default function MainPage() {
     const { profile, logout, refreshProfile } = useAuthStore();
@@ -50,8 +52,31 @@ export default function MainPage() {
     const [editingMemoId, setEditingMemoId] = useState(null);
     const [memoInput, setMemoInput] = useState('');
 
-    // 활동명 (createProject용) — 필수 입력
+    // 활동명 (createProject용) — 선택 입력 (미입력 시 진입 후 프롬프트)
     const [displayNameInput, setDisplayNameInput] = useState('');
+
+    // 새 페이지 생성 확장 State
+    const [projectIcon, setProjectIcon] = useState(null);
+    const [selectedTemplate, setSelectedTemplate] = useState(null);
+    const [templateItems, setTemplateItems] = useState([]);
+    const [inviteList, setInviteList] = useState([]);
+
+    // 초대 시트 검색 state
+    const [inviteSearch, setInviteSearch] = useState('');
+    const [inviteSearchResult, setInviteSearchResult] = useState(null);
+    const [inviteSearchLoading, setInviteSearchLoading] = useState(false);
+
+    // 즐겨찾기 친구 추가 모달 state
+    const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+    const [addFriendSearch, setAddFriendSearch] = useState('');
+    const [addFriendResult, setAddFriendResult] = useState(null);
+    const [addFriendLoading, setAddFriendLoading] = useState(false);
+
+    // 편집 모달 변경사항 미저장 확인
+    const [showUnsavedEditModal, setShowUnsavedEditModal] = useState(false);
+
+    // 실효 플랜 제한
+    const effectiveLimits = useMemo(() => getUserLimits(profile), [profile]);
 
     // 글자수 포인트 계산 (한글=2, 영문=1, 최대 12포인트)
     const getNamePoints = (str) => {
@@ -213,7 +238,7 @@ export default function MainPage() {
     const [preloadReady, setPreloadReady] = useState(false);
     const [recentSearches, setRecentSearches] = useState(getRecentSearches());
     const [showFilters, setShowFilters] = useState(false);
-    const [sortBy, setSortBy] = useState('relevance');
+    const [sortBy, setSortBy] = useState('newest');
     const [filters, setFilters] = useState({
         status: 'all',
         colors: [],
@@ -228,7 +253,7 @@ export default function MainPage() {
     const [showMemberFilter, setShowMemberFilter] = useState(false);
     const [pageFilters, setPageFilters] = useState({ colors: [], tags: [] });
     const [showPageFilters, setShowPageFilters] = useState(false);
-    const [pageSortBy, setPageSortBy] = useState('relevance');
+    const [pageSortBy, setPageSortBy] = useState('newest');
     const [projectTags, setProjectTags] = useState([]);
     const [newProjectTag, setNewProjectTag] = useState('');
     const [tagFilters, setTagFilters] = useState([]);
@@ -378,6 +403,13 @@ export default function MainPage() {
         }
     };
 
+    // 생성 폼 초기화 (R-07)
+    const resetCreateForm = () => {
+        setProjectColor(null); setProjectTags([]); setNewProjectTag('');
+        setDisplayNameInput(''); setProjectIcon(null); setSelectedTemplate(null);
+        setTemplateItems([]); setInviteList([]); setCreateOptionSheet(null);
+    };
+
     const handleCreateProject = async (e) => {
         e.preventDefault();
         if (!projectName.trim()) {
@@ -393,40 +425,53 @@ export default function MainPage() {
         const myOwnedProjects = projects.filter(p => p.ownerId === profile.uid);
         const actualPlan = getUserPlan(profile);
         const effectivePlan = getEffectivePlan(profile);
-        const limit = LIMITS[effectivePlan].maxPages;
+        const limit = effectiveLimits.maxPages;
         if (myOwnedProjects.length >= limit) {
             setUpgradeReason('maxPages');
             setShowUpgradeModal(true);
             return;
         }
-        if (!displayNameInput.trim()) {
-            addToast('활동명을 입력해주세요.', 'warning');
-            return;
-        }
-        if (displayNameInput.trim().length < 2) {
+        if (displayNameInput.trim() && displayNameInput.trim().length < 2) {
             addToast('활동명은 최소 2자 이상 입력해주세요.', 'warning');
             return;
         }
-        if (getNamePoints(displayNameInput.trim()) > 12) {
+        if (displayNameInput.trim() && getNamePoints(displayNameInput.trim()) > 12) {
             addToast('활동명이 너무 깁니다. (한글 6자/영문 12자 이내)', 'warning');
             return;
         }
         setCreating(true);
         try {
-            const projectId = await createProject(profile.uid, profile.nickname, projectName.trim(), projectDesc.trim(), actualPlan, displayNameInput.trim());
-            if (projectColor) {
-                await updateProject(projectId, { color: projectColor });
+            const projectId = await createProject(profile.uid, profile.nickname, projectName.trim(), projectDesc.trim(), actualPlan, displayNameInput.trim(), projectIcon);
+
+            // 부가 작업 — 하나 실패해도 프로젝트 생성은 유지 (R-01)
+            const tasks = [];
+            // R-02: updateProject 병합 (2회→1회)
+            const updateFields = {};
+            if (projectColor) updateFields.color = projectColor;
+            if (projectTags.length > 0) updateFields.projectTags = projectTags;
+            if (Object.keys(updateFields).length > 0) {
+                tasks.push(updateProject(projectId, updateFields));
             }
-            if (projectTags.length > 0) {
-                await updateProject(projectId, { projectTags });
+            if (templateItems.length > 0) {
+                tasks.push(createTemplateItems(projectId, templateItems, { uid: profile.uid, nickname: profile.nickname }));
+            }
+            if (inviteList.length > 0) {
+                tasks.push(...inviteList.map(inv =>
+                    inviteUser(projectId, projectName.trim(), profile.uid, profile.nickname, inv.uid, inv.nickname, inv.role || 'editor')
+                ));
+            }
+            if (tasks.length > 0) {
+                const results = await Promise.allSettled(tasks);
+                const failures = results.filter(r => r.status === 'rejected');
+                if (failures.length > 0) {
+                    console.error('부가 작업 일부 실패:', failures);
+                    addToast(`페이지는 생성되었으나 ${failures.length}개 설정이 실패했습니다.`, 'warning');
+                }
             }
             setShowCreateModal(false);
             setProjectName('');
             setProjectDesc('');
-            setProjectColor(null);
-            setProjectTags([]);
-            setNewProjectTag('');
-            setDisplayNameInput('');
+            resetCreateForm();
             addToast('페이지가 생성되었습니다!', 'success');
             navigate(`/project/${projectId}`);
         } catch (error) {
@@ -463,6 +508,50 @@ export default function MainPage() {
         }
     };
 
+    // B-3: 초대 시트 닉네임/이메일 검색
+    const handleInviteSearch = async () => {
+        if (!inviteSearch.trim()) return;
+        setInviteSearchLoading(true);
+        setInviteSearchResult(null);
+        try {
+            const result = await findUserByNicknameOrEmail(inviteSearch.trim());
+            if (!result) addToast('사용자를 찾을 수 없습니다.', 'warning');
+            else if (result.id === profile.uid) addToast('자기 자신은 초대할 수 없습니다.', 'warning');
+            else setInviteSearchResult(result);
+        } catch (err) { console.error('[inviteSearch 오류]', err); addToast('검색에 실패했습니다.', 'error'); }
+        finally { setInviteSearchLoading(false); }
+    };
+
+    // 즐겨찾기 친구 추가 검색
+    const handleAddFriendSearch = async () => {
+        if (!addFriendSearch.trim()) return;
+        setAddFriendLoading(true);
+        setAddFriendResult(null);
+        try {
+            const result = await findUserByNicknameOrEmail(addFriendSearch.trim());
+            if (!result) addToast('사용자를 찾을 수 없습니다.', 'warning');
+            else if (result.id === profile.uid) addToast('자기 자신은 추가할 수 없습니다.', 'warning');
+            else setAddFriendResult(result);
+        } catch (err) { console.error('[addFriendSearch 오류]', err); addToast('검색에 실패했습니다.', 'error'); }
+        finally { setAddFriendLoading(false); }
+    };
+
+    // 편집 모달 변경 감지
+    const isEditDirty = useCallback(() => {
+        if (!editTarget) return false;
+        if (editName !== editTarget.name) return true;
+        if (editDesc !== (editTarget.description || '')) return true;
+        if (projectColor !== (editTarget.color || null)) return true;
+        const origTags = editTarget.projectTags || [];
+        if (projectTags.length !== origTags.length ||
+            !projectTags.every(t => origTags.includes(t))) return true;
+        if (projectIcon !== (editTarget.icon || null)) return true;
+        const origDN = editTarget.members?.[profile?.uid]?.displayName || '';
+        if (displayNameInput !== origDN) return true;
+        if (inviteList.length > 0) return true;
+        return false;
+    }, [editTarget, editName, editDesc, projectColor, projectTags, projectIcon, displayNameInput, inviteList, profile]);
+
     // 페이지 수정
     const handleEditOpen = (e, project) => {
         e.stopPropagation();
@@ -472,6 +561,10 @@ export default function MainPage() {
         setProjectColor(project.color || null);
         setProjectTags(project.projectTags || []);
         setNewProjectTag('');
+        setProjectIcon(project.icon || null);
+        setDisplayNameInput(project.members?.[profile.uid]?.displayName || '');
+        setInviteList([]);
+        setInviteSearch(''); setInviteSearchResult(null);
         setEditOptionSheet(null);
         setShowEditModal(true);
     };
@@ -493,10 +586,25 @@ export default function MainPage() {
                 description: editDesc.trim(),
                 color: projectColor || null,
                 projectTags: projectTags,
+                icon: projectIcon || null,
             });
+            // B-1: 활동명 변경 (members 서브필드)
+            const oldDN = editTarget.members?.[profile.uid]?.displayName || '';
+            if (displayNameInput.trim() !== oldDN) {
+                await updateMemberDisplayName(editTarget.id, profile.uid, displayNameInput.trim()).catch(() => { });
+            }
+            // B-1: 초대 발송
+            if (inviteList.length > 0) {
+                await Promise.allSettled(inviteList.map(inv =>
+                    inviteUser(editTarget.id, editName.trim(), profile.uid, profile.nickname,
+                        inv.uid, inv.nickname, inv.role || 'editor')
+                ));
+            }
             addToast('페이지 정보가 수정되었습니다.', 'success');
             setEditOptionSheet(null);
             setShowEditModal(false);
+            setProjectIcon(null); setDisplayNameInput(''); setInviteList([]);
+            setProjectTags([]); setNewProjectTag('');
         } catch (error) {
             addToast('페이지 수정에 실패했습니다.', 'error');
         } finally {
@@ -999,7 +1107,7 @@ export default function MainPage() {
                         )}
 
                         {/* 결과 헤더 (결과 수 + 정렬 드롭다운) */}
-                        <div className="search-result-header flex-row-between-center margin-b-sm">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
                             <div className="search-result-count" style={{ marginBottom: 0 }}>
                                 {searchLoading ? '검색 중...'
                                     : searchKeyword.trim().length >= 1
@@ -1010,8 +1118,9 @@ export default function MainPage() {
                                 value={searchType === 'page' ? pageSortBy : sortBy}
                                 onChange={e => searchType === 'page'
                                     ? setPageSortBy(e.target.value) : setSortBy(e.target.value)}>
-                                <option value="relevance">관련도</option>
                                 <option value="newest">최신순</option>
+                                <option value="oldest">오래된순</option>
+                                <option value="name">이름순</option>
                                 {searchType === 'checklist' && <option value="dueDate">마감일순</option>}
                             </select>
                         </div>
@@ -1135,7 +1244,10 @@ export default function MainPage() {
                                         onClick={() => navigate(`/project/${project.id}`)}
                                     >
                                         <div className="project-card-header">
-                                            <h3 className="project-card-name">{project.name}</h3>
+                                            <h3 className="project-card-name">
+                                                {project.icon && <span style={{ marginRight: 'var(--spacing-xs)' }}>{project.icon}</span>}
+                                                {project.name}
+                                            </h3>
                                             <div className="project-card-badges">
                                                 {project.ownerId === profile?.uid && (
                                                     <button
@@ -1329,7 +1441,7 @@ export default function MainPage() {
                                             </p>
                                             <div className="invitation-detail flex-row-wrap-xs">
                                                 {getStatusBadge(invite.status)}
-                                                <span className="badge badge-primary margin-l-xs">{invite.role === 'readwrite' ? '읽기/쓰기' : invite.role}</span>
+                                                <span className="badge badge-primary margin-l-xs">{getRoleLabel(normalizeRole(invite.role))}</span>
                                                 {invite.createdAt && <span className="invitation-time">{formatTime(invite.createdAt)}</span>}
                                                 <span className="flex-row-center margin-l-auto">
                                                     {invite.status === 'pending' && (
@@ -1549,18 +1661,23 @@ export default function MainPage() {
             <button className="fab" onClick={() => {
                 if (activeTab === 'requests') {
                     setShowDmModal(true);
+                } else if (activeTab === 'favorites' && favSubTab === 'friends') {
+                    setAddFriendSearch(''); setAddFriendResult(null);
+                    setShowAddFriendModal(true);
                 } else {
-                    setProjectColor(null); setProjectTags([]); setNewProjectTag(''); setDisplayNameInput(''); setCreateOptionSheet(null); setShowCreateModal(true);
+                    resetCreateForm(); setShowCreateModal(true);
                 }
-            }} title={activeTab === 'requests' ? '메시지 보내기' : '새 페이지'}>
-                {activeTab === 'requests' ? '✉️' : '+'}
+            }} title={activeTab === 'requests' ? '메시지 보내기'
+                : activeTab === 'favorites' && favSubTab === 'friends' ? '친구 추가' : '새 페이지'}>
+                {activeTab === 'requests' ? '✉️'
+                    : activeTab === 'favorites' && favSubTab === 'friends' ? '👤+' : '+'}
             </button>
 
             {/* 페이지 생성 - 전체화면 에디터 */}
             {showCreateModal && (
                 <div className="fullscreen-editor">
                     <div className="fullscreen-editor-header">
-                        <button className="fullscreen-editor-back" onClick={() => { setCreateOptionSheet(null); setShowCreateModal(false); setProjectTags([]); setNewProjectTag(''); setDisplayNameInput(''); }}>←</button>
+                        <button className="fullscreen-editor-back" onClick={() => { resetCreateForm(); setShowCreateModal(false); }}>←</button>
                         <div className="fullscreen-editor-actions">
                             <button
                                 className="btn btn-primary btn-sm"
@@ -1589,6 +1706,44 @@ export default function MainPage() {
                         >
                             <span>🏷️</span><span className="edit-toolbar-label">태그</span>
                             {projectTags.length > 0 && <span className="edit-toolbar-count">{projectTags.length}</span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${createOptionSheet === 'displayName' ? 'active' : ''}`}
+                            onClick={() => setCreateOptionSheet(createOptionSheet === 'displayName' ? null : 'displayName')}
+                        >
+                            <span>📛</span><span className="edit-toolbar-label">활동명</span>
+                            {displayNameInput && <span className="edit-toolbar-count">✓</span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${createOptionSheet === 'icon' ? 'active' : ''}`}
+                            onClick={() => {
+                                if (!effectiveLimits.representativeIcon) {
+                                    setUpgradeReason('representativeIcon');
+                                    setShowUpgradeModal(true);
+                                    return;
+                                }
+                                setCreateOptionSheet(createOptionSheet === 'icon' ? null : 'icon');
+                            }}
+                        >
+                            <span>{projectIcon || '🏠'}</span><span className="edit-toolbar-label">아이콘</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${createOptionSheet === 'template' ? 'active' : ''}`}
+                            onClick={() => setCreateOptionSheet(createOptionSheet === 'template' ? null : 'template')}
+                        >
+                            <span>📋</span><span className="edit-toolbar-label">템플릿</span>
+                            {templateItems.length > 0 && <span className="edit-toolbar-count">{templateItems.length}</span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${createOptionSheet === 'invite' ? 'active' : ''}`}
+                            onClick={() => setCreateOptionSheet(createOptionSheet === 'invite' ? null : 'invite')}
+                        >
+                            <span>✉️</span><span className="edit-toolbar-label">초대</span>
+                            {inviteList.length > 0 && <span className="edit-toolbar-count">{inviteList.length}</span>}
                         </button>
                     </div>
 
@@ -1655,31 +1810,211 @@ export default function MainPage() {
                         </div>
                     )}
 
-                    {/* 활동명 필수 입력 인라인 섹션 */}
-                    <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', borderBottom: '1px solid var(--color-border)' }}>
-                        <label className="input-label" style={{ marginBottom: 'var(--spacing-xs)' }}>📛 활동명 <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>*필수</span></label>
-                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-xs)' }}>
-                            이 페이지 내에서 사용할 이름입니다. (한글 6자/영문 12자 이내)
-                        </p>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                            <input
-                                type="text"
-                                className="input-field flex-1"
-                                placeholder="활동명을 입력하세요"
-                                value={displayNameInput}
-                                onChange={e => setDisplayNameInput(e.target.value)}
-                                maxLength={12}
-                            />
-                            <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => setDisplayNameInput(profile?.nickname || '')}
-                                title="닉네임을 활동명으로 사용"
-                            >
-                                닉네임 사용
-                            </button>
+                    {/* 옵션 시트: 활동명 */}
+                    {createOptionSheet === 'displayName' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>📛 활동명</span>
+                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-xs)' }}>
+                                    이 페이지 내에서 사용할 이름입니다. (한글 6자/영문 12자 이내)
+                                </p>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                    <input
+                                        type="text"
+                                        className="input-field flex-1"
+                                        placeholder="활동명을 입력하세요"
+                                        value={displayNameInput}
+                                        onChange={e => setDisplayNameInput(e.target.value)}
+                                        maxLength={12}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary btn-sm"
+                                        onClick={() => setDisplayNameInput(profile?.nickname || '')}
+                                        title="닉네임을 활동명으로 사용"
+                                    >
+                                        닉네임 사용
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* 옵션 시트: 대표 아이콘 */}
+                    {createOptionSheet === 'icon' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏠 대표 아이콘 선택</span>
+                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
+                            </div>
+                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                {['📋', '📝', '🎯', '📅', '🏠', '💼', '🎓', '🏋️', '🍳', '🎵', '🎨', '📸', '✈️', '💰', '🛒', '❤️', '🐾', '🌱', '📚', '⚙️'].map(icon => (
+                                    <button
+                                        key={icon}
+                                        type="button"
+                                        className={`filter-chip ${projectIcon === icon ? 'active' : ''}`}
+                                        onClick={() => setProjectIcon(projectIcon === icon ? null : icon)}
+                                        style={{ fontSize: 'var(--font-size-lg)' }}
+                                    >
+                                        {icon}
+                                    </button>
+                                ))}
+                                <button
+                                    type="button"
+                                    className={`filter-chip ${projectIcon === null ? 'active' : ''}`}
+                                    onClick={() => setProjectIcon(null)}
+                                >
+                                    없음
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 템플릿 */}
+                    {createOptionSheet === 'template' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>📋 템플릿 선택</span>
+                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <select
+                                    className="input-field"
+                                    value={selectedTemplate || ''}
+                                    onChange={e => {
+                                        const cat = e.target.value;
+                                        setSelectedTemplate(cat || null);
+                                        setTemplateItems([]);
+                                        if (cat) setProjectName('');
+                                    }}
+                                    style={{ marginBottom: 'var(--spacing-sm)' }}
+                                >
+                                    <option value="">대분류 선택...</option>
+                                    <option value="친구">👫 친구</option>
+                                    <option value="가족">👨‍👩‍👧‍👦 가족</option>
+                                    <option value="업무">💼 업무</option>
+                                    <option value="학습">📚 학습</option>
+                                    <option value="건강">🏋️ 건강/운동</option>
+                                    <option value="취미">🎨 취미</option>
+                                    <option value="여행">✈️ 여행</option>
+                                    <option value="재정">💰 재정/가계부</option>
+                                </select>
+                                {selectedTemplate && (
+                                    <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                        {(TEMPLATE_DATA[selectedTemplate] || []).map(tpl => (
+                                            <button
+                                                key={tpl.title}
+                                                type="button"
+                                                className={`filter-chip ${projectName === tpl.title ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    setProjectName(tpl.title);
+                                                    setProjectDesc(tpl.desc || '');
+                                                    setTemplateItems(tpl.items || []);
+                                                }}
+                                            >
+                                                {tpl.title}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {templateItems.length > 0 && (
+                                    <div style={{ marginTop: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                                        ✅ 체크리스트 {templateItems.length}개 자동 등록 예정
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 초대 */}
+                    {createOptionSheet === 'invite' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>✉️ 멤버 초대</span>
+                                <button type="button" onClick={() => setCreateOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                {/* 즐겨찾기 친구 빠른 추가 */}
+                                {favoriteFriends.length > 0 && (
+                                    <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>⭐ 즐겨찾기 친구</p>
+                                        <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                            {favoriteFriends.map(friend => {
+                                                const already = inviteList.some(inv => inv.uid === friend.friendUid);
+                                                return (
+                                                    <button
+                                                        key={friend.friendUid}
+                                                        type="button"
+                                                        className={`filter-chip ${already ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            if (already) {
+                                                                setInviteList(prev => prev.filter(inv => inv.uid !== friend.friendUid));
+                                                            } else {
+                                                                setInviteList(prev => [...prev, { uid: friend.friendUid, nickname: friend.friendNickname || friend.nickname || '', role: 'editor' }]);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {already ? '✓ ' : ''}{friend.friendNickname || friend.nickname || '(이름없음)'}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                                {/* B-3: 닉네임/이메일 검색 */}
+                                <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>🔍 닉네임 또는 이메일로 검색</p>
+                                    <div className="flex-row-gap-xs">
+                                        <input className="input-field flex-1" placeholder="닉네임 또는 이메일 입력"
+                                            value={inviteSearch} onChange={e => setInviteSearch(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleInviteSearch()} />
+                                        <button type="button" className="btn btn-secondary btn-sm"
+                                            onClick={handleInviteSearch} disabled={inviteSearchLoading}>
+                                            {inviteSearchLoading ? '...' : '검색'}
+                                        </button>
+                                    </div>
+                                    {inviteSearchResult && (
+                                        <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                            <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{inviteSearchResult.nickname}</span>
+                                            <button type="button" className="btn btn-primary btn-xs"
+                                                disabled={inviteList.some(i => i.uid === inviteSearchResult.id)}
+                                                onClick={() => {
+                                                    setInviteList(prev => [...prev,
+                                                    { uid: inviteSearchResult.id, nickname: inviteSearchResult.nickname, role: 'editor' }]);
+                                                    setInviteSearch(''); setInviteSearchResult(null);
+                                                }}>
+                                                {inviteList.some(i => i.uid === inviteSearchResult.id) ? '✓ 추가됨' : '+ 추가'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {/* 초대 목록 */}
+                                {inviteList.length > 0 && (
+                                    <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>초대 목록</p>
+                                        {inviteList.map(inv => (
+                                            <div key={inv.uid} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
+                                                <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{inv.nickname}</span>
+                                                <select
+                                                    className="input-field"
+                                                    style={{ width: 'auto', fontSize: 'var(--font-size-xs)' }}
+                                                    value={inv.role}
+                                                    onChange={e => setInviteList(prev => prev.map(i => i.uid === inv.uid ? { ...i, role: e.target.value } : i))}
+                                                >
+                                                    <option value="editor">편집자</option>
+                                                    {effectiveLimits.viewerRole && <option value="viewer">독자</option>}
+                                                </select>
+                                                <button type="button" className="btn btn-danger btn-xs" onClick={() => setInviteList(prev => prev.filter(i => i.uid !== inv.uid))}>✕</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="fullscreen-editor-body">
                         <input
@@ -1704,7 +2039,12 @@ export default function MainPage() {
             {showEditModal && (
                 <div className="fullscreen-editor">
                     <div className="fullscreen-editor-header">
-                        <button className="fullscreen-editor-back" onClick={() => { setEditOptionSheet(null); setShowEditModal(false); setProjectTags([]); setNewProjectTag(''); }}>←</button>
+                        <button className="fullscreen-editor-back" onClick={() => {
+                            if (isEditDirty()) { setShowUnsavedEditModal(true); return; }
+                            setEditOptionSheet(null); setShowEditModal(false);
+                            setProjectTags([]); setNewProjectTag('');
+                            setProjectIcon(null); setDisplayNameInput(''); setInviteList([]);
+                        }}>←</button>
                         <div className="fullscreen-editor-actions">
                             <button className="btn btn-primary btn-sm" onClick={handleSaveEdit} disabled={saving}>
                                 {saving ? <span className="spinner"></span> : '저장'}
@@ -1729,6 +2069,31 @@ export default function MainPage() {
                         >
                             <span>🏷️</span><span className="edit-toolbar-label">태그</span>
                             {projectTags.length > 0 && <span className="edit-toolbar-count">{projectTags.length}</span>}
+                        </button>
+                        <button type="button"
+                            className={`edit-toolbar-btn ${editOptionSheet === 'displayName' ? 'active' : ''}`}
+                            onClick={() => setEditOptionSheet(editOptionSheet === 'displayName' ? null : 'displayName')}>
+                            <span>📛</span><span className="edit-toolbar-label">활동명</span>
+                            {displayNameInput && <span className="edit-toolbar-count">✓</span>}
+                        </button>
+                        <button type="button"
+                            className={`edit-toolbar-btn ${editOptionSheet === 'icon' ? 'active' : ''}`}
+                            onClick={() => {
+                                if (!effectiveLimits.representativeIcon) {
+                                    setUpgradeReason('representativeIcon'); setShowUpgradeModal(true); return;
+                                }
+                                setEditOptionSheet(editOptionSheet === 'icon' ? null : 'icon');
+                            }}>
+                            <span>{projectIcon || '🏠'}</span><span className="edit-toolbar-label">아이콘</span>
+                        </button>
+                        <button type="button" className="edit-toolbar-btn" disabled style={{ opacity: 0.4, cursor: 'not-allowed' }}>
+                            <span>📋</span><span className="edit-toolbar-label">템플릿</span>
+                        </button>
+                        <button type="button"
+                            className={`edit-toolbar-btn ${editOptionSheet === 'invite' ? 'active' : ''}`}
+                            onClick={() => setEditOptionSheet(editOptionSheet === 'invite' ? null : 'invite')}>
+                            <span>✉️</span><span className="edit-toolbar-label">초대</span>
+                            {inviteList.length > 0 && <span className="edit-toolbar-count">{inviteList.length}</span>}
                         </button>
                     </div>
 
@@ -1794,7 +2159,129 @@ export default function MainPage() {
                         </div>
                     )}
 
+                    {/* 옵션 시트: 활동명 (편집) */}
+                    {editOptionSheet === 'displayName' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>📛 활동명</span>
+                                <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-xs)' }}>
+                                    이 페이지 내에서 사용할 이름입니다. (한글 6자/영문 12자 이내)
+                                </p>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                    <input type="text" className="input-field flex-1" placeholder="활동명을 입력하세요"
+                                        value={displayNameInput} onChange={e => setDisplayNameInput(e.target.value)} maxLength={12} />
+                                    <button type="button" className="btn btn-secondary btn-sm"
+                                        onClick={() => setDisplayNameInput(profile?.nickname || '')} title="닉네임을 활동명으로 사용">
+                                        닉네임 사용
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
+                    {/* 옵션 시트: 대표 아이콘 (편집) */}
+                    {editOptionSheet === 'icon' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>🏠 대표 아이콘 선택</span>
+                                <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
+                            </div>
+                            <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                {['📋', '📝', '🎯', '📅', '🏠', '💼', '🎓', '🏋️', '🍳', '🎵', '🎨', '📸', '✈️', '💰', '🛒', '❤️', '🐾', '🌱', '📚', '⚙️'].map(icon => (
+                                    <button key={icon} type="button"
+                                        className={`filter-chip ${projectIcon === icon ? 'active' : ''}`}
+                                        onClick={() => setProjectIcon(projectIcon === icon ? null : icon)}
+                                        style={{ fontSize: 'var(--font-size-lg)' }}>
+                                        {icon}
+                                    </button>
+                                ))}
+                                <button type="button"
+                                    className={`filter-chip ${projectIcon === null ? 'active' : ''}`}
+                                    onClick={() => setProjectIcon(null)}>
+                                    없음
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 옵션 시트: 초대 (편집) */}
+                    {editOptionSheet === 'invite' && (
+                        <div className="edit-option-sheet">
+                            <div className="edit-option-sheet-header">
+                                <span>✉️ 구성원 초대</span>
+                                <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
+                            </div>
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+                                {/* 즐겨찾기 친구 빠른 추가 */}
+                                {favoriteFriends.length > 0 && (
+                                    <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>⭐ 즐겨찾기 친구</p>
+                                        <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                            {favoriteFriends.map(friend => {
+                                                const already = inviteList.some(inv => inv.uid === friend.friendUid);
+                                                return (
+                                                    <button key={friend.friendUid} type="button"
+                                                        className={`filter-chip ${already ? 'active' : ''}`}
+                                                        onClick={() => {
+                                                            if (already) setInviteList(prev => prev.filter(inv => inv.uid !== friend.friendUid));
+                                                            else setInviteList(prev => [...prev, { uid: friend.friendUid, nickname: friend.friendNickname || friend.nickname || '', role: 'editor' }]);
+                                                        }}>
+                                                        {already ? '✓ ' : ''}{friend.friendNickname || friend.nickname || '(이름없음)'}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                                {/* 닉네임/이메일 검색 */}
+                                <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>🔍 닉네임 또는 이메일로 검색</p>
+                                    <div className="flex-row-gap-xs">
+                                        <input className="input-field flex-1" placeholder="닉네임 또는 이메일 입력"
+                                            value={inviteSearch} onChange={e => setInviteSearch(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleInviteSearch()} />
+                                        <button type="button" className="btn btn-secondary btn-sm"
+                                            onClick={handleInviteSearch} disabled={inviteSearchLoading}>
+                                            {inviteSearchLoading ? '...' : '검색'}
+                                        </button>
+                                    </div>
+                                    {inviteSearchResult && (
+                                        <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                            <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{inviteSearchResult.nickname}</span>
+                                            <button type="button" className="btn btn-primary btn-xs"
+                                                disabled={inviteList.some(i => i.uid === inviteSearchResult.id)}
+                                                onClick={() => {
+                                                    setInviteList(prev => [...prev, { uid: inviteSearchResult.id, nickname: inviteSearchResult.nickname, role: 'editor' }]);
+                                                    setInviteSearch(''); setInviteSearchResult(null);
+                                                }}>
+                                                {inviteList.some(i => i.uid === inviteSearchResult.id) ? '✓ 추가됨' : '+ 추가'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {/* 초대 목록 */}
+                                {inviteList.length > 0 && (
+                                    <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>초대 목록</p>
+                                        {inviteList.map(inv => (
+                                            <div key={inv.uid} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
+                                                <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{inv.nickname}</span>
+                                                <select className="input-field" style={{ width: 'auto', fontSize: 'var(--font-size-xs)' }}
+                                                    value={inv.role} onChange={e => setInviteList(prev => prev.map(i => i.uid === inv.uid ? { ...i, role: e.target.value } : i))}>
+                                                    <option value="editor">편집자</option>
+                                                    {effectiveLimits.viewerRole && <option value="viewer">독자</option>}
+                                                </select>
+                                                <button type="button" className="btn btn-danger btn-xs" onClick={() => setInviteList(prev => prev.filter(i => i.uid !== inv.uid))}>✕</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="fullscreen-editor-body">
                         <input
@@ -1916,6 +2403,87 @@ export default function MainPage() {
                     />
                 </div>
             </Modal>
+
+            {/* 친구 즐겨찾기 추가 모달 */}
+            <Modal
+                isOpen={showAddFriendModal}
+                onClose={() => { setShowAddFriendModal(false); setAddFriendSearch(''); setAddFriendResult(null); }}
+                title="👤 친구 즐겨찾기 추가"
+                footer={
+                    <>
+                        <button className="btn btn-secondary"
+                            onClick={() => { setShowAddFriendModal(false); setAddFriendSearch(''); setAddFriendResult(null); }}>
+                            취소
+                        </button>
+                        <button className="btn btn-primary"
+                            disabled={!addFriendResult || addFriendLoading}
+                            onClick={async () => {
+                                if (!addFriendResult) return;
+                                await addFavoriteFriend(profile.uid, addFriendResult.id, addFriendResult.nickname);
+                                addToast('즐겨찾기에 추가되었습니다.', 'success');
+                                setShowAddFriendModal(false);
+                                setAddFriendSearch(''); setAddFriendResult(null);
+                            }}>
+                            즐겨찾기 추가
+                        </button>
+                    </>
+                }
+            >
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-sm)' }}>
+                    닉네임 또는 이메일로 검색하여 즐겨찾기에 추가합니다
+                </p>
+                <div className="flex-row-gap-xs">
+                    <input className="input-field flex-1" placeholder="닉네임 또는 이메일"
+                        value={addFriendSearch}
+                        onChange={e => setAddFriendSearch(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddFriendSearch()} />
+                    <button className="btn btn-secondary btn-sm"
+                        onClick={handleAddFriendSearch} disabled={addFriendLoading}>
+                        {addFriendLoading ? '...' : '검색'}
+                    </button>
+                </div>
+                {addFriendResult && (
+                    <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                        <span style={{ flex: 1 }}>{addFriendResult.nickname}</span>
+                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>추가 버튼을 눌러 추가하세요</span>
+                    </div>
+                )}
+            </Modal>
+
+
+            {/* 편집 수정사항 확인 모달 */}
+            {showUnsavedEditModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'var(--color-overlay, rgba(0,0,0,0.5))', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', zIndex: 'var(--z-toast)',
+                }}>
+                    <div style={{
+                        background: 'var(--color-bg-elevated, #fff)', borderRadius: 'var(--radius-lg, 12px)',
+                        padding: 'var(--spacing-lg, 24px)', maxWidth: '320px', width: '90%',
+                        boxShadow: 'var(--shadow-lg)', textAlign: 'center',
+                    }}>
+                        <p style={{ fontSize: 'var(--font-size-md, 16px)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--color-text)' }}>
+                            수정사항이 있습니다.
+                        </p>
+                        <p style={{ fontSize: 'var(--font-size-sm, 14px)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
+                            저장하시겠습니까?
+                        </p>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                            <button className="btn btn-secondary" style={{ flex: 1 }}
+                                onClick={() => {
+                                    setShowUnsavedEditModal(false); setShowEditModal(false);
+                                    setEditOptionSheet(null); setProjectTags([]); setNewProjectTag('');
+                                    setProjectIcon(null); setDisplayNameInput(''); setInviteList([]);
+                                }}>나가기</button>
+                            <button className="btn btn-secondary" style={{ flex: 1 }}
+                                onClick={() => setShowUnsavedEditModal(false)}>취소</button>
+                            <button className="btn btn-primary" style={{ flex: 1 }}
+                                onClick={() => { setShowUnsavedEditModal(false); handleSaveEdit(); }}>저장</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 업그레이드 모달 */}
             <UpgradeModal

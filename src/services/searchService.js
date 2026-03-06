@@ -171,12 +171,17 @@ export function sortResults(results, sortBy) {
         case 'newest':
             return [...results].sort((a, b) =>
                 (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        case 'oldest':
+            return [...results].sort((a, b) =>
+                (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+        case 'name':
+            return [...results].sort((a, b) =>
+                (a.name || a.title || '').localeCompare(b.name || b.title || '', 'ko'));
         case 'dueDate':
             return [...results].sort((a, b) =>
                 (a.dueDate?.seconds || Infinity) - (b.dueDate?.seconds || Infinity));
-        case 'relevance':
         default:
-            return results;
+            return [...results];
     }
 }
 

@@ -1228,7 +1228,7 @@ export default function ProjectPage() {
 
     // 채팅 이미지 선택
     const handleChatImageSelect = (e) => {
-        // ★ 이미지 채팅은 개인 구독 기반 (Team 전용)
+        // ★ 이미지 채팅은 개인 구독 기반 (Pro 이상)
         if (!userLimits.imageChat) {
             setUpgradeReason('imageChat');
             setShowUpgradeModal(true);
@@ -3250,6 +3250,9 @@ export default function ProjectPage() {
                                     📄 서류 업로드
                                 </button>
                                 <p className="file-upload-hint">이미지+서류 합산 최대 5개, 각 5MB 이하</p>
+                                <p className="file-upload-hint" style={{ marginTop: '4px' }}>
+                                    ℹ️ 관리 정책에 따라 첨부된 파일은 업로드일 기준 1년 뒤 자동 삭제됩니다.
+                                </p>
                             </div>
                         </div>
                     )}
@@ -3313,7 +3316,7 @@ export default function ProjectPage() {
                             <button
                                 className="fullscreen-editor-back"
                                 onClick={() => {
-                                    // 편집 모드일 때는 뷰어로만 돌아감
+                                    // 편집 모드일 때는 독자로만 돌아감
                                     if (isEditingContent) {
                                         // 업로드 중이면 경고 + 정리
                                         if (itemImageUploading || itemFileUploading) {
@@ -3348,7 +3351,7 @@ export default function ProjectPage() {
                                         setEditOptionSheet(null);
                                         return;
                                     }
-                                    // 뷰어 모드일 때 모달 닫기
+                                    // 독자 모드일 때 모달 닫기
                                     setShowEditModal(false); setEditItem(null); setEditItemOriginal(null); setIsEditingContent(false); setEditOptionSheet(null);
                                 }}
                             >←</button>
@@ -3503,14 +3506,6 @@ export default function ProjectPage() {
                                     {((editItem.images || []).length + (editItem.files || []).length) > 0 && <span className="edit-toolbar-count">{(editItem.images || []).length + (editItem.files || []).length}/5</span>}
                                 </button>
 
-                                {/* 옵션 시트: 파일 자동삭제 안내 추가 */}
-                                {editOptionSheet === 'file' && (
-                                    <div className="edit-option-sheet" style={{ padding: 'var(--spacing-md)' }}>
-                                        <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '0' }}>
-                                            ℹ️ 관리 정책에 따라 첨부된 파일은 업로드일 기준 1년 뒤 자동 삭제됩니다.
-                                        </p>
-                                    </div>
-                                )}
 
                                 <input
                                     ref={editItemImageRef}
@@ -3749,6 +3744,9 @@ export default function ProjectPage() {
                                         📄 서류 업로드
                                     </button>
                                     <p className="file-upload-hint">이미지+서류 합산 최대 5개, 각 5MB 이하</p>
+                                    <p className="file-upload-hint" style={{ marginTop: '4px' }}>
+                                        ℹ️ 관리 정책에 따라 첨부된 파일은 업로드일 기준 1년 뒤 자동 삭제됩니다.
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -3910,7 +3908,7 @@ export default function ProjectPage() {
                             onChange={(e) => setInviteRole(e.target.value)}
                         >
                             <option value="editor">✏️ 편집자</option>
-                            {effectiveLimits.viewerRole && <option value="viewer">👁️ 뷰어</option>}
+                            {effectiveLimits.viewerRole && <option value="viewer">👁️ 독자</option>}
                         </select>
                     </div>
                 </form>

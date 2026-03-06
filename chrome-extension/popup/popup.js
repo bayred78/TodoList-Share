@@ -175,7 +175,7 @@ function loadProjects() {
 }
 
 function getRoleName(role) {
-    const names = { admin: '관리자', read: '읽기', write: '쓰기', readwrite: '읽기/쓰기' };
+    const names = { admin: '관리자', editor: '편집자', viewer: '독자', read: '읽기', write: '쓰기', readwrite: '편집자' };
     return names[role] || role;
 }
 
@@ -236,7 +236,7 @@ async function acceptInvitation(invId, inv) {
             [`members.${currentUser.uid}`]: {
                 uid: currentUser.uid,
                 nickname: currentProfile.nickname,
-                role: inv.role || 'readwrite',
+                role: inv.role || 'editor',
                 joined: true,
                 joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
             },
@@ -267,7 +267,7 @@ function openProject(id, project) {
 
     const myRole = project.members[currentUser.uid]?.role || 'read';
     const isAdmin = myRole === 'admin';
-    const canWrite = ['write', 'readwrite', 'admin'].includes(myRole);
+    const canWrite = ['write', 'readwrite', 'editor', 'admin'].includes(myRole);
     const memberCount = Object.keys(project.members || {}).filter(k => project.members[k].joined).length;
     const readOnly = memberCount >= 3 && !project.subscriptionActive;
 
@@ -323,7 +323,7 @@ function createTodoElement(id, item) {
 
     const isChecklist = item.type === 'checklist';
     const myRole = currentProject?.members?.[currentUser.uid]?.role || 'read';
-    const canWrite = ['write', 'readwrite', 'admin'].includes(myRole);
+    const canWrite = ['write', 'readwrite', 'editor', 'admin'].includes(myRole);
     const memberCount = Object.keys(currentProject?.members || {}).filter(k => currentProject.members[k].joined).length;
     const readOnly = memberCount >= 3 && !currentProject?.subscriptionActive;
 

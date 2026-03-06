@@ -24,7 +24,7 @@ export async function initializeRevenueCat(appUserId) {
 export async function getStoreProducts(productIds) {
     if (!Capacitor.isNativePlatform()) return [];
     try {
-        const products = await Purchases.getProducts({ productIdentifiers: productIds, type: "subs" });
+        const { products } = await Purchases.getProducts({ productIdentifiers: productIds });
         return products;
     } catch (e) {
         console.error('Failed to fetch RevenueCat products:', e);
@@ -48,8 +48,8 @@ export async function purchaseStoreProduct(product, oldProductId = null) {
             // 업그레이드(교체) 모드
             result = await Purchases.purchaseStoreProduct({
                 product: product,
-                upgradeInfo: {
-                    oldSKU: oldProductId,
+                googleProductChangeInfo: {
+                    oldProductIdentifier: oldProductId,
                     prorationMode: PRORATION_MODE.IMMEDIATE_WITH_TIME_PRORATION
                 }
             });
@@ -71,4 +71,15 @@ export function subscribeToCustomerInfoUpdate(callback) {
     return Purchases.addCustomerInfoUpdateListener((customerInfo) => {
         callback(customerInfo);
     });
+}
+
+export async function getCustomerInfo() {
+    if (!Capacitor.isNativePlatform()) return null;
+    try {
+        const { customerInfo } = await Purchases.getCustomerInfo();
+        return customerInfo;
+    } catch (e) {
+        console.error('Customer info 획득 실패:', e);
+        return null;
+    }
 }

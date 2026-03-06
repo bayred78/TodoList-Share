@@ -102,86 +102,162 @@ exports.getCalendarToken = onCall(async (request) => {
  */
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-exports.cleanupDeletedItems = onSchedule('every 24 hours', async (event) => {
+exports.cleanupDeletedItems = onSchedule({
+    schedule: 'every 24 hours',
+    timeoutSeconds: 540 // 파이어베이스 V2 기본 최대치: 9분 보장
+}, async (event) => {
+    const startTime = Date.now();
+    const MAX_RUNTIME_MS = 8 * 60 * 1000; // 8분 (안전 여유 제한)
+
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 
     try {
-        // 모든 프로젝트 순회
         const projectsSnap = await db.collection('projects').get();
 
         let totalDeleted = 0;
+        let totalChatDeleted = 0;
+        let totalAttachmentsCleaned = 0;
+
         for (const projectDoc of projectsSnap.docs) {
-            const itemsSnap = await db.collection('projects').doc(projectDoc.id)
-                .collection('items')
-                .where('deleted', '==', true)
-                .where('deletedAt', '<=', sevenDaysAgo)
-                .get();
-
-            if (itemsSnap.empty) continue;
-
-            // 배치 삭제 (500개 제한)
-            let batch = db.batch();
-            let count = 0;
-            for (const itemDoc of itemsSnap.docs) {
-                batch.delete(itemDoc.ref);
-                count++;
-                if (count >= 490) {
-                    await batch.commit();
-                    batch = db.batch();
-                    count = 0;
-                }
+            // 시간 경계 초과 시 안전하게 중단(Break), 모레 다시 시작
+            if (Date.now() - startTime >= MAX_RUNTIME_MS) {
+                console.log('타임아웃 안전망(8분)에 도달하여 프로젝트 순회를 종료합니다. 잔여 작업은 차기 스케줄러에서 이어서 진행됩니다.');
+                break;
             }
-            if (count > 0) await batch.commit();
-            totalDeleted += itemsSnap.size;
 
-            // --- 2. 7일 지난 채팅 메시지(이미지 포함) 정리 ---
-            const messagesSnap = await db.collection('projects').doc(projectDoc.id)
-                .collection('messages')
-                .where('mediaUrl', '!=', null)
-                .get();
+            // --- 1. 7일 지난 휴지통(deleted) 아이템 영구 삭제 ---
+            while (Date.now() - startTime < MAX_RUNTIME_MS) {
+                const itemsSnap = await db.collection('projects').doc(projectDoc.id)
+                    .collection('items')
+                    .where('deleted', '==', true)
+                    .where('deletedAt', '<=', sevenDaysAgo)
+                    .limit(200)
+                    .get();
 
-            let chatBatch = db.batch();
-            let chatCount = 0;
-            let totalChatDeleted = 0;
+                if (itemsSnap.empty) break;
 
-            for (const chatDoc of messagesSnap.docs) {
-                const data = chatDoc.data();
-                if (!data.createdAt) continue;
-                const createdAtDate = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                let batch = db.batch();
+                for (const itemDoc of itemsSnap.docs) {
+                    batch.delete(itemDoc.ref);
+                }
+                await batch.commit();
+                totalDeleted += itemsSnap.size;
 
-                if (createdAtDate <= sevenDaysAgo) {
-                    // Storage 파일 삭제
+                if (itemsSnap.size < 200) break;
+            }
+
+            // --- 2. 30일 지난 채팅 메시지 전면 정리 (텍스트 + 이미지) ---
+            while (Date.now() - startTime < MAX_RUNTIME_MS) {
+                const messagesSnap = await db.collection('projects').doc(projectDoc.id)
+                    .collection('messages')
+                    .where('createdAt', '<=', thirtyDaysAgo)
+                    .limit(200)
+                    .get();
+
+                if (messagesSnap.empty) break;
+
+                let chatBatch = db.batch();
+                const mediaDeletePromises = [];
+
+                for (const chatDoc of messagesSnap.docs) {
+                    const data = chatDoc.data();
                     if (data.mediaUrl) {
-                        try {
-                            const match = data.mediaUrl.match(/\/b\/([^/]+)\/o\/([^?]+)/);
-                            if (match && match[1] && match[2]) {
-                                const bucketName = match[1];
-                                const filePath = decodeURIComponent(match[2]);
-                                await getStorage().bucket(bucketName).file(filePath).delete({ ignoreNotFound: true });
-                            }
-                        } catch (e) {
-                            console.error('채팅 이미지 정리 실패:', e);
+                        const match = data.mediaUrl.match(/\/b\/([^/]+)\/o\/([^?]+)/);
+                        if (match && match[1] && match[2]) {
+                            mediaDeletePromises.push(
+                                getStorage().bucket(match[1]).file(decodeURIComponent(match[2])).delete({ ignoreNotFound: true }).catch(console.error)
+                            );
                         }
                     }
-                    // Firestore 채팅 문서 삭제
                     chatBatch.delete(chatDoc.ref);
-                    chatCount++;
-                    totalChatDeleted++;
-
-                    if (chatCount >= 490) {
-                        await chatBatch.commit();
-                        chatBatch = db.batch();
-                        chatCount = 0;
-                    }
                 }
+
+                // Promise.all 로 동시 병렬 파괴 (9분 타임아웃 회피 핵심)
+                if (mediaDeletePromises.length > 0) {
+                    await Promise.all(mediaDeletePromises);
+                }
+                await chatBatch.commit();
+                totalChatDeleted += messagesSnap.size;
+
+                if (messagesSnap.size < 200) break;
             }
-            if (chatCount > 0) await chatBatch.commit();
-            console.log(`프로젝트 ${projectDoc.id}: 채팅 미디어 ${totalChatDeleted}개 정리 완료`);
+
+            // --- 3. 365일(1년) 지난 체크리스트 첨부파일/이미지 내용물 비우기 ---
+            let lastItemDoc = null; // 수정만 하므로 무한루프 방지를 위한 페이지네이션 커서
+            while (Date.now() - startTime < MAX_RUNTIME_MS) {
+                let q = db.collection('projects').doc(projectDoc.id)
+                    .collection('items')
+                    .where('createdAt', '<=', oneYearAgo)
+                    .orderBy('createdAt')
+                    .limit(200);
+
+                if (lastItemDoc) {
+                    q = q.startAfter(lastItemDoc);
+                }
+
+                const oldItemsSnap = await q.get();
+                if (oldItemsSnap.empty) break;
+
+                lastItemDoc = oldItemsSnap.docs[oldItemsSnap.docs.length - 1];
+
+                let itemBatch = db.batch();
+                let hasUpdates = false;
+                const attachmentDeletePromises = [];
+
+                for (const itemDoc of oldItemsSnap.docs) {
+                    const data = itemDoc.data();
+                    if (data.deleted) continue; // 이미 지워진 건 1번 로직이 처리
+                    if ((!data.images || data.images.length === 0) && (!data.files || data.files.length === 0)) continue;
+
+                    // 스토리지 파일 삭제 지시
+                    if (data.images && data.images.length > 0) {
+                        for (const url of data.images) {
+                            const match = url.match(/\/b\/([^/]+)\/o\/([^?]+)/);
+                            if (match && match[1] && match[2]) {
+                                attachmentDeletePromises.push(
+                                    getStorage().bucket(match[1]).file(decodeURIComponent(match[2])).delete({ ignoreNotFound: true }).catch(console.error)
+                                );
+                            }
+                        }
+                    }
+                    if (data.files && data.files.length > 0) {
+                        for (const f of data.files) {
+                            if (!f.url) continue;
+                            const match = f.url.match(/\/b\/([^/]+)\/o\/([^?]+)/);
+                            if (match && match[1] && match[2]) {
+                                attachmentDeletePromises.push(
+                                    getStorage().bucket(match[1]).file(decodeURIComponent(match[2])).delete({ ignoreNotFound: true }).catch(console.error)
+                                );
+                            }
+                        }
+                    }
+
+                    itemBatch.update(itemDoc.ref, {
+                        images: [],
+                        files: []
+                    });
+                    totalAttachmentsCleaned++;
+                    hasUpdates = true;
+                }
+
+                // 광속 병렬 사격
+                if (attachmentDeletePromises.length > 0) {
+                    await Promise.all(attachmentDeletePromises);
+                }
+                if (hasUpdates) {
+                    await itemBatch.commit();
+                }
+
+                // 200개가 안찼으면 더 볼 수 없음
+                if (oldItemsSnap.size < 200) break;
+            }
         }
 
-        console.log(`cleanupDeletedItems: ${totalDeleted}개 아이템 영구 삭제 및 확인 완료`);
+        console.log(`cleanupDeletedItems 정기 검은망 파쇄기 완료: 완전삭제 ${totalDeleted}개, 만료채팅 ${totalChatDeleted}개, 만료첨부 비움 ${totalAttachmentsCleaned}개`);
     } catch (error) {
-        console.error('cleanupDeletedItems 실패:', error);
+        console.error('cleanupDeletedItems 실행 실패:', error);
     }
 });
 

@@ -18,35 +18,37 @@ export const PLAN = {
 // ===== 등급별 제한 =====
 export const LIMITS = {
     free: {
-        maxPages: 5,
+        maxPages: 3,
         maxMembers: 2,
         maxItems: 50,
         chatHistory: 50,
+        chatRetentionDays: Infinity,
         calendar: false,
         noAds: false,
         imageChat: false,
         repeat: false,
         priority: true,
         labels: true,
-        viewerRole: true,
+        viewerRole: false,
         statistics: false,
         search: false,
         freeDueDateLimit: 3,
         freeLabelLimit: 3,
     },
     pro: {
-        maxPages: 20,
-        maxMembers: 10,
+        maxPages: 10,
+        maxMembers: 5,
         maxItems: Infinity,
         chatHistory: Infinity,
+        chatRetentionDays: 30,
         calendar: true,
         noAds: true,
         imageChat: false,
         repeat: true,
         priority: true,
         labels: true,
-        viewerRole: true,
-        statistics: true,
+        viewerRole: false,
+        statistics: false,
         search: true,
         freeDueDateLimit: Infinity,
         freeLabelLimit: Infinity,
@@ -56,6 +58,7 @@ export const LIMITS = {
         maxMembers: 30,
         maxItems: Infinity,
         chatHistory: Infinity,
+        chatRetentionDays: 30,
         calendar: true,
         noAds: true,
         imageChat: true,
@@ -198,4 +201,29 @@ export function getEffectivePlan(profile) {
     if (isRewardUnlocked(profile)) return PLAN.PRO;
     if (isTrialActive(profile)) return PLAN.PRO;
     return PLAN.FREE;
+}
+
+// ===== 클라이언트 주도 RevenueCat 동기화 (Firestore 업데이트) =====
+export async function syncSubscriptionWithRevenueCat(userId, customerInfo) {
+    if (!userId || !customerInfo) return;
+    try {
+        const activeSubs = customerInfo.activeSubscriptions || [];
+        let newPlan = PLAN.FREE;
+
+        // 상위 플랜 우선 확인
+        if (activeSubs.some(s => s.startsWith('team_sub:'))) {
+            newPlan = PLAN.TEAM;
+        } else if (activeSubs.some(s => s.startsWith('pro_sub:'))) {
+            newPlan = PLAN.PRO;
+        }
+
+        const profileRef = doc(db, 'users', userId);
+        await updateDoc(profileRef, {
+            plan: newPlan,
+            updatedAt: serverTimestamp()
+        });
+        console.log(`구독 플랜 동기화 완료: ${userId} -> ${newPlan}`);
+    } catch (error) {
+        console.error('구독 플랜 동기화 실패:', error);
+    }
 }

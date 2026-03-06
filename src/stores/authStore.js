@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { onAuthChange, getUserProfile, signInWithGoogle, signOutUser, setupNickname, subscribeToUserProfile } from '../services/authService';
-import { initializeRevenueCat, subscribeToCustomerInfoUpdate } from '../services/revenueCatService';
+import { initializeRevenueCat, subscribeToCustomerInfoUpdate, getCustomerInfo } from '../services/revenueCatService';
+import { syncSubscriptionWithRevenueCat } from '../services/subscriptionService';
 
 const useAuthStore = create((set, get) => ({
     user: null,
@@ -28,11 +29,22 @@ const useAuthStore = create((set, get) => ({
 
             if (firebaseUser) {
                 // RevenueCat 초기화
-                initializeRevenueCat(firebaseUser.uid).then(() => {
+                initializeRevenueCat(firebaseUser.uid).then(async () => {
                     if (currentSession !== activeSessionId) return; // 세션이 변경되었다면 리스너 등록 생략
+
+                    // [능동적 검증] 시작할 때 영수증 정보를 강제로 가져와 만료 여부를 100% 동기화
+                    if (firebaseUser?.uid) {
+                        const latestInfo = await getCustomerInfo();
+                        if (latestInfo) {
+                            await syncSubscriptionWithRevenueCat(firebaseUser.uid, latestInfo);
+                        }
+                    }
+
                     rcListenerUnsub = subscribeToCustomerInfoUpdate((customerInfo) => {
                         console.log('RevenueCat CustomerInfo updated:', customerInfo);
-                        // 구독 정보 변경 시 동기화는 Firestore (subscribeToUserProfile)가 수행함.
+                        if (firebaseUser?.uid) {
+                            syncSubscriptionWithRevenueCat(firebaseUser.uid, customerInfo);
+                        }
                     });
                 });
 

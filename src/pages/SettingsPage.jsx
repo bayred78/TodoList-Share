@@ -4,7 +4,7 @@ import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
 import { changeNickname } from '../services/userService';
 import PlanCompareTable from '../components/common/PlanCompareTable';
-import { getEffectivePlan, getUserPlan, isTrialActive, isTrialUsed, startFreeTrial } from '../services/subscriptionService';
+import { getEffectivePlan, getUserPlan, isTrialActive, isTrialUsed, startFreeTrial, syncSubscriptionWithRevenueCat } from '../services/subscriptionService';
 import { getNotificationSettings, saveNotificationSettings, registerPushNotifications } from '../services/notificationService';
 import RewardedAd from '../components/ads/RewardedAd';
 import PageHeader from '../components/common/PageHeader';
@@ -14,7 +14,7 @@ import { getStoreProducts, purchaseStoreProduct } from '../services/revenueCatSe
 import './SettingsPage.css';
 
 export default function SettingsPage() {
-    const { profile, logout, refreshProfile } = useAuthStore();
+    const { user, profile, logout, refreshProfile } = useAuthStore();
     const addToast = useToastStore((s) => s.addToast);
     const navigate = useNavigate();
 
@@ -38,7 +38,7 @@ export default function SettingsPage() {
         let isMounted = true;
         // App 구동 환경이 네이티브일 때 구독 상품 정보 미리 조회
         if (Capacitor.isNativePlatform()) {
-            getStoreProducts(['pro:monthly', 'pro:annual', 'team:monthly', 'team:annual'])
+            getStoreProducts(['pro_sub:p1m', 'pro_sub:p1y', 'team_sub:t1m', 'team_sub:t1y'])
                 .then(prods => {
                     if (isMounted) setProducts(prods);
                 })
@@ -250,8 +250,8 @@ export default function SettingsPage() {
                             }
 
                             const productIdMap = {
-                                pro: { monthly: 'pro:monthly', yearly: 'pro:annual' },
-                                team: { monthly: 'team:monthly', yearly: 'team:annual' },
+                                pro: { monthly: 'pro_sub:p1m', yearly: 'pro_sub:p1y' },
+                                team: { monthly: 'team_sub:t1m', yearly: 'team_sub:t1y' },
                             };
                             const targetId = productIdMap[plan][period];
                             const targetProduct = products.find(p => p.identifier === targetId);
@@ -271,14 +271,18 @@ export default function SettingsPage() {
                                     try {
                                         const { customerInfo } = await Purchases.getCustomerInfo();
                                         const activeSubs = customerInfo?.activeSubscriptions || [];
-                                        // 활성 구독 중 pro로 시작하는 Identifier를 찾음
-                                        oldSku = activeSubs.find(sku => sku.startsWith('pro:'));
+                                        // 활성 구독 중 pro_sub: 등 식별자로 시작하는 Identifier를 찾음
+                                        oldSku = activeSubs.find(sku => sku.startsWith('pro_sub:'));
                                     } catch (e) {
                                         console.warn("기존 프로 플랜 구독 SKU 정보를 찾을 수 없습니다.", e);
                                     }
                                 }
 
-                                await purchaseStoreProduct(targetProduct, oldSku);
+                                const result = await purchaseStoreProduct(targetProduct, oldSku);
+                                if (result && result.customerInfo) {
+                                    await syncSubscriptionWithRevenueCat(user?.uid || profile?.uid || profile?.id, result.customerInfo);
+                                }
+
                                 addToast('구독 설정이 성공적으로 처리되었습니다!', 'success');
                                 refreshProfile();
                             } catch (e) {

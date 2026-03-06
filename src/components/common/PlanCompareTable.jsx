@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useToastStore from '../../stores/toastStore';
 import { isTrialUsed, isTrialActive, startFreeTrial, getTrialRemainingDays } from '../../services/subscriptionService';
 import RewardedAd from '../ads/RewardedAd';
+import { Capacitor } from '@capacitor/core';
+import { Purchases } from '@revenuecat/purchases-capacitor';
 
 /**
  * Pro/Team 비교표 + 무료/참여 비교표 공유 컴포넌트
@@ -10,38 +12,54 @@ import RewardedAd from '../ads/RewardedAd';
 
 // Pro/Team 기능 비교 행 데이터
 const PRO_TEAM_FEATURES = [
-    { label: '페이지', pro: '20개', team: '무제한' },
-    { label: '참여자', pro: '10명', team: '30명' },
+    { label: '페이지', pro: '10개', team: '무제한' },
+    { label: '참여자', pro: '5명', team: '30명' },
     { label: '체크리스트', pro: '무제한', team: '무제한' },
-    { label: '채팅 기록', pro: '무제한', team: '무제한' },
+    { label: '채팅 기록', pro: '30일 보관', team: '30일 보관' },
     { label: '마감일/라벨', pro: '무제한', team: '무제한' },
     { label: '반복', pro: '✅', team: '✅' },
     { label: '구글 캘린더 연동', pro: '✅', team: '✅' },
     { label: '광고 제거', pro: '✅', team: '✅' },
-    { label: '이미지 채팅', pro: '—', team: '✅' },
-    { label: '페이지 통계', pro: '✅', team: '✅' },
+    { label: '페이지 통계', pro: '❌', team: '✅' },
+    { label: '뷰어 초대', pro: '❌', team: '✅' },
+    { label: '이미지 채팅', pro: '❌', team: '✅' },
     { label: '통합 검색', pro: '✅', team: '✅' },
 ];
 
 // 무료/참여 기능 비교 행 데이터
 const FREE_ACCESS_FEATURES = [
-    { label: '페이지 수', free: '5개', access: '❌ 본인 구독 필요' },
+    { label: '페이지 수', free: '3개', access: '✅ 관리자 기준' },
     { label: '참여자 수', free: '2명', access: '✅ 관리자 기준' },
-    { label: '체크리스트', free: '50개', access: '✅ 무제한' },
-    { label: '채팅 기록', free: '50건', access: '✅ 무제한' },
-    { label: '마감일/라벨', free: '각 3개', access: '✅ 무제한' },
-    { label: '반복', free: '❌', access: '✅ 사용 가능' },
-    { label: '구글 캘린더 연동', free: '❌', access: '✅ 사용 가능' },
-    { label: '광고 제거', free: '❌', access: '❌ 본인 구독 필요' },
-    { label: '이미지 채팅', free: '❌', access: '❌ 본인 구독 필요' },
-    { label: '페이지 통계', free: '❌', access: '✅ 사용 가능' },
-    { label: '통합 검색', free: '❌', access: '✅ 사용 가능' },
+    { label: '체크리스트', free: '50개', access: '✅ 관리자 기준' },
+    { label: '채팅 기록', free: '50건', access: '✅ 관리자 기준' },
+    { label: '마감일/라벨', free: '각 3개', access: '✅ 관리자 기준' },
+    { label: '반복', free: '❌', access: '✅ 관리자 기준' },
+    { label: '구글 캘린더 연동', free: '❌', access: '✅ 관리자 기준' },
+    { label: '페이지 통계', free: '❌', access: '✅ 관리자기준' },
+    { label: '채팅 이미지 첨부', free: '❌', access: '✅ 관리자기준' },
+    { label: '계정 광고 제거', free: '❌', access: '❌ 본인 구독 필요' },
+    { label: '통합 검색', free: '❌', access: '✅ 관리자 기준' },
 ];
 
 export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, profile, onTrialStart, onReward }) {
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [proSubType, setProSubType] = useState('unknown'); // 'monthly' | 'annual' | 'unknown'
     const addToast = useToastStore((s) => s.addToast);
+
+    // Pro 사용자인 경우에만 구매 내역 조회 최적화
+    useEffect(() => {
+        let isMounted = true;
+        if (currentPlan === 'pro' && Capacitor.isNativePlatform()) {
+            Purchases.getCustomerInfo().then(info => {
+                if (!isMounted) return;
+                const activeSubs = info?.activeSubscriptions || [];
+                if (activeSubs.some(s => s.includes('pro_sub:p1y'))) setProSubType('annual');
+                else if (activeSubs.some(s => s.includes('pro_sub:p1m'))) setProSubType('monthly');
+            }).catch(e => console.warn('구독 정보 확인 실패', e));
+        }
+        return () => { isMounted = false; };
+    }, [currentPlan]);
 
     const handleSubscribe = async (plan, period) => {
         if (onSubscribe) {
@@ -103,17 +121,26 @@ export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, pr
                                 <span className="current-plan-label">현재 플랜</span>
                             ) : selectedPlan === 'team' ? (
                                 <div className="plan-period-btns">
+                                    {currentPlan === 'pro' && (
+                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', textAlign: 'center', marginBottom: 'var(--spacing-xs)', fontWeight: 'bold' }}>
+                                            {proSubType === 'annual'
+                                                ? '✅ 기존 Pro(연간) 잔여 기간만큼 팀 결제 시 차감'
+                                                : proSubType === 'monthly'
+                                                    ? '✅ 기존 Pro(월간) 잔여 기간만큼 팀 결제 시 차감'
+                                                    : '✅ 기존 Pro 잔여 기간 가치만큼 자동 결제 할인'}
+                                        </p>
+                                    )}
                                     <button className="btn btn-primary btn-xs btn-block" disabled={isSubmitting} onClick={() => handleSubscribe('team', 'monthly')}>
-                                        월간 ₩6,900
+                                        월간 ₩9,900
                                     </button>
                                     <button className="btn btn-primary btn-xs btn-block yearly-btn" disabled={isSubmitting} onClick={() => handleSubscribe('team', 'yearly')}>
-                                        연간 ₩55,000
+                                        연간 ₩79,000
                                     </button>
                                     <button className="btn btn-secondary btn-xs btn-block" disabled={isSubmitting} onClick={() => setSelectedPlan(null)}>취소</button>
                                 </div>
                             ) : (
                                 <button className="btn btn-primary btn-sm btn-block" disabled={isSubmitting} onClick={() => setSelectedPlan('team')}>
-                                    ₩6,900/월~
+                                    {currentPlan === 'pro' ? '🚀 Team으로 업그레이드' : '₩9,900/월~'}
                                 </button>
                             )}
                         </td>

@@ -115,11 +115,18 @@ export async function getLastRead(projectId, userId) {
 
 // 최근 메시지 실시간 구독 (최신 N개)
 // onSnapshot 콜백에서 캐시 자동 갱신
-export function subscribeToRecentMessages(projectId, limitCount, callback) {
+export function subscribeToRecentMessages(projectId, limitCount, retentionDays, callback) {
+    const constraints = [orderBy('createdAt', 'desc'), limit(limitCount)];
+
+    if (retentionDays && retentionDays !== Infinity) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+        constraints.unshift(where('createdAt', '>=', cutoffDate));
+    }
+
     const q = query(
         collection(db, 'projects', projectId, 'messages'),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
+        ...constraints
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -153,12 +160,22 @@ export function subscribeToRecentMessages(projectId, limitCount, callback) {
 }
 
 // 이전 메시지 로딩 (커서 기반 페이지네이션)
-export async function loadOlderMessages(projectId, beforeTimestamp, limitCount = 20) {
-    const q = query(
-        collection(db, 'projects', projectId, 'messages'),
+export async function loadOlderMessages(projectId, beforeTimestamp, limitCount = 20, retentionDays = Infinity) {
+    const constraints = [
         orderBy('createdAt', 'desc'),
         startAfter(beforeTimestamp),
         limit(limitCount)
+    ];
+
+    if (retentionDays && retentionDays !== Infinity) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+        constraints.unshift(where('createdAt', '>=', cutoffDate));
+    }
+
+    const q = query(
+        collection(db, 'projects', projectId, 'messages'),
+        ...constraints
     );
 
     const snapshot = await getDocs(q);

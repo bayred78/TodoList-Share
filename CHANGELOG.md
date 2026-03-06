@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-03-06 21:30 — 백엔드 성능 최적화 및 결제 연동 고도화
+- `functions/index.js`: 데이터 삭제 시 병렬 처리(`Promise.all`) 및 청크 단위 조회를 통한 성능 최적화 (Cloud Functions 타임아웃 및 OOM 방지)
+- `firestore.indexes.json`: 데이터 삭제 및 조회를 위한 복합 인덱스 추가
+- `subscriptionService.js` / `revenueCatService.js` / `authStore.js`: RevenueCat 인앱 결제 동기화 로직 및 구독 상태 체크 강화
+- `ProjectPage.jsx` / `SettingsPage.jsx` / `PlanCompareTable.jsx`: 구독 상태에 따른 UI 반응성 개선 및 결제 모달 버그 수정
+- `build.gradle`: 앱 버전 업데이트 (v1.9 / 9)
+- Git 태그: `v260306-2130`
+- 복원: `git checkout v260306-2130`
+
 ## 2026-03-05 20:44 — RevenueCat 인앱 결제 연동 및 UI 버그 수정
 - `authStore.js` / `authService.js`: RevenueCat 연동(`@revenuecat/purchases-capacitor`) 및 구독 상태 실시간 동기화
 - `revenueCatService.js` [NEW]: RevenueCat 초기화, 상품 정보 조회, 구매 비즈니스 로직 작성

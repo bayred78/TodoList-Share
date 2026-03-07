@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, indexedDBLocalPersistence, initializeAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 import { Capacitor } from '@capacitor/core';
 
@@ -32,6 +33,7 @@ if (Capacitor.isNativePlatform()) {
 export { auth };
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app, 'asia-northeast3');
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/calendar');
 

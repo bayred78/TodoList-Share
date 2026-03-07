@@ -157,6 +157,10 @@
     opacity: 0.5;
 }
 
+.disabled-opacity {
+    opacity: 0.35;
+}
+
 .todo-left-actions {
     display: flex;
     flex-direction: column;

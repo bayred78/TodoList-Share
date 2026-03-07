@@ -35,6 +35,7 @@ export const LIMITS = {
         representativeIcon: false,
         freeDueDateLimit: 3,
         freeLabelLimit: 3,
+        dueDateNotification: false,
     },
     pro: {
         maxPages: 10,
@@ -54,6 +55,7 @@ export const LIMITS = {
         representativeIcon: true,
         freeDueDateLimit: Infinity,
         freeLabelLimit: Infinity,
+        dueDateNotification: true,
     },
     team: {
         maxPages: Infinity,
@@ -73,6 +75,7 @@ export const LIMITS = {
         representativeIcon: true,
         freeDueDateLimit: Infinity,
         freeLabelLimit: Infinity,
+        dueDateNotification: true,
     },
 };
 

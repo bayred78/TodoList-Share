@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-03-07 23:50 — 마감일 예약 알림 최적화 및 설정/체크리스트 디자인 인라인 스타일 토큰화
+- `functions/index.js`: 마감일 푸시 Webhook(`sendDueDateAlertWebhook`)을 Cloud Run 직접 호출로 전환 및 Cloud Tasks 예약 취소/갱신을 병렬(`Promise.all`) 처리하도록 성능 최적화
+- `functions/index.js`: Cloud Functions 푸시 발송 시 `dueDate: false` 기본 설정값을 우회하여, 사용자가 직접 예약한 마감일에 대해서는 항상 FCM이 바로 발송되도록 안정화
+- `ProjectPage.jsx`, `SettingsPage.jsx`: 마감일 규칙 설정 UI 및 캘린더 모달 등에서 사용된 인라인 `px` 수치 하드코딩 제거 및 디자인 토큰(`var(--spacing-*)`, `var(--font-size-*)`) 적용
+- `ProjectPage.css`: 비활성화 요소 투명도 보정을 위해 `.disabled-opacity` 공용 클래스 분리
+- Git 태그: `v260307-2350`
+- 복원: `git checkout v260307-2350`
+
 ## 2026-03-07 02:23 — 버그 수정 9건 + 코드·디자인 리뷰 수정
 - `MainPage.jsx`: 새 페이지 생성 시 활동명 선택 입력 허용 (미입력 시 진입 후 프롬프트), `*필수` 레이블 제거
 - `MainPage.jsx`: 즐겨찾기 친구 추가 모달 공통 `<Modal>` 컴포넌트로 교체 (디자인 통일)

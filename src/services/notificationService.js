@@ -29,6 +29,8 @@ export const DEFAULT_NOTIFICATION_SETTINGS = {
     chat: true,          // 채팅
     dm: true,            // DM 메시지
     invitation: true,    // 초대
+    dueDate: false,      // 마감일 예약 알림 (Pro/Team 전용)
+    dueDateRules: [],    // [{ unit: 'month'|'day'|'hour'|'minute', value: number }]
 };
 
 // ===== FCM 토큰 등록 =====

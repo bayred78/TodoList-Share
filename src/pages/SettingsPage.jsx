@@ -25,6 +25,8 @@ export default function SettingsPage() {
     const [devMode, setDevMode] = useState(() => localStorage.getItem('devMode') === 'true');
     const [notiSettings, setNotiSettings] = useState(() => getNotificationSettings(profile));
     const [notiSaving, setNotiSaving] = useState(false);
+    const [dueDateUnit, setDueDateUnit] = useState('day');
+    const [dueDateValue, setDueDateValue] = useState(1);
     const [products, setProducts] = useState(null);
 
     useEffect(() => {
@@ -49,6 +51,7 @@ export default function SettingsPage() {
     }, []);
 
     // 알림 설정 변경 핸들러
+    const canUseDueDate = getUserPlan(profile) === 'pro' || getUserPlan(profile) === 'team';
     const handleNotiToggle = async (key) => {
         const updated = { ...notiSettings, [key]: !notiSettings[key] };
         // 전체 OFF 시 개별도 모두 OFF
@@ -58,6 +61,7 @@ export default function SettingsPage() {
             updated.chat = false;
             updated.dm = false;
             updated.invitation = false;
+            updated.dueDate = false;
         }
         // 전체 ON 시 개별도 모두 ON
         if (key === 'enabled' && updated.enabled) {
@@ -66,10 +70,11 @@ export default function SettingsPage() {
             updated.chat = true;
             updated.dm = true;
             updated.invitation = true;
+            updated.dueDate = canUseDueDate;
         }
         // 개별 하나라도 ON이면 전체도 ON
         if (key !== 'enabled') {
-            const anyOn = updated.itemCreate || updated.itemChange || updated.chat || updated.dm || updated.invitation;
+            const anyOn = updated.itemCreate || updated.itemChange || updated.chat || updated.dm || updated.invitation || updated.dueDate;
             updated.enabled = anyOn;
         }
         setNotiSettings(updated);
@@ -85,6 +90,41 @@ export default function SettingsPage() {
         } finally {
             setNotiSaving(false);
         }
+    };
+
+    // 마감일 알림 규칙 핸들러
+    const MINUTE_OPTIONS = [5, 10, 15, 30, 45];
+    const getValueRange = (unit) => {
+        if (unit === 'month') return Array.from({ length: 12 }, (_, i) => i + 1);
+        if (unit === 'day') return Array.from({ length: 30 }, (_, i) => i + 1);
+        if (unit === 'hour') return Array.from({ length: 23 }, (_, i) => i + 1);
+        return MINUTE_OPTIONS;
+    };
+    const UNIT_LABEL = { month: '개월', day: '일', hour: '시간', minute: '분' };
+
+    const handleAddDueDateRule = async () => {
+        if (!canUseDueDate) return;
+        const rules = notiSettings.dueDateRules || [];
+        if (rules.length >= 5) { addToast('최대 5개까지 추가할 수 있습니다.', 'warning'); return; }
+        if (rules.some(r => r.unit === dueDateUnit && r.value === dueDateValue)) {
+            addToast('이미 추가된 규칙입니다.', 'warning'); return;
+        }
+        const updated = { ...notiSettings, dueDateRules: [...rules, { unit: dueDateUnit, value: dueDateValue }] };
+        setNotiSettings(updated);
+        setNotiSaving(true);
+        try { await saveNotificationSettings(profile?.uid, updated); }
+        catch { addToast('저장 실패', 'error'); }
+        finally { setNotiSaving(false); }
+    };
+
+    const handleRemoveDueDateRule = async (idx) => {
+        const newRules = (notiSettings.dueDateRules || []).filter((_, i) => i !== idx);
+        const updated = { ...notiSettings, dueDateRules: newRules };
+        setNotiSettings(updated);
+        setNotiSaving(true);
+        try { await saveNotificationSettings(profile?.uid, updated); }
+        catch { addToast('저장 실패', 'error'); }
+        finally { setNotiSaving(false); }
     };
 
     // 닉네임 변경 가능 여부 확인
@@ -217,6 +257,54 @@ export default function SettingsPage() {
                                 <span className="toggle-slider"></span>
                             </label>
                         </div>
+                        {/* 마감일 예약 알림 — Pro/Team 전용 */}
+                        <div className="noti-setting-row">
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                ⏰ 마감일 예약 알림
+                                {!canUseDueDate && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-sm)', padding: '0 var(--spacing-xs)' }}>Pro</span>}
+                            </span>
+                            <label className="toggle-switch">
+                                <input type="checkbox"
+                                    checked={notiSettings.dueDate || false}
+                                    onChange={() => canUseDueDate && handleNotiToggle('dueDate')}
+                                    disabled={notiSaving || !canUseDueDate} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        {notiSettings.dueDate && canUseDueDate && (
+                            <div style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
+                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', margin: '0 0 var(--spacing-xs)' }}>
+                                    💡 마감일 전 원하는 시간에 알림을 받을 수 있습니다.
+                                </p>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                    <select value={dueDateUnit} onChange={e => { setDueDateUnit(e.target.value); setDueDateValue(getValueRange(e.target.value)[0]); }}
+                                        style={{ flex: 1, padding: 'var(--spacing-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                                        <option value="month">개월</option>
+                                        <option value="day">일</option>
+                                        <option value="hour">시간</option>
+                                        <option value="minute">분</option>
+                                    </select>
+                                    <select value={dueDateValue} onChange={e => setDueDateValue(Number(e.target.value))}
+                                        style={{ flex: 1, padding: 'var(--spacing-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                                        {getValueRange(dueDateUnit).map(v => <option key={v} value={v}>{v}</option>)}
+                                    </select>
+                                    <button type="button" onClick={handleAddDueDateRule} disabled={notiSaving}
+                                        style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--radius-sm)', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #fff)', border: 'none', cursor: 'pointer' }}>
+                                        추가
+                                    </button>
+                                </div>
+                                {(notiSettings.dueDateRules || []).length > 0 && (
+                                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                        {(notiSettings.dueDateRules || []).map((r, i) => (
+                                            <li key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--spacing-xs) 0', fontSize: 'var(--font-size-sm)' }}>
+                                                <span>{r.value}{UNIT_LABEL[r.unit]} 전</span>
+                                                <button onClick={() => handleRemoveDueDateRule(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--font-size-md)', color: 'var(--color-text-secondary)' }}>✕</button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 

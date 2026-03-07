@@ -7,12 +7,72 @@
  */
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { setGlobalOptions } = require('firebase-functions/v2');
+setGlobalOptions({ region: 'asia-northeast3' });
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
+const { FieldValue } = require('firebase-admin/firestore');
+const { CloudTasksClient } = require('@google-cloud/tasks');
 
 initializeApp();
 const db = getFirestore();
+const tasksClient = new CloudTasksClient();
+
+// ===== Cloud Tasks 마감일 알림 설정 =====
+const PROJECT_ID = 'todolist-share';
+const QUEUE_LOCATION = 'asia-northeast3';
+const QUEUE_NAME = 'due-date-alerts';
+const UNIT_LABEL = { month: '개월', day: '일', hour: '시간', minute: '분' };
+function ruleToSeconds(r) {
+    if (r.unit === 'month') return r.value * 30 * 24 * 3600;
+    if (r.unit === 'day') return r.value * 24 * 3600;
+    if (r.unit === 'hour') return r.value * 3600;
+    return r.value * 60;
+}
+
+/**
+ * 한 사용자의 마감일 Cloud Task 일괄 등록 (헬퍼)
+ */
+async function scheduleTasksForUser(firestoreProjectId, uid, itemId, itemTitle, dueDateMs, rules) {
+    const queuePath = tasksClient.queuePath(PROJECT_ID, QUEUE_LOCATION, QUEUE_NAME);
+    // v2 Cloud Run 실제 URL 사용 (cloudfunctions.net 릴레이 의존 제거)
+    const WEBHOOK_URL = 'https://sendduedatealertwebhook-onyzarc34q-du.a.run.app';
+    const scheduledAt = Date.now(); // 예약 버전 타임스탬프
+    // Task 이름 고정 제거 — Cloud Tasks가 자동 UUID 발급 (Tombstone 제약 우회)
+    let created = 0;
+    for (let i = 0; i < rules.length; i++) {
+        const r = rules[i];
+        const alertSec = Math.floor(dueDateMs / 1000) - ruleToSeconds(r);
+        if (alertSec <= Math.floor(Date.now() / 1000)) continue;
+        try {
+            await tasksClient.createTask({
+                parent: queuePath,
+                task: {
+                    // name 필드 생략 — Cloud Tasks가 UUID 자동 부여
+                    httpRequest: {
+                        httpMethod: 'POST',
+                        url: WEBHOOK_URL,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: Buffer.from(JSON.stringify({
+                            projectId: firestoreProjectId,  // Firestore 실제 프로젝트 문서 ID
+                            itemId,
+                            uid, title: itemTitle,
+                            ruleLabel: `${r.value}${UNIT_LABEL[r.unit]}`,
+                            scheduledAt
+                        })).toString('base64'),
+                    },
+                    scheduleTime: { seconds: alertSec },
+                },
+            });
+            created++;
+        } catch (e) {
+            console.error(`Task[${i}] 실패:`, e.message, e.code);
+            throw new Error(`Cloud Task 생성 실패 (rule ${i}): ${e.message}`);
+        }
+    }
+    return { created, scheduledAt };
+}
 
 /**
  * saveCalendarToken
@@ -343,7 +403,6 @@ async function sendPushToUser(uid, category, payload) {
                 }
             });
             if (invalidTokens.length > 0) {
-                const { FieldValue } = require('firebase-admin/firestore');
                 await db.collection('users').doc(uid).update({
                     fcmTokens: FieldValue.arrayRemove(...invalidTokens),
                 });
@@ -389,6 +448,21 @@ exports.onItemCreate = onDocumentCreated('projects/{projectId}/items/{itemId}', 
         })
     );
     await Promise.all(promises);
+
+    // 생성자 마감일 알림 자동 등록
+    if (data.dueDate && creatorUid) {
+        try {
+            const creatorDoc = await db.collection('users').doc(creatorUid).get();
+            const ns = creatorDoc.data()?.notificationSettings || {};
+            const plan = creatorDoc.data()?.plan || 'free';
+            if ((plan === 'pro' || plan === 'team') && ns.dueDate && (ns.dueDateRules || []).length > 0) {
+                const dueDateMs = data.dueDate.toDate().getTime();
+                const itemId = event.params.itemId;
+                const { scheduledAt } = await scheduleTasksForUser(projectId, creatorUid, itemId, itemTitle, dueDateMs, ns.dueDateRules);
+                await event.data.ref.update({ [`dueDateAlertUsers.${creatorUid}`]: scheduledAt });
+            }
+        } catch (e) { console.error('생성자 마감일 자동 등록 실패:', e); }
+    }
 });
 
 // ----- 2. 체크리스트 변경 알림 (변경자 제외) -----
@@ -408,8 +482,31 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
         action = '수정';
     } else if (after.deleted && !before.deleted) {
         action = '삭제';
+    } else if (JSON.stringify(before.dueDate) !== JSON.stringify(after.dueDate)) {
+        // 마감일 변경 → 등록된 사용자 전원 자동 재예약
+        const alertUsers = after.dueDateAlertUsers || {};
+        await Promise.all(Object.keys(alertUsers).map(async (alertUid) => {
+            // Task 이름 방식 미사용 → 직접 큐 삭제 불가. Firestore 기록으로 취소 여부 판단
+            if (!after.dueDate) {
+                await event.data.after.ref.update({ [`dueDateAlertUsers.${alertUid}`]: FieldValue.delete() });
+                return;
+            }
+            const userDoc = await db.collection('users').doc(alertUid).get();
+            const rules = userDoc.data()?.notificationSettings?.dueDateRules || [];
+            const dueDateMs = after.dueDate.toDate().getTime();
+            const { scheduledAt: newScheduledAt } = await scheduleTasksForUser(projectId, alertUid, event.params.itemId, after.title || '항목', dueDateMs, rules);
+            await event.data.after.ref.update({ [`dueDateAlertUsers.${alertUid}`]: newScheduledAt });
+        }));
+        // 알림 본문
+        if (after.dueDate) {
+            const d = after.dueDate.toDate();
+            const pad = (n) => String(n).padStart(2, '0');
+            action = `마감일을 ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}(으)로 변경`;
+        } else {
+            action = '마감일을 삭제';
+        }
     } else {
-        return; // 의미 없는 변경은 무시
+        return;
     }
 
     const itemTitle = after.title || before.title || '항목';
@@ -489,4 +586,77 @@ exports.onInvitationCreate = onDocumentCreated('invitations/{invitationId}', asy
         body: `${inviterName}님이 '${projectName}'에 초대했습니다`,
         data: { type: 'invitation' },
     });
+});
+
+// ----- 6. 마감일 알림 예약/취소 (onCall) -----
+exports.scheduleDueDateTask = onCall(async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', '로그인 필요');
+    const { projectId, itemId, itemTitle, dueDateMs, rules, action } = request.data;
+    const uid = request.auth.uid;
+    const itemRef = db.collection('projects').doc(projectId).collection('items').doc(itemId);
+
+    if (action === 'cancel') {
+        // Task 이름이 없으므로 큐 직접 삭제 불가 — Firestore 기록만 제거하면 webhook에서 자동으로 FCM 발송 차단
+        await itemRef.update({ [`dueDateAlertUsers.${uid}`]: FieldValue.delete() });
+        return { success: true, cancelled: true };
+    }
+
+    const { created, scheduledAt } = await scheduleTasksForUser(projectId, uid, itemId, itemTitle, dueDateMs, rules);
+    if (created === 0 && (rules || []).length > 0) {
+        throw new HttpsError('internal', '알림 시간이 모두 과거이거나 Cloud Tasks 오류가 발생했습니다.');
+    }
+    await itemRef.update({ [`dueDateAlertUsers.${uid}`]: scheduledAt });
+    return { success: true, created };
+});
+
+// ----- 7. 마감일 알림 발송 웹훅 (onRequest — Cloud Tasks가 호출) -----
+const { onRequest } = require('firebase-functions/v2/https');
+exports.sendDueDateAlertWebhook = onRequest(async (req, res) => {
+    // Cloud Tasks 요청 검증 — 다른 큐에서 온 요청만 차단
+    const queueName = req.get('X-CloudTasks-QueueName');
+    console.log('sendDueDateAlertWebhook 수신 — QueueName:', queueName, 'body:', JSON.stringify(req.body));
+    if (queueName && queueName !== QUEUE_NAME) {
+        console.warn('Unauthorized: 다른 큐에서 온 요청', queueName);
+        return res.status(403).send('Forbidden');
+    }
+    const { projectId: bodyProjectId, itemId: bodyItemId, uid, title, ruleLabel, scheduledAt } = req.body;
+    if (!uid) return res.status(400).send('Bad Request');
+
+    // 사용자가 알람을 취소했거나, 구 버전 Task인 경우 스킵
+    if (bodyProjectId && bodyItemId) {
+        const itemDoc = await db.collection('projects').doc(bodyProjectId).collection('items').doc(bodyItemId).get();
+        const storedVer = itemDoc.data()?.dueDateAlertUsers?.[uid];
+        if (!storedVer || storedVer !== scheduledAt) {
+            console.log(`알람 스킵 (취소됨 또는 예전 Task): uid=${uid}, 저장버전=${storedVer}, 태스크버전=${scheduledAt}`);
+            return res.status(200).send('Outdated or cancelled');
+        }
+    }
+
+    // dueDate 알림은 사용자가 직접 예약한 것이므로 설정값(dueDate:false 기본값) 우회하여 직접 발송
+    try {
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (!userDoc.exists) return res.status(200).send('No user');
+        const tokens = userDoc.data()?.fcmTokens;
+        if (!tokens || tokens.length === 0) return res.status(200).send('No tokens');
+        const ns = userDoc.data()?.notificationSettings || {};
+        if (ns.enabled === false) return res.status(200).send('Notifications disabled');
+        const response = await getMessaging().sendEachForMulticast({
+            notification: { title: '⏰ 마감일 알림', body: `"${title}" 마감이 ${ruleLabel} 남았습니다.` },
+            data: { type: 'dueDate' },
+            tokens,
+        });
+        if (response.failureCount > 0) {
+            const invalidTokens = [];
+            response.responses.forEach((r, idx) => {
+                if (!r.success && r.error?.code === 'messaging/registration-token-not-registered') invalidTokens.push(tokens[idx]);
+            });
+            if (invalidTokens.length > 0) {
+                await db.collection('users').doc(uid).update({ fcmTokens: FieldValue.arrayRemove(...invalidTokens) });
+            }
+        }
+        console.log(`마감일 알림 발송 완료: uid=${uid}, 성공=${response.successCount}`);
+    } catch (fcmErr) {
+        console.error('마감일 FCM 발송 실패:', fcmErr);
+    }
+    res.status(200).send('OK');
 });

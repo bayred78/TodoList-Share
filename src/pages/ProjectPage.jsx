@@ -7,6 +7,9 @@ import { getProjectLimits, getUserLimits, getUserPlan, getEffectivePlan, LIMITS 
 import UpgradeModal from '../components/common/UpgradeModal';
 import { subscribeToAllItems, addTodoItem, updateTodoItem, deleteTodoItem, toggleCheck, createRepeatItem, updateMemberCheck, updateCalendarSync, restoreTodoItem, permanentDeleteItem, getCachedItems, deltaFetchItems } from '../services/todoService';
 import { Timestamp } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebase';
+import { getNotificationSettings } from '../services/notificationService';
 import { sendMessage, subscribeToRecentMessages, loadOlderMessages, updateLastRead, getCachedMessages, setCachedMessages, sendDirectMessage } from '../services/chatService';
 import { inviteUser } from '../services/invitationService';
 import { findUserByNicknameOrEmail } from '../services/userService';
@@ -268,6 +271,11 @@ export default function ProjectPage() {
     const addImageRef = React.useRef(null);
     const addDocRef = React.useRef(null);
     const [showDueHelp, setShowDueHelp] = useState(false);
+    // 마감일 알림
+    const [dueDateAlertItem, setDueDateAlertItem] = useState(null);
+    const [dueDateAlertLoading, setDueDateAlertLoading] = useState(false);
+    const canUseDueDateNotif = getUserPlan(profile) === 'pro' || getUserPlan(profile) === 'team';
+    const notiSettings = useMemo(() => getNotificationSettings(profile), [profile]);
     // DM 모달 상태
     const [showChatDm, setShowChatDm] = useState(false);
     const [chatDmRecipient, setChatDmRecipient] = useState('');
@@ -282,6 +290,39 @@ export default function ProjectPage() {
     });
 
     // 마감일 포맷 함수
+    // 마감일 알림 핸들러
+    const DUE_UNIT_LABEL = { month: '개월', day: '일', hour: '시간', minute: '분' };
+    const ruleToMs = (r) => {
+        if (r.unit === 'month') return r.value * 30 * 24 * 60 * 60 * 1000;
+        if (r.unit === 'day') return r.value * 24 * 60 * 60 * 1000;
+        if (r.unit === 'hour') return r.value * 60 * 60 * 1000;
+        return r.value * 60 * 1000;
+    };
+    const toMs = (d) => d?.toDate ? d.toDate().getTime() : new Date(d).getTime();
+    const formatDueDateStr = (d) => d?.toDate ? d.toDate().toLocaleString('ko-KR') : new Date(d).toLocaleString('ko-KR');
+    const handleDueDateAlertAction = async (action) => {
+        if (!dueDateAlertItem) return;
+        setDueDateAlertLoading(true);
+        try {
+            const scheduleFn = httpsCallable(functions, 'scheduleDueDateTask');
+            await scheduleFn({
+                projectId,
+                itemId: dueDateAlertItem.id,
+                itemTitle: dueDateAlertItem.title,
+                dueDateMs: toMs(dueDateAlertItem.dueDate),
+                rules: notiSettings?.dueDateRules || [],
+                action,
+            });
+            setDueDateAlertItem(null);
+            addToast(action === 'schedule' ? '알람이 예약되었습니다.' : '알람이 취소되었습니다.', 'success');
+        } catch (err) {
+            console.error('알람 예약 실패:', err);
+            addToast('알람 설정 실패. 다시 시도해주세요.', 'error');
+        } finally {
+            setDueDateAlertLoading(false);
+        }
+    };
+
     const formatDueText = (dueDate) => {
         if (!dueDate) return null;
         const due = dueDate.toDate ? dueDate.toDate() : new Date(dueDate);
@@ -2823,6 +2864,16 @@ export default function ProjectPage() {
                                                 );
                                                 const actionBtns = userCanWrite && (
                                                     <span className="todo-actions-inline">
+                                                        {item.dueDate && (
+                                                            <button
+                                                                className={`todo-duealert-btn icon-btn-opacity ${item.dueDateAlertUsers?.[profile?.uid] ? 'active' : ''} ${!canUseDueDateNotif ? 'disabled-opacity' : ''}`}
+                                                                onClick={(e) => { e.stopPropagation(); if (canUseDueDateNotif) setDueDateAlertItem(item); }}
+                                                                title={canUseDueDateNotif
+                                                                    ? (item.dueDateAlertUsers?.[profile?.uid] ? '마감일 알림 예약됨' : '마감일 알림 예약')
+                                                                    : 'Pro/Team 구독 전용'}
+                                                                disabled={!canUseDueDateNotif}
+                                                            >{item.dueDateAlertUsers?.[profile?.uid] ? '⏰✓' : '⏰'}</button>
+                                                        )}
                                                         <button
                                                             className="todo-lock-btn icon-btn-opacity"
                                                             onClick={async (e) => { e.stopPropagation(); try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); } catch { addToast('잠금 상태 변경에 실패했습니다.', 'error'); } }}
@@ -3079,7 +3130,7 @@ export default function ProjectPage() {
                                     onChange={(e) => setNewDueDate(e.target.value)}
                                 />
                                 {newDueDate && (
-                                    <div className="margin-t-xs" style={{ fontSize: 13 }}>
+                                    <div className="margin-t-xs meta-text-sm">
                                         {getDuePriority(new Date(newDueDate)).icon} {getDuePriority(new Date(newDueDate)).level > 0 ? `단계 ${getDuePriority(new Date(newDueDate)).level}` : ''}
                                     </div>
                                 )}
@@ -3744,7 +3795,7 @@ export default function ProjectPage() {
                                         📄 서류 업로드
                                     </button>
                                     <p className="file-upload-hint">이미지+서류 합산 최대 5개, 각 5MB 이하</p>
-                                    <p className="file-upload-hint" style={{ marginTop: '4px' }}>
+                                    <p className="file-upload-hint" style={{ marginTop: 'var(--spacing-xs)' }}>
                                         ℹ️ 관리 정책에 따라 첨부된 파일은 업로드일 기준 1년 뒤 자동 삭제됩니다.
                                     </p>
                                 </div>
@@ -3923,8 +3974,8 @@ export default function ProjectPage() {
                                 className="fullscreen-editor-back"
                                 onClick={() => setShowSettingsModal(false)}
                             >←</button>
-                            <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>⚙️ 페이지 설정</h2>
-                            <div style={{ width: 40 }} />
+                            <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>캘린더 동기화 설정</h2>
+                            <div style={{ width: 'var(--spacing-xl)' }} />
                         </div>
                         <div className="fullscreen-editor-body">
                             <div className="settings-section">
@@ -4082,8 +4133,8 @@ export default function ProjectPage() {
 
                                 {/* 팀 캘린더 상태 안내 */}
                                 {myCalendarId && (
-                                    <div style={{ marginTop: 'var(--spacing-md)', padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                        <span style={{ fontSize: 18 }}>{calendarSharedMembers[profile?.uid] === true ? '✅' : '📅'}</span>
+                                    <div style={{ marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                        <span style={{ fontSize: 'var(--font-size-xl)' }}>{calendarSharedMembers[profile?.uid] === true ? '✅' : '⏳'}</span>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.5' }}>
                                             {userCanAdmin
                                                 ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유합니다. 필요시 멤버에게 공유하세요.</>
@@ -4114,7 +4165,7 @@ export default function ProjectPage() {
                                         {/* 캘린더 설정 (관리자용) */}
                                         <h4 style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xs)', color: 'var(--color-primary)' }}>🔧 팀 캘린더 설정</h4>
                                         <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
-                                            <li><span style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => { e.preventDefault(); window.open('https://calendar.google.com', '_system'); }}>calendar.google.com</span> 접속 <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>(웹브라우저)</span></li>
+                                            <li><span style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => { e.preventDefault(); window.open('https://calendar.google.com', '_system'); }}>calendar.google.com</span> 접속 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>(데스크탑 환경)</span></li>
                                             <li>왼쪽 사이드바에서 공유할 캘린더의 <strong>⋮ → 설정 및 공유</strong></li>
                                             <li><strong>캘린더 통합</strong> 섹션에서 <strong>캘린더 ID</strong> 복사</li>
                                             <li><strong>✏️ 편집</strong> 버튼을 눌러 입력란에 붙여넣고 <strong>💾 저장</strong></li>
@@ -4466,6 +4517,42 @@ export default function ProjectPage() {
                     <ImageViewer url={viewerImage} onClose={() => setViewerImage(null)} />
                 )
             }
+
+            {/* ===== 마감일 알림 모달 ===== */}
+            {dueDateAlertItem && (
+                <div className="modal-overlay" onClick={() => setDueDateAlertItem(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <h3 style={{ margin: '0 0 var(--spacing-sm)' }}>⏰ 마감일 알림</h3>
+                        <p style={{ fontWeight: 600, margin: '0 0 4px' }}>{dueDateAlertItem.title}</p>
+                        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: '0 0 var(--spacing-sm)' }}>
+                            마감일: {formatDueDateStr(dueDateAlertItem.dueDate)}
+                        </p>
+                        {(notiSettings?.dueDateRules?.length || 0) === 0 ? (
+                            <p style={{ color: 'var(--color-warning)', fontSize: 13 }}>⚠️ 설정에서 알림 규칙을 먼저 등록해주세요.</p>
+                        ) : (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 var(--spacing-sm)', fontSize: 13 }}>
+                                {notiSettings.dueDateRules.map((r, i) => {
+                                    const alertMs = toMs(dueDateAlertItem.dueDate) - ruleToMs(r);
+                                    return <li key={i} style={{ padding: '2px 0' }}>{r.value}{DUE_UNIT_LABEL[r.unit]} 전 — {new Date(alertMs).toLocaleString('ko-KR')}</li>;
+                                })}
+                            </ul>
+                        )}
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 'var(--spacing-sm)' }}>
+                            {dueDateAlertItem.dueDateAlertUsers?.[profile?.uid] && (
+                                <button onClick={() => handleDueDateAlertAction('cancel')} disabled={dueDateAlertLoading}
+                                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: 'pointer' }}>
+                                    알람 취소
+                                </button>
+                            )}
+                            <button onClick={() => handleDueDateAlertAction('schedule')}
+                                disabled={dueDateAlertLoading || !notiSettings?.dueDateRules?.length}
+                                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#fff', cursor: 'pointer' }}>
+                                {dueDateAlertLoading ? '처리 중...' : (dueDateAlertItem.dueDateAlertUsers?.[profile?.uid] ? '재예약' : '알람 예약')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

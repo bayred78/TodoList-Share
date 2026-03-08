@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-03-09 00:20 — 버그 수정: 설정창 UI 카드형 통일, 리스트 제목 줄임 표기 개선 외 6건
+- `ProjectPage.jsx`, `ProjectPage.css`, `global.css`: 
+  - 관리자/참여자 중복 안내글 삭제 및 중복 구분선 제거
+  - 마감일 알람 팝업 `<Modal>`로 디자인 개선 (`dueDateAlertItem`)
+  - "페이지 설정"(`.fullscreen-editor-header`) 모달 레이아웃을 SettingsPage 와 동일한 흰색 독립 카드 UI(`settings-card`) 디자인으로 통일 (좌측 정렬 텍스트 그래디언트, 배경색 통일, 외곽 회색선 제거)
+- `MainPage.jsx`, `MainPage.css`:
+  - 페이지탭 리스트뷰 모드에서 제목이 길 경우 1줄 말줄임 표시 적용 (`text-overflow: ellipsis`)
+  - 카드뷰 모드에서 제목 최대 2줄 말줄임 표시 적용 (`line-clamp: 2`)
+  - 불필요한 2열 보기 모드 버튼 삭제
+- `UpgradeModal.jsx`, `PlanCompareTable.jsx`, `subscriptionService.js`:
+  - Free 플랜에서 마감일 알림 예약 버튼 및 캘린더 추가 클릭 시 프리미엄 업그레이드 안내 팝업 유도 로직 추가
+- Git 태그: `v260309-0020`
+- 복원: `git checkout v260309-0020`
+
 ## 2026-03-07 23:50 — 마감일 예약 알림 최적화 및 설정/체크리스트 디자인 인라인 스타일 토큰화
 - `functions/index.js`: 마감일 푸시 Webhook(`sendDueDateAlertWebhook`)을 Cloud Run 직접 호출로 전환 및 Cloud Tasks 예약 취소/갱신을 병렬(`Promise.all`) 처리하도록 성능 최적화
 - `functions/index.js`: Cloud Functions 푸시 발송 시 `dueDate: false` 기본 설정값을 우회하여, 사용자가 직접 예약한 마감일에 대해서는 항상 FCM이 바로 발송되도록 안정화
@@ -106,7 +120,7 @@
 - `App.jsx` & `storageService.js`: 시스템 다운로드 창 종료 시 발생하는 뒤로가기 이벤트 레이스 컨디션 해결 (500ms 지연 및 이벤트 차단)
 - `functions/index.js`: 채팅 이미지 7일 경과 시 자동 삭제 스케줄러 추가
 - `MainPage.jsx`: 검색 탭 내 페이지/체크리스트 필터 및 정렬(최신순, 마감일순) UI 구현
-- `ProjectPage.css`: 10px 폰트 및 하드코딩된 색상을 디자인 토큰(`var(--font-size-xs)`)으로 정규화
+- `ProjectPage.css`: 10px 폰트 및 하드코딩 색상을 디자인 토큰(`var(--font-size-xs)`)으로 정규화
 - Git 태그: `v260302-0141`
 - 복원: `git checkout v260302-0141`
 
@@ -150,8 +164,6 @@
 - Git 태그: `v260224-2046`
 - 복원: `git checkout v260224-2046`
 
----
-
 ## 2026-02-24 20:14 — 버그 수정 3건 + 코드/디자인 리뷰 수정
 - `ProjectPage.jsx`: 체크리스트 중복 제목 제한 제거, 완료 항목 하단 정렬 추가
 - `subscriptionService.js`: Free/Pro 플랜 이미지 채팅 제한 해제 (`imageChat: true`)
@@ -161,8 +173,6 @@
 - `SettingsPage.css`: `gap: 2px` → `var(--spacing-xs)` (디자인 토큰 준수)
 - Git 태그: `v260224-2014`
 - 복원: `git checkout v260224-2014`
-
----
 
 ## 2026-02-24 15:27 — 리워드/체험판 Firestore 전환 + 코드 리뷰 이슈 수정
 - `subscriptionService.js`: 리워드/체험판 localStorage → Firestore 계정 기반 전환, startFreeTrial 중복 방어

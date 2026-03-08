@@ -26,6 +26,7 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', re
         calendar: '구글 캘린더 연동은 Pro 이상에서 사용 가능합니다.',
         imageChat: '이미지 채팅은 본인 구독(Pro 이상)이 필요합니다.',
         repeat: '반복 기능은 Pro 이상 구독이 필요합니다.',
+        freeRepeat: '무료 플랜에서는 반복을 3개까지 설정할 수 있습니다. 업그레이드하면 무제한!',
         priority: '마감일 기능은 Pro 이상 구독이 필요합니다.',
         labels: '라벨 기능은 Pro 이상 구독이 필요합니다.',
         statistics: '통계 기능은 Team 플랜에서 사용 가능합니다.',
@@ -34,6 +35,7 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', re
         representativeIcon: '대표 아이콘은 Pro 이상 구독이 필요합니다.',
         freeDueDate: '무료 플랜에서는 마감일을 3개까지 설정할 수 있습니다. 업그레이드하면 무제한!',
         freeLabel: '무료 플랜에서는 라벨을 3개 항목까지 설정할 수 있습니다. 업그레이드하면 무제한!',
+        dueDateAlert: '마감일 알림 예약은 Pro 이상 구독이 필요합니다.',
     };
 
     return (

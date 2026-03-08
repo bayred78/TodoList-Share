@@ -17,6 +17,7 @@ const PRO_TEAM_FEATURES = [
     { label: '체크리스트', pro: '무제한', team: '무제한' },
     { label: '채팅 기록', pro: '30일 보관', team: '30일 보관' },
     { label: '마감일/라벨', pro: '무제한', team: '무제한' },
+    { label: '마감일 알림', pro: '✅', team: '✅' },
     { label: '반복', pro: '✅', team: '✅' },
     { label: '구글 캘린더 연동', pro: '✅', team: '✅' },
     { label: '광고 제거', pro: '✅', team: '✅' },
@@ -34,13 +35,14 @@ const FREE_ACCESS_FEATURES = [
     { label: '체크리스트', free: '50개', access: '✅ 관리자 기준' },
     { label: '채팅 기록', free: '50건', access: '✅ 관리자 기준' },
     { label: '마감일/라벨', free: '각 3개', access: '✅ 관리자 기준' },
+    { label: '마감일 알림', free: '❌', access: '❌ 본인 구독 필요' },
     { label: '반복', free: '❌', access: '✅ 관리자 기준' },
     { label: '구글 캘린더 연동', free: '❌', access: '✅ 관리자 기준' },
     { label: '페이지 통계', free: '❌', access: '✅ 관리자기준' },
     { label: '채팅 이미지 첨부', free: '❌', access: '❌ 본인 구독 필요' },
     { label: '계정 광고 제거', free: '❌', access: '❌ 본인 구독 필요' },
     { label: '통합 검색', free: '❌', access: '✅ 관리자 기준' },
-    { label: '대표 아이콘', free: '❌ 본인 구독 필요', access: '❌ 본인 구독 필요' },
+    { label: '대표 아이콘', free: '❌', access: '❌ 본인 구독 필요' },
 ];
 
 export default function PlanCompareTable({ currentPlan = 'free', onSubscribe, profile, onTrialStart, onReward }) {

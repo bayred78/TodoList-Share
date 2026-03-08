@@ -236,9 +236,9 @@ export default function ProjectPage() {
     const [favoriteItems, setFavoriteItems] = useState([]);
     const favoriteItemSet = useMemo(() => new Set(favoriteItems.map(f => `${f.projectId}_${f.itemId}`)), [favoriteItems]);
 
-    const VIEW_MODES = ['card', 'grid', 'list', 'detail'];
-    const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋', detail: '📄' };
-    const VIEW_MODE_LABELS = { card: '카드', grid: '2열', list: '리스트', detail: '상세' };
+    const VIEW_MODES = ['card', 'list', 'detail'];
+    const VIEW_MODE_ICONS = { card: '🃏', list: '📋', detail: '📄' };
+    const VIEW_MODE_LABELS = { card: '카드', list: '리스트', detail: '상세' };
 
     const togglePageViewMode = () => {
         const currentIndex = VIEW_MODES.indexOf(pageViewMode);
@@ -275,6 +275,9 @@ export default function ProjectPage() {
     const [dueDateAlertItem, setDueDateAlertItem] = useState(null);
     const [dueDateAlertLoading, setDueDateAlertLoading] = useState(false);
     const canUseDueDateNotif = getUserPlan(profile) === 'pro' || getUserPlan(profile) === 'team';
+    // 리스트 모드 액션 슬라이드 (아이템 id → 펼침 여부)
+    const [expandedActions, setExpandedActions] = useState({});
+    const toggleActions = (e, itemId) => { e.stopPropagation(); setExpandedActions(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
     const notiSettings = useMemo(() => getNotificationSettings(profile), [profile]);
     // DM 모달 상태
     const [showChatDm, setShowChatDm] = useState(false);
@@ -416,7 +419,7 @@ export default function ProjectPage() {
 
     // 날짜 선택 모달
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [pickerCalendarId, setPickerCalendarId] = useState(() => localStorage.getItem('lastSelectedCalendarId') || 'primary');
+    const [pickerCalendarId, setPickerCalendarId] = useState(() => localStorage.getItem(`calendarId_${projectId}`) || 'primary');
     const [pickerCalendarList, setPickerCalendarList] = useState([]);
     const [loadingPickerCalendars, setLoadingPickerCalendars] = useState(false);
     const [calendarTargetItem, setCalendarTargetItem] = useState(null);
@@ -703,7 +706,7 @@ export default function ProjectPage() {
         const result = {};
         const maxKeys = new Set([
             'maxItems', 'maxPages', 'chatHistory',
-            'freeDueDateLimit', 'freeLabelLimit'
+            'freeDueDateLimit', 'freeLabelLimit', 'freeRepeatLimit'
         ]);
         for (const key of Object.keys(LIMITS.free)) {
             const pv = projectLimits[key];
@@ -992,11 +995,14 @@ export default function ProjectPage() {
             setShowUpgradeModal(true);
             return;
         }
-        // ★ 반복 설정 제한 (select 우회 방지)
-        if (newRepeatType && newRepeatType !== 'none' && !effectiveLimits.repeat) {
-            setUpgradeReason('repeat');
-            setShowUpgradeModal(true);
-            return;
+        // ★ 반복 수량 제한
+        if (newRepeatType && newRepeatType !== 'none' && effectiveLimits.freeRepeatLimit !== Infinity) {
+            const repeatCount = items.filter(i => !i.deleted && i.repeatType && i.repeatType !== 'none').length;
+            if (repeatCount >= effectiveLimits.freeRepeatLimit) {
+                setUpgradeReason('freeRepeat');
+                setShowUpgradeModal(true);
+                return;
+            }
         }
         // ★ 마감일 수량 제한
         if (newDueDate && effectiveLimits.freeDueDateLimit !== Infinity) {
@@ -1504,7 +1510,7 @@ export default function ProjectPage() {
         if (!showDatePicker) return;
         // 팀 캘린더 공유 상태이면 기본 선택
         if (myCalendarId && calendarSharedMembers[profile?.uid] === true) {
-            const cached = localStorage.getItem('lastSelectedCalendarId');
+            const cached = localStorage.getItem(`calendarId_${projectId}`);
             if (!cached) setPickerCalendarId(myCalendarId);
         }
         if (!hasCalendarToken()) return;
@@ -1543,6 +1549,12 @@ export default function ProjectPage() {
     }, [myCalendarId, items]);
 
     const handleToggleCalendar = async (item) => {
+        // Free 사용자 → 업그레이드 모달
+        if (!effectiveLimits.calendar) {
+            setUpgradeReason('calendar');
+            setShowUpgradeModal(true);
+            return;
+        }
         // 이미 등록된 경우 → 등록된 캘린더에서 삭제
         if (item.calendarSynced && item.calendarEventId) {
             const calId = item.calendarRegisteredId || pickerCalendarId || 'primary';
@@ -1787,6 +1799,17 @@ export default function ProjectPage() {
             const labelCount = items.filter(i => !i.deleted && (i.labels || []).length > 0 && i.id !== editItem.id).length;
             if (labelCount >= effectiveLimits.freeLabelLimit) {
                 setUpgradeReason('freeLabel');
+                setShowUpgradeModal(true);
+                return false;
+            }
+        }
+        // ★ 편집 시 신규 반복 추가 제한 (기존 반복 수정은 허용)
+        const hadRepeat = !!(editItemOriginal?.repeatType && editItemOriginal.repeatType !== 'none');
+        const hasRepeat = !!(editItem.repeatType && editItem.repeatType !== 'none');
+        if (!hadRepeat && hasRepeat && effectiveLimits.freeRepeatLimit !== Infinity) {
+            const repeatCount = items.filter(i => !i.deleted && i.repeatType && i.repeatType !== 'none' && i.id !== editItem.id).length;
+            if (repeatCount >= effectiveLimits.freeRepeatLimit) {
+                setUpgradeReason('freeRepeat');
                 setShowUpgradeModal(true);
                 return false;
             }
@@ -2864,30 +2887,45 @@ export default function ProjectPage() {
                                                 );
                                                 const actionBtns = userCanWrite && (
                                                     <span className="todo-actions-inline">
-                                                        {item.dueDate && (
-                                                            <button
-                                                                className={`todo-duealert-btn icon-btn-opacity ${item.dueDateAlertUsers?.[profile?.uid] ? 'active' : ''} ${!canUseDueDateNotif ? 'disabled-opacity' : ''}`}
-                                                                onClick={(e) => { e.stopPropagation(); if (canUseDueDateNotif) setDueDateAlertItem(item); }}
-                                                                title={canUseDueDateNotif
-                                                                    ? (item.dueDateAlertUsers?.[profile?.uid] ? '마감일 알림 예약됨' : '마감일 알림 예약')
-                                                                    : 'Pro/Team 구독 전용'}
-                                                                disabled={!canUseDueDateNotif}
-                                                            >{item.dueDateAlertUsers?.[profile?.uid] ? '⏰✓' : '⏰'}</button>
-                                                        )}
+                                                        {/* 🔒 잠금 */}
                                                         <button
-                                                            className="todo-lock-btn icon-btn-opacity"
+                                                            className="todo-list-action-btn"
                                                             onClick={async (e) => { e.stopPropagation(); try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); } catch { addToast('잠금 상태 변경에 실패했습니다.', 'error'); } }}
                                                             title={item.locked ? '잠금 해제' : '잠금'}
-                                                            style={{ opacity: item.locked ? 1 : 0.5 }}
                                                         >{item.locked ? '🔒' : '🔓'}</button>
+                                                        {/* ⭐ 즐겨찾기 */}
                                                         <button
-                                                            className={`todo-calendar-btn ${item.calendarSynced ? 'synced' : ''}`}
+                                                            className="todo-list-action-btn"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const isFav = favoriteItemSet.has(`${projectId}_${item.id}`);
+                                                                if (isFav) { removeFavoriteItem(profile.uid, projectId, item.id); }
+                                                                else { addFavoriteItem(profile.uid, projectId, item.id, item.title, project?.name || ''); }
+                                                            }}
+                                                            title="즐겨찾기"
+                                                        >{favoriteItemSet.has(`${projectId}_${item.id}`) ? '⭐' : '☆'}</button>
+                                                        {/* ⏰ 알람 */}
+                                                        {item.dueDate && (
+                                                            <button
+                                                                className={`todo-list-action-btn ${item.dueDateAlertUsers?.[profile?.uid] ? 'active' : ''} ${!canUseDueDateNotif ? 'disabled-opacity' : ''}`}
+                                                                onClick={(e) => { e.stopPropagation(); if (!canUseDueDateNotif) { setUpgradeReason('dueDateAlert'); setShowUpgradeModal(true); } else { setDueDateAlertItem(item); } }}
+                                                                title={canUseDueDateNotif ? (item.dueDateAlertUsers?.[profile?.uid] ? '마감일 알림 예약됨' : '마감일 알림 예약') : 'Pro/Team 구독 전용'}
+                                                            >
+                                                                ⏰{item.dueDateAlertUsers?.[profile?.uid] && <span className="action-check">✓</span>}
+                                                            </button>
+                                                        )}
+                                                        {/* 📅 캘린더 */}
+                                                        <button
+                                                            className={`todo-list-action-btn ${item.calendarSynced ? 'synced' : ''}`}
                                                             onClick={(e) => { e.stopPropagation(); handleToggleCalendar(item); }}
                                                             title={item.calendarSynced ? '캘린더에서 제거' : '캘린더에 추가'}
                                                             disabled={item.locked}
-                                                        >{item.calendarSynced ? '📅✓' : '📅'}</button>
+                                                        >
+                                                            📅{item.calendarSynced && <span className="action-check">✓</span>}
+                                                        </button>
+                                                        {/* 🗑️ 삭제 */}
                                                         <button
-                                                            className="todo-delete-btn"
+                                                            className="todo-list-action-btn"
                                                             onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
                                                             title="휴지통으로"
                                                             disabled={item.locked}
@@ -2930,51 +2968,96 @@ export default function ProjectPage() {
                                     </div>
                                     {/* 외부 액션: 리스트 모드에서만 표시 */}
                                     {pageViewMode === 'list' && (
-                                        <div className="todo-actions">
-                                            {pageViewMode === 'list' && ((item.images || []).length > 0 || (item.files || []).length > 0) && (
+                                        <div className={`todo-actions${expandedActions[item.id] ? ' expanded' : ''}`}>
+                                            {/* 첨부파일 아이콘 (접힌 상태에서도 표시) */}
+                                            {((item.images || []).length > 0 || (item.files || []).length > 0) && !expandedActions[item.id] && (
                                                 <span className="todo-attach-icons-compact">
                                                     {(item.images || []).length > 0 && <span>📷{item.images.length}</span>}
                                                     {(item.files || []).length > 0 && <span>📄{item.files.length}</span>}
                                                 </span>
                                             )}
-                                            {userCanWrite && (
+                                            {/* 접힌 상태: ⋯ 토글 */}
+                                            {!expandedActions[item.id] && (
                                                 <button
-                                                    className="todo-lock-btn icon-btn-opacity"
-                                                    onClick={async () => {
-                                                        try {
-                                                            await updateTodoItem(projectId, item.id, {
-                                                                locked: !item.locked,
-                                                            });
-                                                        } catch (err) {
-                                                            addToast('잠금 상태 변경에 실패했습니다.', 'error');
-                                                        }
-                                                    }}
-                                                    title={item.locked ? '잠금 해제' : '잠금'}
-                                                    style={{ opacity: item.locked ? 1 : 0.5 }}
+                                                    className="todo-actions-toggle"
+                                                    onClick={(e) => toggleActions(e, item.id)}
+                                                    title="더보기"
                                                 >
-                                                    {item.locked ? '🔒' : '🔓'}
+                                                    ⋯
                                                 </button>
                                             )}
-                                            {userCanWrite && (
+                                            {/* 슬라이드 패널: 🔒⭐⏰📅🗑️ */}
+                                            <div className="todo-actions-panel">
+                                                {/* 🔒 잠금 */}
+                                                {userCanWrite && (
+                                                    <button
+                                                        className="todo-list-action-btn"
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); }
+                                                            catch { addToast('잠금 상태 변경에 실패했습니다.', 'error'); }
+                                                        }}
+                                                        title={item.locked ? '잠금 해제' : '잠금'}
+                                                    >
+                                                        {item.locked ? '🔒' : '🔓'}
+                                                    </button>
+                                                )}
+                                                {/* ⭐ 즐겨찾기 */}
+                                                {userCanWrite && (
+                                                    <button
+                                                        className="todo-list-action-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const isFav = favoriteItemSet.has(`${projectId}_${item.id}`);
+                                                            if (isFav) { removeFavoriteItem(profile.uid, projectId, item.id); }
+                                                            else { addFavoriteItem(profile.uid, projectId, item.id, item.title, project?.name || ''); }
+                                                        }}
+                                                        title="즐겨찾기"
+                                                    >
+                                                        {favoriteItemSet.has(`${projectId}_${item.id}`) ? '⭐' : '☆'}
+                                                    </button>
+                                                )}
+                                                {/* ⏰ 알람 (마감일 있을 때만) */}
+                                                {userCanWrite && item.dueDate && (
+                                                    <button
+                                                        className={`todo-list-action-btn ${item.dueDateAlertUsers?.[profile?.uid] ? 'active' : ''} ${!canUseDueDateNotif ? 'disabled-opacity' : ''}`}
+                                                        onClick={(e) => { e.stopPropagation(); if (!canUseDueDateNotif) { setUpgradeReason('dueDateAlert'); setShowUpgradeModal(true); } else { setDueDateAlertItem(item); } }}
+                                                        title={canUseDueDateNotif ? (item.dueDateAlertUsers?.[profile?.uid] ? '마감일 알림 예약됨' : '마감일 알림 예약') : 'Pro/Team 구독 전용'}
+                                                    >
+                                                        ⏰{item.dueDateAlertUsers?.[profile?.uid] && <span className="action-check">✓</span>}
+                                                    </button>
+                                                )}
+                                                {/* 📅 캘린더 */}
+                                                {userCanWrite && (
+                                                    <button
+                                                        className={`todo-list-action-btn ${item.calendarSynced ? 'synced' : ''}`}
+                                                        onClick={(e) => { e.stopPropagation(); handleToggleCalendar(item); }}
+                                                        title={item.calendarSynced ? '캘린더에서 제거' : '캘린더에 추가'}
+                                                        disabled={item.locked}
+                                                    >
+                                                        📅{item.calendarSynced && <span className="action-check">✓</span>}
+                                                    </button>
+                                                )}
+                                                {/* 🗑️ 삭제 */}
+                                                {userCanWrite && (
+                                                    <button
+                                                        className="todo-list-action-btn"
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
+                                                        title="휴지통으로"
+                                                        disabled={item.locked}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                                {/* ✕ 닫기 */}
                                                 <button
-                                                    className={`todo-calendar-btn ${item.calendarSynced ? 'synced' : ''}`}
-                                                    onClick={() => handleToggleCalendar(item)}
-                                                    title={item.calendarSynced ? '캘린더에서 제거' : '날짜를 선택하여 캘린더에 추가'}
-                                                    disabled={item.locked}
+                                                    className="todo-actions-toggle"
+                                                    onClick={(e) => toggleActions(e, item.id)}
+                                                    title="닫기"
                                                 >
-                                                    {item.calendarSynced ? '📅✓' : '📅'}
+                                                    ✕
                                                 </button>
-                                            )}
-                                            {userCanWrite && (
-                                                <button
-                                                    className="todo-delete-btn"
-                                                    onClick={() => handleDeleteItem(item.id)}
-                                                    title="휴지통으로"
-                                                    disabled={item.locked}
-                                                >
-                                                    🗑️
-                                                </button>
-                                            )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -3037,7 +3120,7 @@ export default function ProjectPage() {
                             type="button"
                             className={`edit-toolbar-btn ${addOptionSheet === 'repeat' ? 'active' : ''}`}
                             onClick={() => {
-                                if (!effectiveLimits.repeat) { setUpgradeReason('repeat'); setShowUpgradeModal(true); return; }
+                                // 반복 패널 열기는 허용 (저장 시 수량 체크)
                                 setAddOptionSheet(addOptionSheet === 'repeat' ? null : 'repeat');
                             }}
                         >
@@ -3209,7 +3292,10 @@ export default function ProjectPage() {
                                             type="button"
                                             className={`priority-option ${newRepeatType === r.v || (r.v === 'none' && !newRepeatType) ? 'active' : ''}`}
                                             onClick={() => {
-                                                if (r.v !== 'none' && !effectiveLimits.repeat) { setUpgradeReason('repeat'); setShowUpgradeModal(true); return; }
+                                                if (r.v !== 'none' && effectiveLimits.freeRepeatLimit !== Infinity) {
+                                                    const repeatCount = items.filter(i => !i.deleted && i.repeatType && i.repeatType !== 'none').length;
+                                                    if (repeatCount >= effectiveLimits.freeRepeatLimit) { setUpgradeReason('freeRepeat'); setShowUpgradeModal(true); return; }
+                                                }
                                                 setNewRepeatType(r.v);
                                             }}
                                         >
@@ -3531,7 +3617,7 @@ export default function ProjectPage() {
                                     type="button"
                                     className={`edit-toolbar-btn ${editOptionSheet === 'repeat' ? 'active' : ''}`}
                                     onClick={() => {
-                                        if (!effectiveLimits.repeat) { setUpgradeReason('repeat'); setShowUpgradeModal(true); return; }
+                                        // 반복 패널 열기는 허용 (저장 시 수량 체크)
                                         setEditOptionSheet(editOptionSheet === 'repeat' ? null : 'repeat');
                                     }}
                                 >
@@ -3969,17 +4055,16 @@ export default function ProjectPage() {
             {
                 showSettingsModal && (
                     <div className="fullscreen-editor">
-                        <div className="fullscreen-editor-header">
+                        <div className="fullscreen-editor-header" style={{ justifyContent: 'flex-start', gap: 'var(--spacing-sm)' }}>
                             <button
                                 className="fullscreen-editor-back"
                                 onClick={() => setShowSettingsModal(false)}
                             >←</button>
-                            <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>캘린더 동기화 설정</h2>
-                            <div style={{ width: 'var(--spacing-xl)' }} />
+                            <h1 className="settings-modal-title">페이지 설정</h1>
                         </div>
                         <div className="fullscreen-editor-body">
-                            <div className="settings-section">
-                                <h3 className="settings-section-title">멤버 ({sortedMembers.length}명)</h3>
+                            <div className="settings-card card">
+                                <h3 className="settings-card-title">멤버 ({sortedMembers.length}명)</h3>
                                 <div className="member-list">
                                     {sortedMembers.map(([userId, member]) => (
                                         <div key={userId} className="member-item">
@@ -4053,8 +4138,8 @@ export default function ProjectPage() {
                             </div>
 
                             {/* 보기 설정 */}
-                            <div className="settings-section">
-                                <h3 className="settings-section-title">⚙️ 보기 설정</h3>
+                            <div className="settings-card card">
+                                <h3 className="settings-card-title">⚙️ 보기 설정</h3>
                                 <div className="settings-row">
                                     <span>마감일 표시 형식</span>
                                     <select
@@ -4074,13 +4159,15 @@ export default function ProjectPage() {
 
 
                             {/* 구글 캘린더 연동 */}
-                            <div className="settings-section">
+                            <div className="settings-card card">
                                 {userCanAdmin ? (
                                     <>
-                                        <h3 className="settings-section-title">📅 구글 캘린더 연동</h3>
+                                        <h3 className="settings-card-title">📅 구글 캘린더 연동</h3>
                                         <p className="settings-description">
-                                            <strong>팀 공유 캘린더</strong>를 사용하려면 캘린더 ID를 입력.<br />
-                                            팀 공유 캘린더를 사용하지 않으면 <strong>개인 캘린더</strong>를 사용.
+                                            {myCalendarId
+                                                ? <>팀 공유 캘린더 <strong>"{teamCalendarName || myCalendarId}"</strong>이 설정되어 있습니다. 멤버에게 공유하세요. 미공유 시 각자 개인 캘린더를 사용합니다.</>
+                                                : <>팀 공유 캘린더를 사용하려면 캘린더 ID를 입력하세요. 미입력 시 각자 개인 캘린더를 사용합니다.</>
+                                            }
                                         </p>
                                         <div className="input-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
                                             <label className="input-label" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-xs)' }}>📋 캘린더 ID</label>
@@ -4128,23 +4215,19 @@ export default function ProjectPage() {
                                     </>
                                 ) : (
                                     <>
+                                        <h3 className="settings-card-title">📅 구글 캘린더 연동</h3>
+                                        <p className="settings-description">
+                                            {myCalendarId
+                                                ? calendarSharedMembers[profile?.uid] === true
+                                                    ? <>팀 공유 캘린더 <strong>"{teamCalendarName || myCalendarId}"</strong>을 공유받았습니다.</>
+                                                    : <>팀 캘린더가 설정되어 있지만 아직 공유받지 않았습니다. 관리자에게 공유를 요청하세요. 미공유 시 개인 캘린더를 사용합니다.</>
+                                                : <>구글 캘린더 연동은 관리자가 캘린더 ID를 설정하면 활성화됩니다.</>
+                                            }
+                                        </p>
                                     </>
                                 )}
 
-                                {/* 팀 캘린더 상태 안내 */}
-                                {myCalendarId && (
-                                    <div style={{ marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                        <span style={{ fontSize: 'var(--font-size-xl)' }}>{calendarSharedMembers[profile?.uid] === true ? '✅' : '⏳'}</span>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.5' }}>
-                                            {userCanAdmin
-                                                ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유합니다. 필요시 멤버에게 공유하세요.</>
-                                                : calendarSharedMembers[profile?.uid] === true
-                                                    ? <>팀 공유 캘린더 <strong style={{ color: 'var(--color-primary)' }}>"{teamCalendarName || myCalendarId}"</strong>를 공유받았습니다.</>
-                                                    : <>팀 캘린더가 설정되어 있습니다. 필요시 관리자에게 공유를 요청하세요. 현재 개인 캘린더를 사용중입니다.</>
-                                            }
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 {/* 캘린더 공유요청 (비관리자 + 공유 미적용) */}
                                 {!userCanAdmin && myCalendarId && !calendarSharedMembers[profile?.uid] && (
@@ -4165,7 +4248,7 @@ export default function ProjectPage() {
                                         {/* 캘린더 설정 (관리자용) */}
                                         <h4 style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xs)', color: 'var(--color-primary)' }}>🔧 팀 캘린더 설정</h4>
                                         <ol style={{ paddingLeft: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', lineHeight: '1.8', marginBottom: 0 }}>
-                                            <li><span style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => { e.preventDefault(); window.open('https://calendar.google.com', '_system'); }}>calendar.google.com</span> 접속 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>(데스크탑 환경)</span></li>
+                                            <li><span style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => { e.preventDefault(); window.open('https://calendar.google.com', '_blank'); }}>calendar.google.com</span> 접속 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>(데스크탑 환경)</span></li>
                                             <li>왼쪽 사이드바에서 공유할 캘린더의 <strong>⋮ → 설정 및 공유</strong></li>
                                             <li><strong>캘린더 통합</strong> 섹션에서 <strong>캘린더 ID</strong> 복사</li>
                                             <li><strong>✏️ 편집</strong> 버튼을 눌러 입력란에 붙여넣고 <strong>💾 저장</strong></li>
@@ -4185,7 +4268,7 @@ export default function ProjectPage() {
 
                             {/* 페이지 나가기 (비관리자만 표시) */}
                             {!userCanAdmin && (
-                                <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--color-border)' }}>
+                                <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)' }}>
                                     <button
                                         className="btn btn-danger btn-block"
                                         onClick={handleLeaveProject}
@@ -4200,7 +4283,7 @@ export default function ProjectPage() {
 
                             {/* 페이지 삭제 (관리자만 표시) */}
                             {userCanAdmin && (
-                                <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--color-border)' }}>
+                                <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)' }}>
                                     <button
                                         className="btn btn-danger btn-block"
                                         onClick={handleDeleteProject}
@@ -4235,7 +4318,7 @@ export default function ProjectPage() {
                                     onCancel={() => { setShowDatePicker(false); setCalendarTargetItem(null); }}
                                     calendarList={pickerCalendarList}
                                     selectedCalendar={pickerCalendarId}
-                                    onCalendarChange={(val) => { setPickerCalendarId(val); localStorage.setItem('lastSelectedCalendarId', val); }}
+                                    onCalendarChange={(val) => { setPickerCalendarId(val); localStorage.setItem(`calendarId_${projectId}`, val); }}
                                     loadingCalendars={loadingPickerCalendars}
                                 />
                             )}
@@ -4519,40 +4602,41 @@ export default function ProjectPage() {
             }
 
             {/* ===== 마감일 알림 모달 ===== */}
-            {dueDateAlertItem && (
-                <div className="modal-overlay" onClick={() => setDueDateAlertItem(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-                        <h3 style={{ margin: '0 0 var(--spacing-sm)' }}>⏰ 마감일 알림</h3>
-                        <p style={{ fontWeight: 600, margin: '0 0 4px' }}>{dueDateAlertItem.title}</p>
-                        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', margin: '0 0 var(--spacing-sm)' }}>
-                            마감일: {formatDueDateStr(dueDateAlertItem.dueDate)}
-                        </p>
-                        {(notiSettings?.dueDateRules?.length || 0) === 0 ? (
-                            <p style={{ color: 'var(--color-warning)', fontSize: 13 }}>⚠️ 설정에서 알림 규칙을 먼저 등록해주세요.</p>
-                        ) : (
-                            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 var(--spacing-sm)', fontSize: 13 }}>
-                                {notiSettings.dueDateRules.map((r, i) => {
-                                    const alertMs = toMs(dueDateAlertItem.dueDate) - ruleToMs(r);
-                                    return <li key={i} style={{ padding: '2px 0' }}>{r.value}{DUE_UNIT_LABEL[r.unit]} 전 — {new Date(alertMs).toLocaleString('ko-KR')}</li>;
-                                })}
-                            </ul>
-                        )}
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 'var(--spacing-sm)' }}>
-                            {dueDateAlertItem.dueDateAlertUsers?.[profile?.uid] && (
-                                <button onClick={() => handleDueDateAlertAction('cancel')} disabled={dueDateAlertLoading}
-                                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', cursor: 'pointer' }}>
-                                    알람 취소
-                                </button>
-                            )}
-                            <button onClick={() => handleDueDateAlertAction('schedule')}
-                                disabled={dueDateAlertLoading || !notiSettings?.dueDateRules?.length}
-                                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#fff', cursor: 'pointer' }}>
-                                {dueDateAlertLoading ? '처리 중...' : (dueDateAlertItem.dueDateAlertUsers?.[profile?.uid] ? '재예약' : '알람 예약')}
+            <Modal
+                isOpen={!!dueDateAlertItem}
+                onClose={() => setDueDateAlertItem(null)}
+                title="⏰ 마감일 알림"
+                footer={
+                    <>
+                        {dueDateAlertItem?.dueDateAlertUsers?.[profile?.uid] && (
+                            <button className="btn btn-secondary btn-sm" onClick={() => handleDueDateAlertAction('cancel')} disabled={dueDateAlertLoading}>
+                                알람 취소
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                        )}
+                        <button className="btn btn-primary btn-sm" onClick={() => handleDueDateAlertAction('schedule')}
+                            disabled={dueDateAlertLoading || !notiSettings?.dueDateRules?.length}>
+                            {dueDateAlertLoading ? '처리 중...' : (dueDateAlertItem?.dueDateAlertUsers?.[profile?.uid] ? '재예약' : '알람 예약')}
+                        </button>
+                    </>
+                }
+            >
+                <p style={{ fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>{dueDateAlertItem?.title}</p>
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+                    마감일: {dueDateAlertItem && formatDueDateStr(dueDateAlertItem.dueDate)}
+                </p>
+                {(notiSettings?.dueDateRules?.length || 0) === 0 ? (
+                    <p style={{ color: 'var(--color-warning)', fontSize: 'var(--font-size-sm)' }}>⚠️ 설정에서 알림 규칙을 먼저 등록해주세요.</p>
+                ) : (
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 'var(--font-size-sm)' }}>
+                        {notiSettings.dueDateRules.map((r, i) => {
+                            const alertMs = dueDateAlertItem ? toMs(dueDateAlertItem.dueDate) - ruleToMs(r) : 0;
+                            return <li key={i} style={{ padding: 'var(--spacing-xs) 0', borderBottom: '1px solid var(--color-border)' }}>
+                                {r.value}{DUE_UNIT_LABEL[r.unit]} 전 — {new Date(alertMs).toLocaleString('ko-KR')}
+                            </li>;
+                        })}
+                    </ul>
+                )}
+            </Modal>
         </div >
     );
 }

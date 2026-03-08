@@ -20,9 +20,25 @@ import { findUserByNicknameOrEmail } from '../services/userService';
 import { subscribeToFavoriteItems, subscribeToFavoriteFriends, addFavoriteFriend, removeFavoriteFriend, updateFriendMemo, removeFavoriteItem } from '../services/favoriteService';
 import { TEMPLATE_DATA } from '../data/templateData';
 
-const VIEW_MODES = ['card', 'grid', 'list'];
-const VIEW_MODE_ICONS = { card: '🃏', grid: '🔲', list: '📋' };
-const VIEW_MODE_LABELS = { card: '카드', grid: '2열', list: '리스트' };
+const VIEW_MODES = ['card', 'list'];
+const VIEW_MODE_ICONS = { card: '🃏', list: '📋' };
+const VIEW_MODE_LABELS = { card: '카드', list: '리스트' };
+
+// 마감일 기반 8단계 우선순위 자동 계산
+function getDuePriority(dueDate) {
+    if (!dueDate) return { level: 0, icon: '', color: '' };
+    const now = new Date();
+    const due = dueDate?.toDate ? dueDate.toDate() : new Date(dueDate);
+    const h = (due - now) / 36e5;
+    if (h <= 0) return { level: 8, icon: '🔴🔴', color: '#ef4444' };
+    if (h <= 1) return { level: 7, icon: '🔴', color: '#ef4444' };
+    if (h <= 6) return { level: 6, icon: '🟠', color: '#f97316' };
+    if (h <= 24) return { level: 5, icon: '🟡', color: '#eab308' };
+    if (h <= 72) return { level: 4, icon: '🟢', color: '#22c55e' };
+    if (h <= 168) return { level: 3, icon: '🔵', color: '#3b82f6' };
+    if (h <= 336) return { level: 2, icon: '🟣', color: '#a855f7' };
+    return { level: 1, icon: '⚪', color: '#9ca3af' };
+}
 
 
 export default function MainPage() {
@@ -852,7 +868,7 @@ export default function MainPage() {
                                             : [...prev, 'none']
                                     )}
                                 >
-                                    <span className="filter-chip-dot" style={{ background: 'var(--color-bg, #fff)', border: '2px dashed var(--color-text-muted, #aaa)' }} />
+                                    <span className="filter-chip-dot filter-chip-dot-empty" />
                                     무순위
                                 </button>
                             </div>
@@ -981,7 +997,7 @@ export default function MainPage() {
                                         ))}
                                         <button className={`filter-chip ${filters.colors.includes('none') ? 'active' : ''}`}
                                             onClick={() => toggleColorFilter('none')}>
-                                            <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} /> 무순위
+                                            <span className="filter-chip-dot filter-chip-dot-empty" /> 무순위
                                         </button>
                                     </div>
                                 </div>
@@ -1081,7 +1097,7 @@ export default function MainPage() {
                                                 ...prev,
                                                 colors: prev.colors.includes('none') ? prev.colors.filter(x => x !== 'none') : [...prev.colors, 'none']
                                             }))}>
-                                            <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} /> 무순위
+                                            <span className="filter-chip-dot filter-chip-dot-empty" /> 무순위
                                         </button>
                                     </div>
                                 </div>
@@ -1128,8 +1144,8 @@ export default function MainPage() {
                         {/* 결과 — 페이지 */}
                         {searchType === 'page' && searchResults.map(p => (
                             <div key={p.id} className="search-result-card card"
+                                style={{ borderLeft: p.color ? `4px solid ${COLOR_MAP[p.color]}` : undefined }}
                                 onClick={() => navigate(`/project/${p.id}`)}>
-                                {p.color && <span className="search-result-dot" style={{ background: COLOR_MAP[p.color] }} />}
                                 <div className="search-result-info">
                                     <h4>{highlightText(p.name, searchKeyword).map((part, i) =>
                                         part.toLowerCase() === searchKeyword.toLowerCase()
@@ -1149,22 +1165,23 @@ export default function MainPage() {
 
                         {/* 결과 — 체크리스트 */}
                         {searchType === 'checklist' && searchResults.map(item => (
-                            <div key={`${item.projectId}_${item.id}`} className="search-result-card card">
-                                <button className="search-check-btn"
-                                    onClick={(e) => { e.stopPropagation(); handleSearchToggle(item); }}>
-                                    {item.checked ? '☑️' : '⬜'}
+                            <div key={`${item.projectId}_${item.id}`} className="search-result-card card"
+                                style={{ borderLeft: item.color ? `4px solid ${COLOR_MAP[item.color]}` : undefined }}>
+                                <button className={`todo-checkbox ${item.checked ? 'checked' : ''}`}
+                                    onClick={(e) => { e.stopPropagation(); handleSearchToggle(item); }}
+                                    style={{ flexShrink: 0 }}>
+                                    {item.checked && '✓'}
                                 </button>
                                 <div className="search-result-info" onClick={() => navigate(`/project/${item.projectId}?openItem=${item.id}`)}>
-                                    <h4 className={item.checked ? 'search-checked' : ''}>
+                                    <h4 className={`search-result-title-single ${item.checked ? 'search-checked' : ''}`}>
                                         {highlightText(item.title, searchKeyword).map((part, i) =>
                                             part.toLowerCase() === searchKeyword.toLowerCase()
                                                 ? <mark key={i} className="search-highlight">{part}</mark>
                                                 : <span key={i}>{part}</span>
                                         )}
-                                        {item.repeatType && item.repeatType !== 'none' && ' 🔄'}
                                     </h4>
                                     {item.content && (
-                                        <p className="search-result-content">{highlightText(item.content, searchKeyword).map((part, i) =>
+                                        <p className="search-result-content search-result-content-single">{highlightText(item.content, searchKeyword).map((part, i) =>
                                             part.toLowerCase() === searchKeyword.toLowerCase()
                                                 ? <mark key={i} className="search-highlight">{part}</mark>
                                                 : <span key={i}>{part}</span>
@@ -1172,14 +1189,32 @@ export default function MainPage() {
                                     )}
                                     <div className="search-result-meta-row">
                                         <span className="search-result-meta">📄 {item.projectName}</span>
-                                        {item.color && <span className="search-result-dot" style={{ background: COLOR_MAP[item.color] }} />}
-                                        {item.dueDate && <span className="search-result-due">
-                                            📅 {(item.dueDate.toDate ? item.dueDate.toDate() : new Date(item.dueDate))
-                                                .toLocaleDateString('ko-KR')}
-                                        </span>}
+                                        {item.calendarSynced && <span className="search-result-meta">📅</span>}
+                                        {item.dueDate && (() => {
+                                            const dp = getDuePriority(item.dueDate);
+                                            return dp.level > 0 ? (
+                                                <span className="search-result-due" style={{ color: dp.color }}>
+                                                    {dp.icon} {(() => {
+                                                        const d = item.dueDate.toDate ? item.dueDate.toDate() : new Date(item.dueDate);
+                                                        const now = new Date();
+                                                        const diff = d - now;
+                                                        const diffMs = Math.abs(diff);
+                                                        const isOverdue = diff < 0;
+                                                        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                                        const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                                        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                                        if (isOverdue) return days > 0 ? `${days}일 초과` : `${hours}:${String(mins).padStart(2, '0')} 초과`;
+                                                        return days > 0 ? `${days}일 남음` : `${hours}:${String(mins).padStart(2, '0')} 남음`;
+                                                    })()}
+                                                </span>
+                                            ) : null;
+                                        })()}
                                         {item.labels?.map(l => (
                                             <span key={l} className="search-result-label">🏷️{l}</span>
                                         ))}
+                                        {item.repeatType && item.repeatType !== 'none' && <span className="search-result-meta" title="반복">🔄</span>}
+                                        {((item.images || []).length > 0) && <span className="search-result-meta" title="이미지 첨부">📷 {item.images.length}</span>}
+                                        {((item.files || []).length > 0) && <span className="search-result-meta" title="파일 첨부">📄 {item.files.length}</span>}
                                     </div>
                                 </div>
                             </div>
@@ -1527,10 +1562,92 @@ export default function MainPage() {
                             </div>
                         )}
 
+                        {/* 💬 받은 DM */}
+                        {directMessages.length > 0 && (
+                            <div className="request-section">
+                                <h3 className="request-section-title">💬 받은 메시지</h3>
+                                {directMessages.map((dm) => (
+                                    <div key={dm.id} className="request-card card">
+                                        <div className="invitation-info">
+                                            <h3 className="invitation-project">{dm.senderNickname}</h3>
+                                            <p className="invitation-from" style={{ whiteSpace: 'pre-wrap' }}>{dm.message}</p>
+                                            <div className="flex-row-center margin-t-sm">
+                                                {dm.createdAt && (
+                                                    <span className="invitation-time margin-l-auto">{formatTime(dm.createdAt)}</span>
+                                                )}
+                                                <button className="btn btn-sm" style={{ fontSize: 'var(--font-size-lg)', padding: 'var(--spacing-xs) var(--spacing-sm)', minWidth: 'auto' }}
+                                                    onClick={() => {
+                                                        const isFav = favoriteFriends.some(f => f.friendUid === dm.senderUid);
+                                                        if (isFav) {
+                                                            if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, dm.senderUid);
+                                                        } else {
+                                                            addFavoriteFriend(profile.uid, dm.senderUid, dm.senderNickname);
+                                                        }
+                                                    }}
+                                                    title="친구 즐겨찾기">
+                                                    {favoriteFriends.some(f => f.friendUid === dm.senderUid) ? '⭐' : '☆'}
+                                                </button>
+                                                <button className="btn btn-primary btn-sm"
+                                                    onClick={() => {
+                                                        setDmRecipient(dm.senderNickname);
+                                                        setDmSearchResult({ id: dm.senderUid, nickname: dm.senderNickname });
+                                                        setDmMessage('');
+                                                        setShowDmModal(true);
+                                                    }}>답장</button>
+                                                <button className="btn btn-secondary btn-sm"
+                                                    onClick={async () => {
+                                                        try {
+                                                            const { deleteDoc, doc } = await import('firebase/firestore');
+                                                            const { db: fireDb } = await import('../services/firebase');
+                                                            await deleteDoc(doc(fireDb, 'users', profile.uid, 'notifications', dm.id));
+                                                        } catch (e) {
+                                                            addToast('삭제에 실패했습니다.', 'error');
+                                                        }
+                                                    }}>닫기</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         {/* 시스템 알림 */}
                         {systemNotifications.length > 0 && (
                             <div className="request-section">
-                                <h3 className="request-section-title">🔔 시스템 알림</h3>
+                                <div className="flex-row-between">
+                                    <h3 className="request-section-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>🔔 시스템 알림</h3>
+                                    <button
+                                        className="btn btn-sm btn-secondary"
+                                        onClick={async () => {
+                                            if (!window.confirm('시스템 알림을 모두 닫으시겠습니까?')) return;
+                                            try {
+                                                const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
+                                                const { db } = await import('../services/firebase');
+                                                // 프로젝트별로 그룹핑 후 일괄 삭제
+                                                const byProject = {};
+                                                systemNotifications.forEach(noti => {
+                                                    const project = projects.find(p => p.id === noti.projectId);
+                                                    if (project?.notifications?.[noti.idx]) {
+                                                        if (!byProject[noti.projectId]) byProject[noti.projectId] = [];
+                                                        byProject[noti.projectId].push(project.notifications[noti.idx]);
+                                                    }
+                                                });
+                                                await Promise.allSettled(
+                                                    Object.entries(byProject).map(([pid, items]) =>
+                                                        updateDoc(doc(db, 'projects', pid), {
+                                                            notifications: arrayRemove(...items),
+                                                        })
+                                                    )
+                                                );
+                                                addToast('시스템 알림을 모두 닫았습니다.', 'success');
+                                            } catch (e) {
+                                                addToast('삭제에 실패했습니다.', 'error');
+                                            }
+                                        }}
+                                    >
+                                        모두 닫기
+                                    </button>
+                                </div>
                                 {systemNotifications.map((noti, i) => (
                                     <div key={`sys-${noti.projectId}-${i}`} className="request-card card">
                                         <div className="invitation-info">
@@ -1587,55 +1704,6 @@ export default function MainPage() {
                                                 >
                                                     닫기
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* 💬 받은 DM */}
-                        {directMessages.length > 0 && (
-                            <div className="request-section">
-                                <h3 className="request-section-title">💬 받은 메시지</h3>
-                                {directMessages.map((dm) => (
-                                    <div key={dm.id} className="request-card card">
-                                        <div className="invitation-info">
-                                            <h3 className="invitation-project">{dm.senderNickname}</h3>
-                                            <p className="invitation-from" style={{ whiteSpace: 'pre-wrap' }}>{dm.message}</p>
-                                            <div className="flex-row-center margin-t-sm">
-                                                {dm.createdAt && (
-                                                    <span className="invitation-time margin-l-auto">{formatTime(dm.createdAt)}</span>
-                                                )}
-                                                <button className="btn btn-sm" style={{ fontSize: 'var(--font-size-lg)', padding: 'var(--spacing-xs) var(--spacing-sm)', minWidth: 'auto' }}
-                                                    onClick={() => {
-                                                        const isFav = favoriteFriends.some(f => f.friendUid === dm.senderUid);
-                                                        if (isFav) {
-                                                            if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, dm.senderUid);
-                                                        } else {
-                                                            addFavoriteFriend(profile.uid, dm.senderUid, dm.senderNickname);
-                                                        }
-                                                    }}
-                                                    title="친구 즐겨찾기">
-                                                    {favoriteFriends.some(f => f.friendUid === dm.senderUid) ? '⭐' : '☆'}
-                                                </button>
-                                                <button className="btn btn-primary btn-sm"
-                                                    onClick={() => {
-                                                        setDmRecipient(dm.senderNickname);
-                                                        setDmSearchResult({ id: dm.senderUid, nickname: dm.senderNickname });
-                                                        setDmMessage('');
-                                                        setShowDmModal(true);
-                                                    }}>답장</button>
-                                                <button className="btn btn-secondary btn-sm"
-                                                    onClick={async () => {
-                                                        try {
-                                                            const { deleteDoc, doc } = await import('firebase/firestore');
-                                                            const { db: fireDb } = await import('../services/firebase');
-                                                            await deleteDoc(doc(fireDb, 'users', profile.uid, 'notifications', dm.id));
-                                                        } catch (e) {
-                                                            addToast('삭제에 실패했습니다.', 'error');
-                                                        }
-                                                    }}>닫기</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1771,7 +1839,7 @@ export default function MainPage() {
                                     onClick={() => setProjectColor(null)}
                                     type="button"
                                 >
-                                    <span className="filter-chip-dot" style={{ background: 'var(--color-bg)', border: '2px dashed var(--color-text-muted)' }} />
+                                    <span className="filter-chip-dot filter-chip-dot-empty" />
                                     무순위
                                 </button>
                             </div>

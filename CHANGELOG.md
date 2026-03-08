@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-03-09 03:00 — QA 파이프라인 Capacitor 8.0 대응 (Node.js 22 상향)
+- `.github/workflows/qa-pipeline.yml`: Capacitor CLI 실행 요구사항(Node.js >= 22.0.0)을 충족하기 위해 GitHub Actions 러너의 Node 버전을 20에서 22로 업그레이드
+- Git 태그: `v260309-0300`
+- 복원: `git checkout v260309-0300`
+
 ## 2026-03-09 02:55 — 하이브리드 QA 자동화 파이프라인 (2단계-APK 빌드 검증) 활성화
 - `.github/workflows/qa-pipeline.yml`: 
   - 2단계 파이프라인 주석 해제하여 `npm run build` -> `cap sync android` -> `assembleDebug(APK 빌드)` 무결성 자동 검증 활성화

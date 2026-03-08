@@ -1,0 +1,42 @@
+src\services\todoService.js:7:// ===== 프로젝트별 아이템 캐시 (localStorage + 메모리) =====
+src\services\todoService.js:89:// ===== 프로젝트별 마지막 동기화 시각 (서버 시간 기준) =====
+src\services\subscriptionService.js:86:// ===== 프로젝트 제한 조회 (동기 — project.ownerPlan 비정규화) =====
+src\services\subscriptionService.js:98:// ===== 개별 기능 체크 (프로젝트 기반) =====
+src\services\searchService.js:3:* Firebase 비용 절감: 클라이언트 캐시 우선, 미캐시 프로젝트는 수동 로드
+src\services\searchService.js:113:// ===== 모든 프로젝트 아이템 미리 로드 (검색 탭 진입 시 1회) =====
+src\services\projectService.js:8:// ===== 프로젝트 목록 캐시 (localStorage + 메모리) =====
+src\services\projectService.js:64:// ===== 프로젝트 마지막 동기화 시각 (서버 시간 기준) =====
+src\services\projectService.js:86:* 프로젝트 delta fetch — 변경분만 가져와 캐시 병합
+src\services\projectService.js:143:// 프로젝트 생성
+src\services\projectService.js:195:// 내 프로젝트 목록 실시간 구독 (+ 캐시 자동 갱신)
+src\services\projectService.js:197:// memberUIDs 배열에 array-contains 쿼리 — 자신의 프로젝트만 읽기
+src\services\projectService.js:223:// 프로젝트 상세 조회
+src\services\projectService.js:230:// 프로젝트 실시간 구독
+src\services\projectService.js:239:// 프로젝트 수정 (관리자만)
+src\services\projectService.js:247:// 프로젝트 삭제 (관리자만)
+src\services\projectService.js:281:// 프로젝트 나가기
+src\services\projectService.js:322:// 프로젝트별 구글 캘린더 ID 저장 (프로젝트 레벨 - 모든 멤버 공유)
+src\services\projectService.js:330:// 프로젝트별 구글 캘린더 ID 조회 (프로젝트 레벨)
+src\services\projectService.js:335:// ===== 프로젝트 라벨 관리 =====
+src\services\projectService.js:344:// 1. 프로젝트에서 라벨 제거
+src\services\projectService.js:349:// 2. 해당 프로젝트의 모든 아이템에서도 해당 라벨 제거
+src\services\invitationService.js:13:throw new Error('이미 프로젝트에 참여 중인 사용자입니다.');
+src\services\invitationService.js:54:// 프로젝트 읽기 없이 바로 멤버 추가 (비멤버는 프로젝트 읽기 불가)
+src\services\chatService.js:9:// ===== 프로젝트별 채팅 메시지 영속 캐시 (localStorage + 메모리) =====
+src\pages\SettingsPage.jsx:144:<p className="settings-description">프로젝트 변경 사항을 푸시 알림으로 받습니다.</p>
+src\pages\ProjectPage.jsx:534:// 프로젝트의 캘린더 ID (구독/공유/이벤트 추가에 사용)
+src\pages\ProjectPage.jsx:540:// 프로젝트 로드 시 해당 프로젝트의 캘린더 ID 로드
+src\pages\ProjectPage.jsx:631:// 실효 제한: 관리자 플랜(프로젝트) OR 본인 플랜 중 넓은 쪽 적용
+src\pages\ProjectPage.jsx:633:// 실효 제한: boolean은 OR, 숫자는 Math.max(관리자, 본인) 또는 프로젝트기준
+src\pages\ProjectPage.jsx:648:result[key] = pv;  // maxMembers 등 프로젝트기준 유지
+src\pages\ProjectPage.jsx:1516:// ★ 멤버 수 제한 체크 (프로젝트 기반)
+src\pages\ProjectPage.jsx:1897:if (!confirm(`${nickname}님을 프로젝트에서 내보내시겠습니까?`)) return;
+src\pages\MainPage.jsx:227:// 모든 프로젝트의 태그 수집
+src\pages\MainPage.jsx:234:// 모든 프로젝트의 체크리스트 라벨 수집 (검색 필터용)
+src\pages\MainPage.jsx:241:// 모든 프로젝트의 구성원 수집
+src\pages\MainPage.jsx:334:// 검색 탭 진입 시 모든 프로젝트 아이템 미리 로드 + 전체 목록 즉시 표시
+src\pages\MainPage.jsx:503:// 캘린더 공유 수락 → 해당 프로젝트 페이지설정으로 이동
+src\pages\MainPage.jsx:583:// 시스템 알림 수집 (각 프로젝트의 notifications 배열에서)
+src\components\CalendarView.jsx:94:setCalendarList([{ id: calendarId, summary: '프로젝트 캘린더', backgroundColor: 'var(--color-primary)' }]);
+src\components\dev\DevPlanSwitcher.jsx:28:// 2. 내가 admin인 모든 프로젝트의 ownerPlan 변경
+src\components\dev\DevPlanSwitcher.jsx:37:alert(`✅ 플랜이 "${newPlan}"으로 변경되었습니다.\n프로젝트 ${projSnap.size}개 업데이트됨.\n페이지를 새로고침합니다.`);

@@ -49,22 +49,22 @@ jobs:
       run: ./gradlew assembleDebug
 
     # ---------------------------------------------------------
-    # [3단계 진행 시 주석 해제 및 활성화 필요]
+    # [3단계: 클라우드 실제 기기 호환성/크래시 검증 무인화]
     # ---------------------------------------------------------
-    # - name: 9. [3단계] Firebase CLI 설치 및 Google Cloud 인증
-    #   # 선행 작업: GitHub Secrets 메뉴에 FIREBASE_SERVICE_ACCOUNT_KEY 환경변수 등록
-    #   uses: google-github-actions/auth@v1
-    #   with:
-    #     credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}'
-    #
-    # - name: 10. [3단계] Firebase Test Lab (Robo Test) 무작위 스트레스 테스트 실행
-    #   uses: google-github-actions/setup-gcloud@v1
-    #   with:
-    #     project_id: todolist-share-backend # 파이어베이스 본인 프로젝트 아이디
-    # - name: Run Test Lab
-    #   run: |
-    #     gcloud firebase test android run \
-    #       --type robo \
-    #       --app android/app/build/outputs/apk/debug/app-debug.apk \
-    #       --device model=Pixel3,version=30,locale=ko_KR \
-    #       --timeout 3m
+    - name: 9. [3단계] Firebase CLI 설치 및 Google Cloud 인증
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}'
+
+    - name: 10. [3단계] Firebase Test Lab (Robo Test) 무작위 스트레스 테스트 실행
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: todolist-share
+
+    - name: Run Test Lab
+      run: |
+        gcloud firebase test android run \
+          --type robo \
+          --app android/app/build/outputs/apk/debug/app-debug.apk \
+          --device model=Pixel3,version=30,locale=ko_KR \
+          --timeout 3m

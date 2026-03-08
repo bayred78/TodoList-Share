@@ -38,7 +38,7 @@ jobs:
       uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
-        java-version: '17'
+        java-version: '21'
 
     - name: 7.5 [2단계] Gradle 실행 권한 강제 부여 (Windows -> Linux 권한 오류 방지)
       working-directory: ./android

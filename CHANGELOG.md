@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-03-09 03:05 — QA 파이프라인 안드로이드 빌드용 Java 버전 상향 (17 -> 21)
+- `.github/workflows/qa-pipeline.yml`: Capacitor 8 및 최신 안드로이드 빌드 환경 요구사항(`invalid source release: 21` 에러)을 충족하기 위해 GitHub Actions 러너의 Java 버전을 17에서 21(`temurin`)로 업그레이드
+- Git 태그: `v260309-0305`
+- 복원: `git checkout v260309-0305`
+
 ## 2026-03-09 03:00 — QA 파이프라인 Capacitor 8.0 대응 (Node.js 22 상향)
 - `.github/workflows/qa-pipeline.yml`: Capacitor CLI 실행 요구사항(Node.js >= 22.0.0)을 충족하기 위해 GitHub Actions 러너의 Node 버전을 20에서 22로 업그레이드
 - Git 태그: `v260309-0300`

@@ -428,6 +428,7 @@ export default function MainPage() {
 
     const handleCreateProject = async (e) => {
         e.preventDefault();
+        if (creating) return; // ★ 연타(중복 전송) 방지
         if (!projectName.trim()) {
             addToast('페이지 이름을 입력해주세요.', 'warning');
             return;

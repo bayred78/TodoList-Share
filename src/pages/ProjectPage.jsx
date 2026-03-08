@@ -265,6 +265,7 @@ export default function ProjectPage() {
     const [newRepeatType, setNewRepeatType] = useState('none');
     const [editOptionSheet, setEditOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'assign'|'file'|null
     const [addOptionSheet, setAddOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'assign'|'file'|null
+    const [isCreatingItem, setIsCreatingItem] = useState(false); // 항목 생성 중 여부 (중복 연타 방지)
     const [newAssignees, setNewAssignees] = useState([]); // UID[]
     const [newImages, setNewImages] = useState([]); // { file: File, preview: string }[]
     const [newFiles, setNewFiles] = useState([]);   // File[]
@@ -278,6 +279,10 @@ export default function ProjectPage() {
     // 리스트 모드 액션 슬라이드 (아이템 id → 펼침 여부)
     const [expandedActions, setExpandedActions] = useState({});
     const toggleActions = (e, itemId) => { e.stopPropagation(); setExpandedActions(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
+    // 멤버 리스트 액션 슬라이드
+    const [expandedMemberId, setExpandedMemberId] = useState(null);
+    const toggleMemberActions = (e, userId) => { e.stopPropagation(); setExpandedMemberId(prev => (prev === userId ? null : userId)); };
+
     const notiSettings = useMemo(() => getNotificationSettings(profile), [profile]);
     // DM 모달 상태
     const [showChatDm, setShowChatDm] = useState(false);
@@ -638,8 +643,8 @@ export default function ProjectPage() {
                         const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
                         const { db } = await import('../services/firebase');
                         await updateDoc(doc(db, 'projects', projectId), {
-                            [`calendarSharedWith.${profile.uid} `]: true,
-                            [`calendarShareAccepted.${profile.uid} `]: true,
+                            [`calendarSharedWith.${profile.uid}`]: true,
+                            [`calendarShareAccepted.${profile.uid}`]: true,
                             updatedAt: serverTimestamp(),
                         });
                     } catch (err) {
@@ -978,6 +983,7 @@ export default function ProjectPage() {
 
     const handleAddItem = async (e) => {
         e.preventDefault();
+        if (isCreatingItem) return; // ★ 연타(중복 전송) 방지
         if (!newTitle.trim()) {
             addToast('제목을 입력해주세요.', 'warning');
             return;
@@ -997,7 +1003,7 @@ export default function ProjectPage() {
         }
         // ★ 반복 수량 제한
         if (newRepeatType && newRepeatType !== 'none' && effectiveLimits.freeRepeatLimit !== Infinity) {
-            const repeatCount = items.filter(i => !i.deleted && i.repeatType && i.repeatType !== 'none').length;
+            const repeatCount = items.filter(i => !i.deleted && !i.checked && i.repeatType && i.repeatType !== 'none').length;
             if (repeatCount >= effectiveLimits.freeRepeatLimit) {
                 setUpgradeReason('freeRepeat');
                 setShowUpgradeModal(true);
@@ -1022,6 +1028,7 @@ export default function ProjectPage() {
                 return;
             }
         }
+        setIsCreatingItem(true); // ★ 항목 생성 시작 (버튼 비활성화)
         try {
             const newItemId = await addTodoItem(projectId, {
                 type: 'checklist',
@@ -1089,11 +1096,24 @@ export default function ProjectPage() {
             addToast('아이템이 추가되었습니다!', 'success');
         } catch (error) {
             addToast('아이템 추가에 실패했습니다.', 'error');
+        } finally {
+            setIsCreatingItem(false); // ★ 항목 생성 종료 (버튼 활성화)
         }
     };
 
     const handleToggleCheck = async (item) => {
         if (!userCanWrite) return;
+
+        // ★ 체크 해제 시 반복 아이템 제한 우회 방어
+        if (item.checked && item.repeatType && item.repeatType !== 'none' && effectiveLimits.freeRepeatLimit !== Infinity) {
+            const repeatCount = items.filter(i => !i.deleted && !i.checked && i.repeatType && i.repeatType !== 'none').length;
+            if (repeatCount >= effectiveLimits.freeRepeatLimit) {
+                setUpgradeReason('freeRepeat');
+                setShowUpgradeModal(true);
+                return;
+            }
+        }
+
         try {
             const result = await toggleCheck(projectId, item.id, !item.checked, item, profile?.uid);
             // 반복 항목 체크 시 확인 모달 표시
@@ -1108,6 +1128,19 @@ export default function ProjectPage() {
 
     const handleRepeatConfirm = async () => {
         if (!repeatConfirmItem) return;
+
+        // ★ 반복 자동 재생성 시 3건 제한 우회 방어
+        if (effectiveLimits.freeRepeatLimit !== Infinity) {
+            const repeatCount = items.filter(i => !i.deleted && !i.checked && i.repeatType && i.repeatType !== 'none').length;
+            if (repeatCount >= effectiveLimits.freeRepeatLimit) {
+                setUpgradeReason('freeRepeat');
+                setShowUpgradeModal(true);
+                setShowRepeatConfirm(false);
+                setRepeatConfirmItem(null);
+                return;
+            }
+        }
+
         try {
             await createRepeatItem(projectId, repeatConfirmItem);
             addToast('반복 항목이 새로 생성되었습니다.', 'info');
@@ -1195,6 +1228,17 @@ export default function ProjectPage() {
 
     // 휴지통 복원
     const handleRestoreItem = async (itemId) => {
+        const item = deletedItems.find(i => i.id === itemId);
+        // ★ 휴지통에서 반복 항목 복원 시 우회 방어
+        if (item && !item.checked && item.repeatType && item.repeatType !== 'none' && effectiveLimits.freeRepeatLimit !== Infinity) {
+            const repeatCount = items.filter(i => !i.deleted && !i.checked && i.repeatType && i.repeatType !== 'none').length;
+            if (repeatCount >= effectiveLimits.freeRepeatLimit) {
+                setUpgradeReason('freeRepeat');
+                setShowUpgradeModal(true);
+                return;
+            }
+        }
+
         try {
             await restoreTodoItem(projectId, itemId);
             addToast('복원되었습니다!', 'success');
@@ -1207,7 +1251,7 @@ export default function ProjectPage() {
     const handlePermanentDelete = async (itemId) => {
         if (!confirm('영구적으로 삭제합니다. 복원할 수 없습니다.')) return;
         try {
-            const item = items.find(i => i.id === itemId);
+            const item = deletedItems.find(i => i.id === itemId);
             if (item) {
                 const deletePromises = [];
                 if (item.images && item.images.length > 0) {
@@ -1231,6 +1275,26 @@ export default function ProjectPage() {
             addToast('복원할 항목을 선택해주세요.', 'warning');
             return;
         }
+
+        // ★ 휴지통 일괄 복원 시 반복 제한 통과 방어
+        if (effectiveLimits.freeRepeatLimit !== Infinity) {
+            let activeRepeatCount = items.filter(i => !i.deleted && !i.checked && i.repeatType && i.repeatType !== 'none').length;
+            let restoringRepeatCount = 0;
+
+            for (const id of trashSelected) {
+                const item = deletedItems.find(i => i.id === id);
+                if (item && !item.checked && item.repeatType && item.repeatType !== 'none') {
+                    restoringRepeatCount++;
+                }
+            }
+
+            if (activeRepeatCount + restoringRepeatCount > effectiveLimits.freeRepeatLimit) {
+                setUpgradeReason('freeRepeat');
+                setShowUpgradeModal(true);
+                return;
+            }
+        }
+
         if (!confirm(`${trashSelected.length}개 항목을 복원합니다.`)) return;
         try {
             for (const id of trashSelected) {
@@ -1252,7 +1316,7 @@ export default function ProjectPage() {
         if (!confirm(`${trashSelected.length}개 항목을 영구 삭제합니다.복원할 수 없습니다.`)) return;
         try {
             for (const id of trashSelected) {
-                const item = items.find(i => i.id === id);
+                const item = deletedItems.find(i => i.id === id);
                 if (item) {
                     const deletePromises = [];
                     if (item.images && item.images.length > 0) {
@@ -1459,11 +1523,11 @@ export default function ProjectPage() {
                             const inAcl = aclEmails.includes(emailLower);
                             if (status === 'pending' && inAcl) {
                                 // 참여자가 이메일에서 참여 완료 → true로 업데이트
-                                updates[`calendarSharedWith.${uid} `] = true;
+                                updates[`calendarSharedWith.${uid}`] = true;
                                 hasChanges = true;
                             } else if (status === true && !inAcl) {
                                 // ACL에서 제거됨 → false로 동기화
-                                updates[`calendarSharedWith.${uid} `] = false;
+                                updates[`calendarSharedWith.${uid}`] = false;
                                 hasChanges = true;
                             }
                         }
@@ -1806,8 +1870,8 @@ export default function ProjectPage() {
         // ★ 편집 시 신규 반복 추가 제한 (기존 반복 수정은 허용)
         const hadRepeat = !!(editItemOriginal?.repeatType && editItemOriginal.repeatType !== 'none');
         const hasRepeat = !!(editItem.repeatType && editItem.repeatType !== 'none');
-        if (!hadRepeat && hasRepeat && effectiveLimits.freeRepeatLimit !== Infinity) {
-            const repeatCount = items.filter(i => !i.deleted && i.repeatType && i.repeatType !== 'none' && i.id !== editItem.id).length;
+        if (!hadRepeat && hasRepeat && !editItemOriginal.checked && effectiveLimits.freeRepeatLimit !== Infinity) {
+            const repeatCount = items.filter(i => !i.deleted && !i.checked && i.repeatType && i.repeatType !== 'none' && i.id !== editItem.id).length;
             if (repeatCount >= effectiveLimits.freeRepeatLimit) {
                 setUpgradeReason('freeRepeat');
                 setShowUpgradeModal(true);
@@ -1987,6 +2051,26 @@ export default function ProjectPage() {
 
     const handleToggleCalendarShare = async (userId, member) => {
         if (!myCalendarId) return;
+
+        // 상태 판별 및 확인 메시지 생성
+        const isShared = calendarSharedMembers[userId];
+        const isRequested = calendarShareRequested[userId];
+        let confirmMessage = '';
+
+        if (isShared === true) {
+            confirmMessage = '캘린더 공유를 해제하시겠습니까?';
+        } else if (isShared === 'pending') {
+            confirmMessage = '캘린더 공유 대기 중입니다. 초대를 취소하시겠습니까?';
+        } else if (isRequested === true) {
+            confirmMessage = '캘린더 공유 요청을 승인하시겠습니까?';
+        } else {
+            confirmMessage = '해당 멤버와 캘린더를 공유하시겠습니까?';
+        }
+
+        // 사용자 의사 확인
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
 
         setSharingCalendar(prev => ({ ...prev, [userId]: true }));
         try {
@@ -3080,7 +3164,9 @@ export default function ProjectPage() {
                     <div className="fullscreen-editor-header">
                         <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); setNewImages([]); setNewFiles([]); setNewAssignees([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
                         <div className="fullscreen-editor-actions">
-                            <button className="btn btn-primary btn-sm" onClick={handleAddItem}>추가</button>
+                            <button className="btn btn-primary btn-sm" onClick={handleAddItem} disabled={isCreatingItem}>
+                                {isCreatingItem ? '추가 중...' : '추가'}
+                            </button>
                         </div>
                     </div>
 
@@ -4068,70 +4154,94 @@ export default function ProjectPage() {
                                 <div className="member-list">
                                     {sortedMembers.map(([userId, member]) => (
                                         <div key={userId} className="member-item">
-                                            {/* 1열: 즐겨찾기 */}
-                                            {userId !== profile?.uid ? (
-                                                <button
-                                                    className="btn fav-btn"
-                                                    onClick={() => handleToggleFavoriteMember(userId, member.nickname)}
-                                                    title="즐겨찾기"
-                                                >
-                                                    {favoriteFriendIds.has(userId) ? '⭐' : '☆'}
-                                                </button>
-                                            ) : <div className="fav-placeholder"></div>}
-
-                                            {/* 2열: 활동명(닉네임) */}
+                                            {/* 1. 활동명(닉네임) 영역 - Flex 1 */}
                                             <span
                                                 className={`member-name ${userId === profile?.uid ? 'clickable' : ''}`}
                                                 style={userId === profile?.uid ? { cursor: 'pointer', textDecoration: 'underline' } : {}}
                                                 onClick={userId === profile?.uid ? () => { setMyDisplayNameInput(member.displayName || ''); setShowDisplayNamePrompt(true); } : undefined}
-                                                title={userId === profile?.uid ? '클릭하여 활동명 변경' : ''}
+                                                title={userId === profile?.uid ? '클릭하여 활동명 변경' : member.displayName ? `${member.displayName}(${member.nickname})` : member.nickname}
                                             >
                                                 {member.displayName ? `${member.displayName}(${member.nickname})` : member.nickname}
                                                 {userId === profile?.uid && ' ✏️'}
                                             </span>
 
-                                            {/* 3열: 권한 (드롭다운 혹은 배지) */}
-                                            {userCanAdmin && userId !== profile?.uid ? (
-                                                <select
-                                                    className={`input-field role-select ${member.role}`}
-                                                    value={member.role}
-                                                    onChange={(e) => handleChangeRole(userId, e.target.value)}
-                                                >
-                                                    <option value="editor">편집자</option>
-                                                    <option value="viewer">독자</option>
-                                                </select>
-                                            ) : (
-                                                <span className={`badge badge-${member.role === 'admin' ? 'primary' : 'success'}`}>
-                                                    {getRoleLabel(member.role).replace(/✏️|👁️|👑/g, '').trim()}
-                                                </span>
-                                            )}
-
-                                            {/* 4열: 액션 (내보내기) */}
-                                            {userCanAdmin && userId !== profile?.uid ? (
-                                                <button
-                                                    className="action-btn"
-                                                    onClick={() => handleRemoveMember(userId, getMemberName(userId) || member.nickname)}
-                                                    title="내보내기"
-                                                >
-                                                    🚪
-                                                </button>
-                                            ) : <div className="action-placeholder"></div>}
-                                            {/* 캘린더 공유 버튼 (관리자: 공유/해제, 비관리자: 요청 표시) */}
-                                            {userId !== profile?.uid && myCalendarId && (
-                                                userCanAdmin ? (
-                                                    <button
-                                                        className={`btn btn-sm ${calendarSharedMembers[userId] === true ? 'btn-success' : calendarSharedMembers[userId] === 'pending' ? 'btn-warning' : calendarShareRequested[userId] ? 'btn-warning' : 'btn-secondary'}`}
-                                                        style={{ marginLeft: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', minWidth: '32px' }}
-                                                        onClick={() => handleToggleCalendarShare(userId, member)}
-                                                        disabled={sharingCalendar[userId]}
-                                                        title={calendarSharedMembers[userId] === true ? '캘린더 공유 해제' : calendarSharedMembers[userId] === 'pending' ? '참여 대기 중 - 클릭하여 해제' : calendarShareRequested[userId] ? '공유 요청됨 - 클릭하여 공유' : '캘린더 공유'}
+                                            {/* 2. 권한 역영 (드롭다운/배지) - 축소 금지 */}
+                                            <div style={{ flexShrink: 0 }}>
+                                                {userCanAdmin && userId !== profile?.uid ? (
+                                                    <select
+                                                        className={`input-field role-select ${member.role}`}
+                                                        value={member.role}
+                                                        onChange={(e) => handleChangeRole(userId, e.target.value)}
                                                     >
-                                                        {sharingCalendar[userId] ? '⏳' : calendarSharedMembers[userId] === true ? '📅✅' : calendarSharedMembers[userId] === 'pending' ? '📅⏳' : calendarShareRequested[userId] ? '📅❗' : '📅'}
-                                                    </button>
+                                                        <option value="editor">편집자</option>
+                                                        <option value="viewer">독자</option>
+                                                    </select>
                                                 ) : (
-                                                    !calendarSharedMembers[profile?.uid] && null
-                                                )
-                                            )}
+                                                    <span className={`badge badge-${member.role === 'admin' ? 'primary' : 'success'}`}>
+                                                        {getRoleLabel(member.role).replace(/✏️|👁️|👑/g, '').trim()}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* 3. 우측 액션 메뉴 (슬라이딩 애니메이션 적용) */}
+                                            <div className={`todo-actions ${expandedMemberId === userId ? 'expanded' : ''}`} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                {/* 닫혀있을 때 더보기 토글 버튼 */}
+                                                {expandedMemberId !== userId && (
+                                                    <button className="todo-actions-toggle" onClick={(e) => toggleMemberActions(e, userId)} title="더보기">
+                                                        ⋯
+                                                    </button>
+                                                )}
+
+                                                {/* 확장 시 노출 패널 (.todo-actions.expanded 상태에 따라 슬라이드됨) */}
+                                                <div className="todo-actions-panel">
+                                                    {userId !== profile?.uid && (
+                                                        <button
+                                                            className="todo-list-action-btn"
+                                                            onClick={() => handleToggleFavoriteMember(userId, member.nickname)}
+                                                            title="즐겨찾기"
+                                                        >
+                                                            {favoriteFriendIds.has(userId) ? '⭐' : '☆'}
+                                                        </button>
+                                                    )}
+
+                                                    {userCanAdmin && userId !== profile?.uid && myCalendarId && (
+                                                        <button
+                                                            className="todo-list-action-btn"
+                                                            onClick={() => handleToggleCalendarShare(userId, member)}
+                                                            disabled={sharingCalendar[userId]}
+                                                            title={calendarSharedMembers[userId] === true ? '캘린더 공유 해제' : calendarSharedMembers[userId] === 'pending' ? '참여 대기 중 - 클릭하여 해제' : calendarShareRequested[userId] ? '공유 요청됨 - 클릭하여 공유' : '캘린더 공유'}
+                                                        >
+                                                            {sharingCalendar[userId] ? '⏳' : (
+                                                                <>
+                                                                    📅
+                                                                    {calendarSharedMembers[userId] === true && <span className="action-check">✅</span>}
+                                                                    {calendarSharedMembers[userId] === 'pending' && <span className="action-check">⏳</span>}
+                                                                    {calendarShareRequested[userId] && <span className="action-check">❗</span>}
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    )}
+
+                                                    {userCanAdmin && userId !== profile?.uid && (
+                                                        <button
+                                                            className="todo-list-action-btn"
+                                                            onClick={() => handleRemoveMember(userId, getMemberName(userId) || member.nickname)}
+                                                            title="내보내기"
+                                                        >
+                                                            🚪
+                                                        </button>
+                                                    )}
+
+                                                    <button
+                                                        className="todo-actions-toggle"
+                                                        style={{ color: 'var(--color-danger)' }}
+                                                        onClick={(e) => toggleMemberActions(e, null)}
+                                                        title="닫기"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

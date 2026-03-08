@@ -461,15 +461,21 @@
 }
 
 .member-item {
-    display: grid;
-    /* 즐겨찾기(24), 이름(1fr), 권한(auto), 내보내기(auto), 캘린더공유(auto) */
-    grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
-    justify-content: end;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
     background: var(--color-bg-secondary);
     border-radius: var(--radius-sm);
+    min-height: 44px;
+}
+
+.member-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .member-list .fav-btn {

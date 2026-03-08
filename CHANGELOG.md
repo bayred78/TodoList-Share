@@ -4,6 +4,13 @@
 
 ---
 
+## 2026-03-09 02:55 — 하이브리드 QA 자동화 파이프라인 (2단계-APK 빌드 검증) 활성화
+- `.github/workflows/qa-pipeline.yml`: 
+  - 2단계 파이프라인 주석 해제하여 `npm run build` -> `cap sync android` -> `assembleDebug(APK 빌드)` 무결성 자동 검증 활성화
+  - Windows <-> Linux 간 실행 권한 충돌 방지를 위해 빌드 직전 `chmod +x ./gradlew` 1회 강제 실행 스텝 추가
+- Git 태그: `v260309-0255`
+- 복원: `git checkout v260309-0255`
+
 ## 2026-03-09 02:45 — 하이브리드 QA 자동화 파이프라인 빌드 (1단계-Web 테스트) 구축
 - `.github/workflows/qa-pipeline.yml` 추가: main 브랜치 Push/PR 시 GitHub Actions 서버 기동 및 테스트 연동 환경 세팅 (2-3단계 가이드 주석 포함)
 - `package.json`, `vite.config.js`: 로직 사전 점검용 프론트엔드 유닛 테스트 패키지(`vitest`, `jsdom`) 설치 및 `npm run test` 실행 스크립트 작성

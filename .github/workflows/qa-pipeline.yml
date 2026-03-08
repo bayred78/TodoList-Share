@@ -26,23 +26,27 @@ jobs:
       run: npm run test
 
     # ---------------------------------------------------------
-    # [2단계 진행 시 주석 해제 및 활성화 필요]
+    # [2단계: 안드로이드 APK 빌드 무결성 자동 검증]
     # ---------------------------------------------------------
-    # - name: 5. [2단계] 웹 프로덕션 빌드 (Vite)
-    #   run: npm run build
-    # 
-    # - name: 6. [2단계] Capacitor 안드로이드 동기화
-    #   run: npx cap sync android
-    #
-    # - name: 7. [2단계] Java 환경 설정 (APK 빌드용)
-    #   uses: actions/setup-java@v3
-    #   with:
-    #     distribution: 'temurin'
-    #     java-version: '17'
-    #
-    # - name: 8. [2단계] 안드로이드 APK 빌드
-    #   working-directory: ./android
-    #   run: ./gradlew assembleDebug
+    - name: 5. [2단계] 웹 프로덕션 빌드 (Vite)
+      run: npm run build
+    
+    - name: 6. [2단계] Capacitor 안드로이드 동기화
+      run: npx cap sync android
+
+    - name: 7. [2단계] Java 환경 설정 (APK 빌드용)
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: 7.5 [2단계] Gradle 실행 권한 강제 부여 (Windows -> Linux 권한 오류 방지)
+      working-directory: ./android
+      run: chmod +x ./gradlew
+
+    - name: 8. [2단계] 안드로이드 APK 빌드
+      working-directory: ./android
+      run: ./gradlew assembleDebug
 
     # ---------------------------------------------------------
     # [3단계 진행 시 주석 해제 및 활성화 필요]

@@ -4,6 +4,13 @@
 
 ---
 
+## 2026-03-09 02:45 — 하이브리드 QA 자동화 파이프라인 빌드 (1단계-Web 테스트) 구축
+- `.github/workflows/qa-pipeline.yml` 추가: main 브랜치 Push/PR 시 GitHub Actions 서버 기동 및 테스트 연동 환경 세팅 (2-3단계 가이드 주석 포함)
+- `package.json`, `vite.config.js`: 로직 사전 점검용 프론트엔드 유닛 테스트 패키지(`vitest`, `jsdom`) 설치 및 `npm run test` 실행 스크립트 작성
+- `src/utils/imageUtils.test.js`: Vitest 동작 검증을 위한 핵심 유틸리티 샘플 테스트 코드 구현
+- Git 태그: `v260309-0245`
+- 복원: `git checkout v260309-0245`
+
 ## 2026-03-09 02:30 — 반복 항목 제한 우회 방어 및 생성 버튼 연타(중복) 버그 수정
 - `ProjectPage.jsx`:
   - Free 플랜 반복 체크리스트 3건 제한 시 실질적인 **활성(미완료) 항목(!checked)만 카운팅**하도록 기준 통일

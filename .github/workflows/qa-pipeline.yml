@@ -1,0 +1,66 @@
+name: TodoList-Share QA Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  qa-web-test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 1. 저장소 소스 코드 체크아웃
+      uses: actions/checkout@v3
+
+    - name: 2. Node.js 환경 설정
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: 3. 패키지 모듈 및 의존성 설치
+      run: npm install
+
+    - name: 4. [1단계] 코어 로직 Unit Test 실행 (Vitest)
+      run: npm run test
+
+    # ---------------------------------------------------------
+    # [2단계 진행 시 주석 해제 및 활성화 필요]
+    # ---------------------------------------------------------
+    # - name: 5. [2단계] 웹 프로덕션 빌드 (Vite)
+    #   run: npm run build
+    # 
+    # - name: 6. [2단계] Capacitor 안드로이드 동기화
+    #   run: npx cap sync android
+    #
+    # - name: 7. [2단계] Java 환경 설정 (APK 빌드용)
+    #   uses: actions/setup-java@v3
+    #   with:
+    #     distribution: 'temurin'
+    #     java-version: '17'
+    #
+    # - name: 8. [2단계] 안드로이드 APK 빌드
+    #   working-directory: ./android
+    #   run: ./gradlew assembleDebug
+
+    # ---------------------------------------------------------
+    # [3단계 진행 시 주석 해제 및 활성화 필요]
+    # ---------------------------------------------------------
+    # - name: 9. [3단계] Firebase CLI 설치 및 Google Cloud 인증
+    #   # 선행 작업: GitHub Secrets 메뉴에 FIREBASE_SERVICE_ACCOUNT_KEY 환경변수 등록
+    #   uses: google-github-actions/auth@v1
+    #   with:
+    #     credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}'
+    #
+    # - name: 10. [3단계] Firebase Test Lab (Robo Test) 무작위 스트레스 테스트 실행
+    #   uses: google-github-actions/setup-gcloud@v1
+    #   with:
+    #     project_id: todolist-share-backend # 파이어베이스 본인 프로젝트 아이디
+    # - name: Run Test Lab
+    #   run: |
+    #     gcloud firebase test android run \
+    #       --type robo \
+    #       --app android/app/build/outputs/apk/debug/app-debug.apk \
+    #       --device model=Pixel3,version=30,locale=ko_KR \
+    #       --timeout 3m

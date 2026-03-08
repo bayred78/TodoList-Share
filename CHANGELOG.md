@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-03-09 04:15 — 하이브리드 QA 파이프라인 3단계 (Firebase 로보 테스트) 기기 호환성 픽스
+- `.github/workflows/qa-pipeline.yml`: Firebase Test Lab 구동 시 발생한 기기/OS 레이아웃 호환성 오류(`Incompatible device/OS combination`)를 수정하기 위해 에뮬레이터 타겟 디바이스를 `Pixel3(API 30)`에서 안정성이 확보된 `Pixel2(API 28)`로 다운그레이드 적용
+- Git 태그: `v260309-0415`
+- 복원: `git checkout v260309-0415`
+
 ## 2026-03-09 03:05 — QA 파이프라인 안드로이드 빌드용 Java 버전 상향 (17 -> 21)
 - `.github/workflows/qa-pipeline.yml`: Capacitor 8 및 최신 안드로이드 빌드 환경 요구사항(`invalid source release: 21` 에러)을 충족하기 위해 GitHub Actions 러너의 Java 버전을 17에서 21(`temurin`)로 업그레이드
 - Git 태그: `v260309-0305`

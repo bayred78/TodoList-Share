@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-03-09 04:20 — 하이브리드 QA 파이프라인 3단계 (Firebase 로보 테스트) 디바이스 모델 에러 수정
+- `.github/workflows/qa-pipeline.yml`: Firebase Test Lab 구동 시 계속된 지원 기기 명칭 충돌 에러(`is not a valid model`)를 방지하기 위해 `--device` 강제 지정 옵션을 제거하여 구글의 가장 안정적인 기본 테스트 머신(Default Virtual Device)을 자동으로 알아서 타도록 수정.
+- Git 태그: `v260309-0420`
+- 복원: `git checkout v260309-0420`
+
 ## 2026-03-09 04:15 — 하이브리드 QA 파이프라인 3단계 (Firebase 로보 테스트) 기기 호환성 픽스
 - `.github/workflows/qa-pipeline.yml`: Firebase Test Lab 구동 시 발생한 기기/OS 레이아웃 호환성 오류(`Incompatible device/OS combination`)를 수정하기 위해 에뮬레이터 타겟 디바이스를 `Pixel3(API 30)`에서 안정성이 확보된 `Pixel2(API 28)`로 다운그레이드 적용
 - Git 태그: `v260309-0415`

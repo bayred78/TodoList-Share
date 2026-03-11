@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-03-12 06:17 — 웹 최적화(코드 스플리팅) 및 애드센스/웹 가상 방어막 구축
+- `App.jsx`, `vite.config.js`: `React.lazy` 및 `manualChunks` 적용으로 번들 용량 최적화 (초기 로딩 속도 개선).
+- `index.html`, `public/ads.txt`: 구글 애드센스 소유권 확인 태그 및 `ads.txt` 설치 완료 (웹 수익화 기초 공사).
+- `BannerAd.jsx`, `RewardedAd.jsx`: 네이티브 전용 AdMob 플러그인이 웹 브라우저에서 실행되어 크래시를 일으키지 않도록 방어 코드 반영.
+- `SettingsPage.jsx`, `SettingsPage.css`: 설정창 상단에 웹 주소 안내 배너 추가 및 클릭 시 클립보드 자동 복사 기능 구현.
+- `SettingsPage.jsx`: 웹 환경에서 결제 시도 시 준비 중 안내 토스트 노출 및 프로필 섹션 위치 조정.
+- Git 태그: `v260312-0617`
+- 복원: `git checkout v260312-0617`
+
 ## 2026-03-12 04:23 — 신규 가입 혜택 안내 개선 및 인앱 결제/리워드 광고 버그 수정
 - `MainPage.jsx`, `authService.js`: 신규 가입 유저 권한 부여 시 시스템 환영 DM 발송 및 최초 접속 환영 팝업(7일 무료 혜택 안내) 노출.
 - `SettingsPage.jsx`, `ProjectPage.jsx`: 무료 체험 및 리워드 광고 사용자의 마감일 예약 알림 권한(`dueDateNotification`) 누락 버그 수정.

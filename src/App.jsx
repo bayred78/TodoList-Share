@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
 import useToastStore from './stores/toastStore';
@@ -6,11 +6,13 @@ import Toast from './components/common/Toast';
 import { setForegroundNotificationHandler, getActiveChatProjectId } from './services/notificationService';
 import BannerAd from './components/ads/BannerAd';
 import DevPlanSwitcher from './components/dev/DevPlanSwitcher';
-import LoginPage from './pages/LoginPage';
-import MainPage from './pages/MainPage';
-import ProjectPage from './pages/ProjectPage';
-import SettingsPage from './pages/SettingsPage';
 import { isTrialActive } from './services/subscriptionService';
+
+// Code Splitting: 페이지 컴포넌트 지연 로딩
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const MainPage = lazy(() => import('./pages/MainPage'));
+const ProjectPage = lazy(() => import('./pages/ProjectPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 function ProtectedRoute({ children }) {
     const { user, profile, loading, isNewUser } = useAuthStore();
@@ -159,41 +161,48 @@ export default function App() {
         <BrowserRouter>
             <BackButtonHandler />
             <Toast />
-            <Routes>
-                <Route
-                    path="/login"
-                    element={
-                        user && profile && !isNewUser
-                            ? <Navigate to="/" replace />
-                            : <LoginPage />
-                    }
-                />
-                <Route
-                    path="/"
-                    element={
-                        <ProtectedRoute>
-                            <MainPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/project/:projectId"
-                    element={
-                        <ProtectedRoute>
-                            <ProjectPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/settings"
-                    element={
-                        <ProtectedRoute>
-                            <SettingsPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            <Suspense fallback={
+                <div className="loading-screen">
+                    <div className="spinner spinner-lg"></div>
+                    <p style={{ color: 'var(--color-text-secondary)', marginTop: 'var(--spacing-sm)' }}>TodoList Share</p>
+                </div>
+            }>
+                <Routes>
+                    <Route
+                        path="/login"
+                        element={
+                            user && profile && !isNewUser
+                                ? <Navigate to="/" replace />
+                                : <LoginPage />
+                        }
+                    />
+                    <Route
+                        path="/"
+                        element={
+                            <ProtectedRoute>
+                                <MainPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/project/:projectId"
+                        element={
+                            <ProtectedRoute>
+                                <ProjectPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/settings"
+                        element={
+                            <ProtectedRoute>
+                                <SettingsPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </Suspense>
             {user && profile && !isNewUser && <BannerAd userPlan={profile?.plan} isTrialActive={isTrialActive(profile)} />}
             <DevPlanSwitcher />
         </BrowserRouter>

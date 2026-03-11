@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import './BannerAd.css';
 
 // Capacitor AdMob 플러그인 - 네이티브에서만 동작
@@ -36,16 +37,21 @@ export default function BannerAd({ userPlan = 'free', isTrialActive = false }) {
     const keyboardOpenRef = useRef(false);
     const sizeListenerRef = useRef(null);
 
+    // ★ 웹 브라우저 환경 (플러그인 크래시 방어용)
+    const isWeb = !Capacitor.isNativePlatform();
+
     useEffect(() => {
-        // ★ 구독자(Pro/Team) 및 체험 중: 광고 숨김
-        if (userPlan !== 'free' || isTrialActive) {
+        // ★ 구독자(Pro/Team), 체험 중 또는 웹(AdMob 불가) 환경: 광고 숨김
+        if (userPlan !== 'free' || isTrialActive || isWeb) {
             document.body.classList.remove('has-banner-ad');
             document.body.style.setProperty('--banner-height', '0px');
-            loadAdMob().then(() => {
-                if (AdMob) {
-                    AdMob.hideBanner?.().catch(() => { });
-                }
-            });
+            if (!isWeb) {
+                loadAdMob().then(() => {
+                    if (AdMob) {
+                        AdMob.hideBanner?.().catch(() => { });
+                    }
+                });
+            }
             return;
         }
         // 무료 사용자: 광고 초기화
@@ -131,11 +137,12 @@ export default function BannerAd({ userPlan = 'free', isTrialActive = false }) {
     }
 
     // ★ 구독자 및 체험자는 광고 및 패딩 완전 제거
-    if (userPlan !== 'free' || isTrialActive) {
+    // (웹버전도 아직 수동 광고 세팅용 아이디가 없으므로 일단 렌더링 무시)
+    if (userPlan !== 'free' || isTrialActive || isWeb) {
         return null;
     }
 
-    // 웹 환경에서는 광고 대신 빈 패딩 영역 표시
+    // 웹 환경에서는 원래 광고 대신 빈 패딩 영역이나 구글 애드센스 등 표시
     if (!isNative) {
         return <div className="banner-ad-placeholder" />;
     }

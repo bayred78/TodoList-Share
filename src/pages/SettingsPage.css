@@ -214,3 +214,41 @@
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* ===== 웹 안내 배너 ===== */
+.web-url-banner {
+    background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-glass));
+    border: 1px solid var(--color-primary-light);
+    transition: border-color var(--transition-fast);
+    cursor: pointer;
+}
+
+.web-url-banner:active {
+    border-color: var(--color-primary);
+}
+
+.web-url-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.web-url-icon {
+    font-size: 24px;
+}
+
+.web-url-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.web-url-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.web-url-link {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-primary);
+}

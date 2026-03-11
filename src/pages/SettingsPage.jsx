@@ -196,6 +196,7 @@ export default function SettingsPage() {
                     </div>
                 </PageHeader>
 
+
                 {/* 프로필 섹션 */}
                 <div className="settings-card card">
                     <div className="settings-card-header">
@@ -205,6 +206,31 @@ export default function SettingsPage() {
                         <div className="settings-profile-info">
                             <h3>{profile?.nickname}</h3>
                             <p>{profile?.email}</p>
+                        </div>
+                    </div>
+                </div>
+
+
+                {/* 웹 버전 안내 (클릭 시 복사 기능 포함) */}
+                <div
+                    className="settings-card card web-url-banner"
+                    onClick={() => {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText('https://todolist-share.web.app').then(() => {
+                                addToast('웹 주소가 클립보드에 복사되었습니다.', 'success');
+                            }).catch(() => {
+                                addToast('복사를 지원하지 않는 기기입니다.', 'warning');
+                            });
+                        } else {
+                            addToast('복사 기능이 지원되지 않는 브라우저입니다.', 'warning');
+                        }
+                    }}
+                >
+                    <div className="web-url-content">
+                        <span className="web-url-icon">🌐</span>
+                        <div className="web-url-details">
+                            <p className="web-url-label">PC 웹 버전 주소 (클릭하여 복사)</p>
+                            <p className="web-url-link">todolist-share.web.app</p>
                         </div>
                     </div>
                 </div>
@@ -329,7 +355,7 @@ export default function SettingsPage() {
                         onReward={() => refreshProfile()}
                         onSubscribe={async (plan, period) => {
                             if (!Capacitor.isNativePlatform()) {
-                                addToast('인앱 결제는 모바일 앱 환경에서만 지원됩니다.', 'warning');
+                                addToast('웹 결제 시스템은 준비 중입니다. 당분간 모바일 앱을 통해 결제해 주세요.', 'warning');
                                 return;
                             }
 

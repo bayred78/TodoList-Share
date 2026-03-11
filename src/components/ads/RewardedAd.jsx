@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { setRewardUnlock, isRewardUnlocked, getRewardRemainingMs } from '../../services/subscriptionService';
 import './RewardedAd.css';
 
@@ -36,6 +37,7 @@ export default function RewardedAd({ profile, onReward }) {
     const timerRef = useRef(null);
     const listenerRef = useRef(null);
     const rewardedRef = useRef(false); // 이중 지급 방지
+    const isWeb = !Capacitor.isNativePlatform();
 
     // profile 변경 시 상태 동기화
     useEffect(() => {
@@ -167,6 +169,9 @@ export default function RewardedAd({ profile, onReward }) {
             </div>
         );
     }
+
+    // ★ 웹 브라우저 환경 (플러그인 크래시 방어 및 무료 보상 어뷰징 방지)
+    if (isWeb) return null;
 
     return (
         <button

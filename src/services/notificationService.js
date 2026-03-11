@@ -14,6 +14,16 @@ let _foregroundHandler = null;
 export function setForegroundNotificationHandler(fn) {
     _foregroundHandler = fn;
 }
+
+// 현재 열람 중인 채팅탭의 projectId (같은 탭이면 토스트 억제)
+let _activeChatProjectId = null;
+export function setActiveChatProjectId(projectId) {
+    _activeChatProjectId = projectId;
+}
+export function getActiveChatProjectId() {
+    return _activeChatProjectId;
+}
+
 let PushNotifications = null;
 
 async function loadPushPlugin() {

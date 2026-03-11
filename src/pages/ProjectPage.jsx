@@ -9,7 +9,7 @@ import { subscribeToAllItems, addTodoItem, updateTodoItem, deleteTodoItem, toggl
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
-import { getNotificationSettings, setChatNotiMuted } from '../services/notificationService';
+import { getNotificationSettings, setChatNotiMuted, setActiveChatProjectId } from '../services/notificationService';
 import { sendMessage, subscribeToRecentMessages, loadOlderMessages, updateLastRead, getCachedMessages, setCachedMessages, sendDirectMessage } from '../services/chatService';
 import { inviteUser } from '../services/invitationService';
 import { findUserByNicknameOrEmail } from '../services/userService';
@@ -502,6 +502,18 @@ export default function ProjectPage() {
         const unsubFriends = subscribeToFavoriteFriends(profile.uid, setChatFavFriends);
         return () => { unsub(); unsubFriends(); };
     }, [profile?.uid]);
+
+    // 채팅탭 열람 중 포그라운드 토스트 억제를 위해 활성 채팅 projectId 등록
+    useEffect(() => {
+        if (activeTab === 'chat') {
+            setActiveChatProjectId(projectId);
+        } else {
+            setActiveChatProjectId(null);
+        }
+        return () => {
+            setActiveChatProjectId(null);
+        };
+    }, [activeTab, projectId]);
 
     // 채팅 탭 활성 시 공용 헤더+탭바 높이로 offset 계산
     useEffect(() => {

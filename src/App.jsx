@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import useAuthStore from './stores/authStore';
 import useToastStore from './stores/toastStore';
 import Toast from './components/common/Toast';
-import { setForegroundNotificationHandler } from './services/notificationService';
+import { setForegroundNotificationHandler, getActiveChatProjectId } from './services/notificationService';
 import BannerAd from './components/ads/BannerAd';
 import DevPlanSwitcher from './components/dev/DevPlanSwitcher';
 import LoginPage from './pages/LoginPage';
@@ -138,6 +138,9 @@ export default function App() {
         setForegroundNotificationHandler((notification) => {
             const title = notification.title || '';
             const body = notification.body || '';
+            const data = notification.data || {};
+            // 채팅 알림이고 현재 같은 채팅탭을 보고 있으면 토스트 억제
+            if (data.type === 'chat' && data.projectId === getActiveChatProjectId()) return;
             addToast(title ? `${title}: ${body}` : body, 'info');
         });
     }, [addToast]);

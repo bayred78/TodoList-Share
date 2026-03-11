@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-03-12 04:23 — 신규 가입 혜택 안내 개선 및 인앱 결제/리워드 광고 버그 수정
+- `MainPage.jsx`, `authService.js`: 신규 가입 유저 권한 부여 시 시스템 환영 DM 발송 및 최초 접속 환영 팝업(7일 무료 혜택 안내) 노출.
+- `SettingsPage.jsx`, `ProjectPage.jsx`: 무료 체험 및 리워드 광고 사용자의 마감일 예약 알림 권한(`dueDateNotification`) 누락 버그 수정.
+- `SettingsPage.jsx`, `revenueCatService.js`: 인앱 결제 중도 취소 시 알 수 없는 시스템 에러 토스트가 노출되는 현상 방지. 복합 에러 코드 감지 적용.
+- `SettingsPage.jsx`, `PlanCompareTable.jsx`: 리워드 광고 시청 완료 후 앱 재접속 없이 즉시 보상(Pro 해금)이 화면에 갱신되도록 `refreshProfile` 연동.
+- Git 태그: `v260312-0423`
+- 복원: `git checkout v260312-0423`
+
 ## 2026-03-11 22:27 — 현재 열람 중인 채팅 탭의 토스트 알림 억제
 - `App.jsx`, `ProjectPage.jsx`, `notificationService.js`: 사용자가 이미 특정 프로젝트의 채팅 탭을 보고 있는 경우, 해당 프로젝트에서 오는 채팅 알림 토스트가 중복으로 표시되지 않도록 억제하는 로직 추가.
 - Git 태그: `v260311-2227`

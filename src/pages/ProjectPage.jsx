@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
 import { subscribeToProject, canWrite, canAdmin, getUserRole, getRoleLabel, leaveProject, changeMemberRole, removeMember, deleteProject, saveProjectCalendarId, getProjectCalendarId, addProjectLabel, removeProjectLabel, updateMemberDisplayName } from '../services/projectService';
-import { getProjectLimits, getUserLimits, getUserPlan, getEffectivePlan, LIMITS } from '../services/subscriptionService';
+import { checkPersonalFeature, getProjectLimits, getUserLimits, getUserPlan, getEffectivePlan, LIMITS } from '../services/subscriptionService';
 import UpgradeModal from '../components/common/UpgradeModal';
 import { subscribeToAllItems, addTodoItem, updateTodoItem, deleteTodoItem, toggleCheck, createRepeatItem, updateMemberCheck, updateCalendarSync, restoreTodoItem, permanentDeleteItem, getCachedItems, deltaFetchItems } from '../services/todoService';
 import { Timestamp } from 'firebase/firestore';
@@ -275,7 +275,7 @@ export default function ProjectPage() {
     // 마감일 알림
     const [dueDateAlertItem, setDueDateAlertItem] = useState(null);
     const [dueDateAlertLoading, setDueDateAlertLoading] = useState(false);
-    const canUseDueDateNotif = getUserPlan(profile) === 'pro' || getUserPlan(profile) === 'team';
+    const canUseDueDateNotif = checkPersonalFeature(profile, 'dueDateNotification');
     // 리스트 모드 액션 슬라이드 (아이템 id → 펼침 여부)
     const [expandedActions, setExpandedActions] = useState({});
     const toggleActions = (e, itemId) => { e.stopPropagation(); setExpandedActions(prev => ({ ...prev, [itemId]: !prev[itemId] })); };

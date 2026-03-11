@@ -59,7 +59,8 @@ export async function purchaseStoreProduct(product, oldProductId = null) {
         }
         return result;
     } catch (error) {
-        if (!error.userCancelled) {
+        const isCancelled = error.userCancelled === true || error.code === 1 || String(error.message).toLowerCase().includes('cancel');
+        if (!isCancelled) {
             console.error("Purchase failed", error);
         }
         throw error;

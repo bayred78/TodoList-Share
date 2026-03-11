@@ -4,7 +4,7 @@ import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
 import { changeNickname } from '../services/userService';
 import PlanCompareTable from '../components/common/PlanCompareTable';
-import { getEffectivePlan, getUserPlan, isTrialActive, isTrialUsed, startFreeTrial, syncSubscriptionWithRevenueCat } from '../services/subscriptionService';
+import { checkPersonalFeature, getEffectivePlan, getUserPlan, isTrialActive, isTrialUsed, startFreeTrial, syncSubscriptionWithRevenueCat } from '../services/subscriptionService';
 import { getNotificationSettings, saveNotificationSettings, registerPushNotifications } from '../services/notificationService';
 import RewardedAd from '../components/ads/RewardedAd';
 import PageHeader from '../components/common/PageHeader';
@@ -51,7 +51,7 @@ export default function SettingsPage() {
     }, []);
 
     // 알림 설정 변경 핸들러
-    const canUseDueDate = getUserPlan(profile) === 'pro' || getUserPlan(profile) === 'team';
+    const canUseDueDate = checkPersonalFeature(profile, 'dueDateNotification');
     const handleNotiToggle = async (key) => {
         const updated = { ...notiSettings, [key]: !notiSettings[key] };
         // 전체 OFF 시 개별도 모두 OFF
@@ -274,7 +274,7 @@ export default function SettingsPage() {
                         {notiSettings.dueDate && canUseDueDate && (
                             <div style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
                                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', margin: '0 0 var(--spacing-xs)' }}>
-                                    💡 마감일 전 원하는 시간에 알림을 받을 수 있습니다.
+                                    💡 마감일 전 원하는 시간에 알림(체크리스트 개별 설정 필요)을 받을 수 있습니다.
                                 </p>
                                 <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
                                     <select value={dueDateUnit} onChange={e => { setDueDateUnit(e.target.value); setDueDateValue(getValueRange(e.target.value)[0]); }}
@@ -326,6 +326,7 @@ export default function SettingsPage() {
                         currentPlan={getUserPlan(profile)}
                         profile={profile}
                         onTrialStart={() => refreshProfile()}
+                        onReward={() => refreshProfile()}
                         onSubscribe={async (plan, period) => {
                             if (!Capacitor.isNativePlatform()) {
                                 addToast('인앱 결제는 모바일 앱 환경에서만 지원됩니다.', 'warning');
@@ -374,9 +375,11 @@ export default function SettingsPage() {
                                 addToast('구독 설정이 성공적으로 처리되었습니다!', 'success');
                                 refreshProfile();
                             } catch (e) {
-                                if (!e.userCancelled) {
-                                    addToast(`결제 실패: ${e.message}`, 'error');
+                                const isCancelled = e.userCancelled === true || e.code === 1 || String(e.message).toLowerCase().includes('cancel');
+                                if (!isCancelled) {
+                                    addToast('결제 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
                                 }
+                                // 단순 취소 시: 추가 토스트 없음 (이미 "결제를 준비 중..." 안내가 노출됨)
                             }
                         }}
                     />

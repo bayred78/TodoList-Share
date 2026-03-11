@@ -93,6 +93,9 @@ export default function MainPage() {
     // 편집 모달 변경사항 미저장 확인
     const [showUnsavedEditModal, setShowUnsavedEditModal] = useState(false);
 
+    // 7일 체험 환영 팝업
+    const [showWelcomeTrialModal, setShowWelcomeTrialModal] = useState(false);
+
     // 실효 플랜 제한
     const effectiveLimits = useMemo(() => getUserLimits(profile), [profile]);
 
@@ -111,8 +114,8 @@ export default function MainPage() {
     const [dragOverId, setDragOverId] = useState(null);
 
     const handleDragStart = (e, projectId) => {
-        dragItem.current = projectId;
         e.dataTransfer.effectAllowed = 'move';
+        dragItem.current = projectId;
         e.currentTarget.style.opacity = '0.5';
     };
 
@@ -177,6 +180,17 @@ export default function MainPage() {
         // ① 캐시 우선 로드
         const cached = getCachedProjects();
         if (cached) setProjects(cached);
+
+        // 7일 체험 환영 팝업 띄우기 (DB 플래그 기준 / 타이밍 이슈 해결)
+        if (profile?.welcomePopupShown === false) {
+            setShowWelcomeTrialModal(true);
+            // 볼 때마다 DB를 true로 클리어 → 원토토 한 번만 노출
+            import('firebase/firestore').then(({ doc, updateDoc }) => {
+                import('../services/firebase').then(({ db: fireDb }) => {
+                    updateDoc(doc(fireDb, 'users', profile.uid), { welcomePopupShown: true }).catch(console.error);
+                });
+            });
+        }
 
         // ② 실시간 구독 시작
         let unsub1 = subscribeToMyProjects(profile.uid, setProjects);
@@ -648,8 +662,8 @@ export default function MainPage() {
     const handleRejectCalendarShare = async (req) => {
         try {
             const { updateDoc, doc, serverTimestamp, arrayUnion } = await import('firebase/firestore');
-            const { db } = await import('../services/firebase');
-            await updateDoc(doc(db, 'projects', req.projectId), {
+            const { db: fireDb } = await import('../services/firebase');
+            await updateDoc(doc(fireDb, 'projects', req.projectId), {
                 [`calendarShareRequests.${req.userId}`]: false,
                 notifications: arrayUnion({
                     text: `📅 [${req.nickname}]님의 캘린더 공유 요청이 거절되었습니다.`,
@@ -708,8 +722,8 @@ export default function MainPage() {
     const handleAcknowledgeCalendarShare = async (notification) => {
         try {
             const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
-            const { db } = await import('../services/firebase');
-            await updateDoc(doc(db, 'projects', notification.projectId), {
+            const { db: fireDb } = await import('../services/firebase');
+            await updateDoc(doc(fireDb, 'projects', notification.projectId), {
                 [`calendarShareAccepted.${profile.uid}`]: true,
                 updatedAt: serverTimestamp(),
             });
@@ -1587,25 +1601,30 @@ export default function MainPage() {
                                                 {dm.createdAt && (
                                                     <span className="invitation-time margin-l-auto">{formatTime(dm.createdAt)}</span>
                                                 )}
-                                                <button className="btn btn-sm" style={{ fontSize: 'var(--font-size-lg)', padding: 'var(--spacing-xs) var(--spacing-sm)', minWidth: 'auto' }}
-                                                    onClick={() => {
-                                                        const isFav = favoriteFriends.some(f => f.friendUid === dm.senderUid);
-                                                        if (isFav) {
-                                                            if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, dm.senderUid);
-                                                        } else {
-                                                            addFavoriteFriend(profile.uid, dm.senderUid, dm.senderNickname);
-                                                        }
-                                                    }}
-                                                    title="친구 즐겨찾기">
-                                                    {favoriteFriends.some(f => f.friendUid === dm.senderUid) ? '⭐' : '☆'}
-                                                </button>
-                                                <button className="btn btn-primary btn-sm"
-                                                    onClick={() => {
-                                                        setDmRecipient(dm.senderNickname);
-                                                        setDmSearchResult({ id: dm.senderUid, nickname: dm.senderNickname });
-                                                        setDmMessage('');
-                                                        setShowDmModal(true);
-                                                    }}>답장</button>
+                                                {/* 시스템 DM(senderUid === 'system')이면 즉겨찾기/답장 표시 안함 */}
+                                                {dm.senderUid !== 'system' && (
+                                                    <>
+                                                        <button className="btn btn-sm" style={{ fontSize: 'var(--font-size-lg)', padding: 'var(--spacing-xs) var(--spacing-sm)', minWidth: 'auto' }}
+                                                            onClick={() => {
+                                                                const isFav = favoriteFriends.some(f => f.friendUid === dm.senderUid);
+                                                                if (isFav) {
+                                                                    if (window.confirm('즐겨찾기를 해제하시겠습니까?')) removeFavoriteFriend(profile.uid, dm.senderUid);
+                                                                } else {
+                                                                    addFavoriteFriend(profile.uid, dm.senderUid, dm.senderNickname);
+                                                                }
+                                                            }}
+                                                            title="친구 즐겨찾기">
+                                                            {favoriteFriends.some(f => f.friendUid === dm.senderUid) ? '⭐' : '☆'}
+                                                        </button>
+                                                        <button className="btn btn-primary btn-sm"
+                                                            onClick={() => {
+                                                                setDmRecipient(dm.senderNickname);
+                                                                setDmSearchResult({ id: dm.senderUid, nickname: dm.senderNickname });
+                                                                setDmMessage('');
+                                                                setShowDmModal(true);
+                                                            }}>답장</button>
+                                                    </>
+                                                )}
                                                 <button className="btn btn-secondary btn-sm"
                                                     onClick={async () => {
                                                         try {
@@ -1634,7 +1653,7 @@ export default function MainPage() {
                                             if (!window.confirm('시스템 알림을 모두 닫으시겠습니까?')) return;
                                             try {
                                                 const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
-                                                const { db } = await import('../services/firebase');
+                                                const { db: fireDb } = await import('../services/firebase');
                                                 // 프로젝트별로 그룹핑 후 일괄 삭제
                                                 const byProject = {};
                                                 systemNotifications.forEach(noti => {
@@ -1646,7 +1665,7 @@ export default function MainPage() {
                                                 });
                                                 await Promise.allSettled(
                                                     Object.entries(byProject).map(([pid, items]) =>
-                                                        updateDoc(doc(db, 'projects', pid), {
+                                                        updateDoc(doc(fireDb, 'projects', pid), {
                                                             notifications: arrayRemove(...items),
                                                         })
                                                     )
@@ -1676,10 +1695,10 @@ export default function MainPage() {
                                                         const removeNoti = async () => {
                                                             try {
                                                                 const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
-                                                                const { db } = await import('../services/firebase');
+                                                                const { db: fireDb } = await import('../services/firebase');
                                                                 const project = projects.find(p => p.id === noti.projectId);
                                                                 if (project?.notifications?.[noti.idx]) {
-                                                                    await updateDoc(doc(db, 'projects', noti.projectId), {
+                                                                    await updateDoc(doc(fireDb, 'projects', noti.projectId), {
                                                                         notifications: arrayRemove(project.notifications[noti.idx]),
                                                                     });
                                                                 }
@@ -1702,10 +1721,10 @@ export default function MainPage() {
                                                     onClick={async () => {
                                                         try {
                                                             const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
-                                                            const { db } = await import('../services/firebase');
+                                                            const { db: fireDb } = await import('../services/firebase');
                                                             const project = projects.find(p => p.id === noti.projectId);
                                                             if (project?.notifications?.[noti.idx]) {
-                                                                await updateDoc(doc(db, 'projects', noti.projectId), {
+                                                                await updateDoc(doc(fireDb, 'projects', noti.projectId), {
                                                                     notifications: arrayRemove(project.notifications[noti.idx]),
                                                                 });
                                                             }
@@ -2020,8 +2039,8 @@ export default function MainPage() {
                                 {/* 즐겨찾기 친구 빠른 추가 */}
                                 {favoriteFriends.length > 0 && (
                                     <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                        <div 
-                                            className="flex-row-gap-sm" 
+                                        <div
+                                            className="flex-row-gap-sm"
                                             style={{ justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '8px 0' }}
                                             onClick={() => setShowFavFriends(!showFavFriends)}
                                         >
@@ -2084,7 +2103,7 @@ export default function MainPage() {
                                         </div>
                                     )}
                                 </div>
-                                
+
                                 {/* 권한 설정 (빈 대기열에도 항상 노출) */}
                                 <div style={{ marginTop: 'var(--spacing-md)' }}>
                                     <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>📌 권한 설정 (일괄 적용)</p>
@@ -2321,8 +2340,8 @@ export default function MainPage() {
                                 {/* 즐겨찾기 친구 빠른 추가 */}
                                 {favoriteFriends.length > 0 && (
                                     <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                        <div 
-                                            className="flex-row-gap-sm" 
+                                        <div
+                                            className="flex-row-gap-sm"
                                             style={{ justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '8px 0' }}
                                             onClick={() => setShowFavFriends(!showFavFriends)}
                                         >
@@ -2384,7 +2403,7 @@ export default function MainPage() {
                                         </div>
                                     )}
                                 </div>
-                                
+
                                 {/* 권한 설정 (빈 대기열에도 항상 노출) */}
                                 <div style={{ marginTop: 'var(--spacing-md)' }}>
                                     <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>📌 권한 설정 (일괄 적용)</p>
@@ -2630,6 +2649,38 @@ export default function MainPage() {
                 profile={profile}
                 onTrialStart={() => refreshProfile()}
             />
+
+            {/* 7일 체험 환영 모달 */}
+            <Modal
+                isOpen={showWelcomeTrialModal}
+                onClose={() => setShowWelcomeTrialModal(false)}
+                title="🎁 환영합니다! Pro 7일 혜택 증정"
+            >
+                <div style={{ textAlign: 'center', padding: 'var(--spacing-md) 0' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }}>🎉</div>
+                    <p style={{ fontSize: 'var(--font-size-md)', lineHeight: 1.6, marginBottom: 'var(--spacing-md)' }}>
+                        가입을 진심으로 환영합니다!<br />
+                        축하 선물로 <strong>7일간 Pro의 모든 기능</strong>을<br />
+                        무료로 이용할 수 있도록 활성화해드렸습니다.
+                    </p>
+                    <ul style={{ textAlign: 'left', background: 'var(--color-surface)', padding: 'var(--spacing-md) var(--spacing-lg)', borderRadius: 'var(--radius-md)', margin: '0 auto var(--spacing-md)', listStyle: 'none', fontSize: 'var(--font-size-sm)', lineHeight: 2 }}>
+                        <li>✅ 하단 배너 광고 완전 제거</li>
+                        <li>✅ 프로젝트 최대 <strong>10개</strong> 생성 및 무제한 체크리스트</li>
+                        <li>✅ 채팅 내 이미지 첨부 가능</li>
+                        <li>✅ 구글 캘린더 연동</li>
+                        <li>✅ 마감일 예약 알림</li>
+                    </ul>
+                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
+                        ※ 7일 후에는 무료 버전으로 자동 전환되며, 결제는 발생하지 않습니다.
+                    </p>
+                    <button
+                        className="btn btn-primary btn-block btn-lg"
+                        onClick={() => setShowWelcomeTrialModal(false)}
+                    >
+                        TodoList Share 시작하기
+                    </button>
+                </div>
+            </Modal>
         </div>
     );
 }

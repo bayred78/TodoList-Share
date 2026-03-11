@@ -31,14 +31,14 @@ export async function showBannerAd() {
     try { await AdMob?.resumeBanner(); } catch { }
 }
 
-export default function BannerAd({ userPlan = 'free' }) {
+export default function BannerAd({ userPlan = 'free', isTrialActive = false }) {
     const [isNative, setIsNative] = useState(false);
     const keyboardOpenRef = useRef(false);
     const sizeListenerRef = useRef(null);
 
     useEffect(() => {
-        // ★ 구독자(Pro/Team): 광고 숨김
-        if (userPlan !== 'free') {
+        // ★ 구독자(Pro/Team) 및 체험 중: 광고 숨김
+        if (userPlan !== 'free' || isTrialActive) {
             document.body.classList.remove('has-banner-ad');
             document.body.style.setProperty('--banner-height', '0px');
             loadAdMob().then(() => {
@@ -130,8 +130,8 @@ export default function BannerAd({ userPlan = 'free' }) {
         }
     }
 
-    // ★ 구독자는 광고 및 패딩 완전 제거
-    if (userPlan !== 'free') {
+    // ★ 구독자 및 체험자는 광고 및 패딩 완전 제거
+    if (userPlan !== 'free' || isTrialActive) {
         return null;
     }
 

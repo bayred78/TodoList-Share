@@ -5,7 +5,7 @@ import {
     onAuthStateChanged,
     GoogleAuthProvider,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, collection } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
 import { Capacitor } from '@capacitor/core';
 
@@ -107,8 +107,23 @@ export async function setupNickname(userId, nickname, email) {
             planUpdatedAt: null,
             nicknameChangedAt: serverTimestamp(),
             googleCalendarId: '',
+            freeTrialUsed: true,
+            freeTrialExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            welcomePopupShown: false, // 환영 팝업 노출 여부 (1회성)
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
+        });
+
+        // 관리자 명의의 환영 혜택 안내 DM 생성 (기존 DM 스키마와 동일한 필드명 사용)
+        const dmRef = doc(collection(db, 'users', userId, 'notifications'));
+        transaction.set(dmRef, {
+            type: 'dm',
+            senderUid: 'system',
+            senderNickname: 'TodoList Share 관리자',
+            senderEmail: '',
+            message: '가입을 환영합니다! 🎉\n\n선물로 7일간 Pro 등급의 모든 기능을 무료로 이용하실 수 있도록 활성화해드렸습니다.\n\n✅ 하단 배너 광고 완전 제거\n✅ 프로젝트 최대 10개 생성\n✅ 무제한 체크리스트\n✅ 채팅 내 이미지 첨부\n✅ 구글 캘린더 연동\n\n즐거운 일정 관리 되시길 바랍니다!',
+            read: false,
+            createdAt: serverTimestamp(),
         });
     });
 }

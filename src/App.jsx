@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import MainPage from './pages/MainPage';
 import ProjectPage from './pages/ProjectPage';
 import SettingsPage from './pages/SettingsPage';
+import { isTrialActive } from './services/subscriptionService';
 
 function ProtectedRoute({ children }) {
     const { user, profile, loading, isNewUser } = useAuthStore();
@@ -193,7 +194,7 @@ export default function App() {
                 />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            {user && profile && !isNewUser && <BannerAd userPlan={profile?.plan} />}
+            {user && profile && !isNewUser && <BannerAd userPlan={profile?.plan} isTrialActive={isTrialActive(profile)} />}
             <DevPlanSwitcher />
         </BrowserRouter>
     );

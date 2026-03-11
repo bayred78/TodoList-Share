@@ -64,6 +64,7 @@ export default function MainPage() {
     // 즐겨찾기
     const [favoriteItems, setFavoriteItems] = useState([]);
     const [favoriteFriends, setFavoriteFriends] = useState([]);
+    const [showFavFriends, setShowFavFriends] = useState(false);
     const [favSubTab, setFavSubTab] = useState('checklist');
     const [editingMemoId, setEditingMemoId] = useState(null);
     const [memoInput, setMemoInput] = useState('');
@@ -76,6 +77,7 @@ export default function MainPage() {
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [templateItems, setTemplateItems] = useState([]);
     const [inviteList, setInviteList] = useState([]);
+    const [inviteRole, setInviteRole] = useState('editor'); // 일괄 초대 권한
 
     // 초대 시트 검색 state
     const [inviteSearch, setInviteSearch] = useState('');
@@ -2009,28 +2011,41 @@ export default function MainPage() {
                                 {/* 즐겨찾기 친구 빠른 추가 */}
                                 {favoriteFriends.length > 0 && (
                                     <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>⭐ 즐겨찾기 친구</p>
-                                        <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
-                                            {favoriteFriends.map(friend => {
-                                                const already = inviteList.some(inv => inv.uid === friend.friendUid);
-                                                return (
-                                                    <button
-                                                        key={friend.friendUid}
-                                                        type="button"
-                                                        className={`filter-chip ${already ? 'active' : ''}`}
-                                                        onClick={() => {
-                                                            if (already) {
-                                                                setInviteList(prev => prev.filter(inv => inv.uid !== friend.friendUid));
-                                                            } else {
-                                                                setInviteList(prev => [...prev, { uid: friend.friendUid, nickname: friend.friendNickname || friend.nickname || '', role: 'editor' }]);
-                                                            }
-                                                        }}
-                                                    >
-                                                        {already ? '✓ ' : ''}{friend.friendNickname || friend.nickname || '(이름없음)'}
-                                                    </button>
-                                                );
-                                            })}
+                                        <div 
+                                            className="flex-row-gap-sm" 
+                                            style={{ justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '8px 0' }}
+                                            onClick={() => setShowFavFriends(!showFavFriends)}
+                                        >
+                                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: 0 }}>⭐ 즐겨찾기 친구</p>
+                                            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{showFavFriends ? '▲' : '▼'}</span>
                                         </div>
+                                        {showFavFriends && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: 'var(--spacing-xs)' }}>
+                                                {favoriteFriends.map(friend => {
+                                                    const already = inviteList.some(inv => inv.uid === friend.friendUid);
+                                                    const fname = friend.friendNickname || friend.nickname || '(이름없음)';
+                                                    return (
+                                                        <button
+                                                            key={friend.friendUid}
+                                                            type="button"
+                                                            className={`btn ${already ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '16px', padding: '4px 10px' }}
+                                                            onClick={() => {
+                                                                if (already) {
+                                                                    setInviteList(prev => prev.filter(inv => inv.uid !== friend.friendUid));
+                                                                } else {
+                                                                    setInviteList(prev => [...prev, { uid: friend.friendUid, nickname: fname, role: 'editor' }]);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: already ? 'bold' : 'normal' }}>
+                                                                {already ? '✓ ' : ''}{fname}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 {/* B-3: 닉네임/이메일 검색 */}
@@ -2052,7 +2067,7 @@ export default function MainPage() {
                                                 disabled={inviteList.some(i => i.uid === inviteSearchResult.id)}
                                                 onClick={() => {
                                                     setInviteList(prev => [...prev,
-                                                    { uid: inviteSearchResult.id, nickname: inviteSearchResult.nickname, role: 'editor' }]);
+                                                    { uid: inviteSearchResult.id, nickname: inviteSearchResult.nickname, role: inviteRole }]);
                                                     setInviteSearch(''); setInviteSearchResult(null);
                                                 }}>
                                                 {inviteList.some(i => i.uid === inviteSearchResult.id) ? '✓ 추가됨' : '+ 추가'}
@@ -2060,25 +2075,35 @@ export default function MainPage() {
                                         </div>
                                     )}
                                 </div>
-                                {/* 초대 목록 */}
+                                
+                                {/* 권한 설정 (빈 대기열에도 항상 노출) */}
+                                <div style={{ marginTop: 'var(--spacing-md)' }}>
+                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>📌 권한 설정 (일괄 적용)</p>
+                                    <select
+                                        className="input-field"
+                                        value={inviteRole}
+                                        onChange={e => {
+                                            const newRole = e.target.value;
+                                            setInviteRole(newRole);
+                                            setInviteList(prev => prev.map(inv => ({ ...inv, role: newRole })));
+                                        }}
+                                    >
+                                        <option value="editor">✏️ 편집자</option>
+                                        {effectiveLimits.viewerRole && <option value="viewer">👁️ 독자</option>}
+                                    </select>
+                                </div>
+
                                 {inviteList.length > 0 && (
                                     <div style={{ marginTop: 'var(--spacing-sm)' }}>
-                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>초대 목록</p>
-                                        {inviteList.map(inv => (
-                                            <div key={inv.uid} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                                                <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{inv.nickname}</span>
-                                                <select
-                                                    className="input-field"
-                                                    style={{ width: 'auto', fontSize: 'var(--font-size-xs)' }}
-                                                    value={inv.role}
-                                                    onChange={e => setInviteList(prev => prev.map(i => i.uid === inv.uid ? { ...i, role: e.target.value } : i))}
-                                                >
-                                                    <option value="editor">편집자</option>
-                                                    {effectiveLimits.viewerRole && <option value="viewer">독자</option>}
-                                                </select>
-                                                <button type="button" className="btn btn-danger btn-xs" onClick={() => setInviteList(prev => prev.filter(i => i.uid !== inv.uid))}>✕</button>
-                                            </div>
-                                        ))}
+                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>📝 초대 대기 인원 ({inviteList.length}명)</p>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                                            {inviteList.map(inv => (
+                                                <div key={inv.uid} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--color-bg-secondary)', padding: '4px 10px', borderRadius: '16px' }}>
+                                                    <span style={{ fontSize: 'var(--font-size-sm)' }}>{inv.nickname}</span>
+                                                    <button type="button" onClick={() => setInviteList(prev => prev.filter(i => i.uid !== inv.uid))} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0 4px', fontSize: '14px' }}>✕</button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -2287,22 +2312,41 @@ export default function MainPage() {
                                 {/* 즐겨찾기 친구 빠른 추가 */}
                                 {favoriteFriends.length > 0 && (
                                     <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>⭐ 즐겨찾기 친구</p>
-                                        <div className="filter-chips" style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
-                                            {favoriteFriends.map(friend => {
-                                                const already = inviteList.some(inv => inv.uid === friend.friendUid);
-                                                return (
-                                                    <button key={friend.friendUid} type="button"
-                                                        className={`filter-chip ${already ? 'active' : ''}`}
-                                                        onClick={() => {
-                                                            if (already) setInviteList(prev => prev.filter(inv => inv.uid !== friend.friendUid));
-                                                            else setInviteList(prev => [...prev, { uid: friend.friendUid, nickname: friend.friendNickname || friend.nickname || '', role: 'editor' }]);
-                                                        }}>
-                                                        {already ? '✓ ' : ''}{friend.friendNickname || friend.nickname || '(이름없음)'}
-                                                    </button>
-                                                );
-                                            })}
+                                        <div 
+                                            className="flex-row-gap-sm" 
+                                            style={{ justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '8px 0' }}
+                                            onClick={() => setShowFavFriends(!showFavFriends)}
+                                        >
+                                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: 0 }}>⭐ 즐겨찾기 친구</p>
+                                            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{showFavFriends ? '▲' : '▼'}</span>
                                         </div>
+                                        {showFavFriends && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: 'var(--spacing-xs)' }}>
+                                                {favoriteFriends.map(friend => {
+                                                    const already = inviteList.some(inv => inv.uid === friend.friendUid);
+                                                    const fname = friend.friendNickname || friend.nickname || '(이름없음)';
+                                                    return (
+                                                        <button
+                                                            key={friend.friendUid}
+                                                            type="button"
+                                                            className={`btn ${already ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '16px', padding: '4px 10px' }}
+                                                            onClick={() => {
+                                                                if (already) {
+                                                                    setInviteList(prev => prev.filter(inv => inv.uid !== friend.friendUid));
+                                                                } else {
+                                                                    setInviteList(prev => [...prev, { uid: friend.friendUid, nickname: fname, role: 'editor' }]);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: already ? 'bold' : 'normal' }}>
+                                                                {already ? '✓ ' : ''}{fname}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 {/* 닉네임/이메일 검색 */}
@@ -2323,7 +2367,7 @@ export default function MainPage() {
                                             <button type="button" className="btn btn-primary btn-xs"
                                                 disabled={inviteList.some(i => i.uid === inviteSearchResult.id)}
                                                 onClick={() => {
-                                                    setInviteList(prev => [...prev, { uid: inviteSearchResult.id, nickname: inviteSearchResult.nickname, role: 'editor' }]);
+                                                    setInviteList(prev => [...prev, { uid: inviteSearchResult.id, nickname: inviteSearchResult.nickname, role: inviteRole }]);
                                                     setInviteSearch(''); setInviteSearchResult(null);
                                                 }}>
                                                 {inviteList.some(i => i.uid === inviteSearchResult.id) ? '✓ 추가됨' : '+ 추가'}
@@ -2331,21 +2375,35 @@ export default function MainPage() {
                                         </div>
                                     )}
                                 </div>
-                                {/* 초대 목록 */}
+                                
+                                {/* 권한 설정 (빈 대기열에도 항상 노출) */}
+                                <div style={{ marginTop: 'var(--spacing-md)' }}>
+                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>📌 권한 설정 (일괄 적용)</p>
+                                    <select
+                                        className="input-field"
+                                        value={inviteRole}
+                                        onChange={e => {
+                                            const newRole = e.target.value;
+                                            setInviteRole(newRole);
+                                            setInviteList(prev => prev.map(inv => ({ ...inv, role: newRole })));
+                                        }}
+                                    >
+                                        <option value="editor">✏️ 편집자</option>
+                                        {effectiveLimits.viewerRole && <option value="viewer">👁️ 독자</option>}
+                                    </select>
+                                </div>
+
                                 {inviteList.length > 0 && (
                                     <div style={{ marginTop: 'var(--spacing-sm)' }}>
-                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>초대 목록</p>
-                                        {inviteList.map(inv => (
-                                            <div key={inv.uid} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                                                <span style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}>{inv.nickname}</span>
-                                                <select className="input-field" style={{ width: 'auto', fontSize: 'var(--font-size-xs)' }}
-                                                    value={inv.role} onChange={e => setInviteList(prev => prev.map(i => i.uid === inv.uid ? { ...i, role: e.target.value } : i))}>
-                                                    <option value="editor">편집자</option>
-                                                    {effectiveLimits.viewerRole && <option value="viewer">독자</option>}
-                                                </select>
-                                                <button type="button" className="btn btn-danger btn-xs" onClick={() => setInviteList(prev => prev.filter(i => i.uid !== inv.uid))}>✕</button>
-                                            </div>
-                                        ))}
+                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>📝 초대 대기 인원 ({inviteList.length}명)</p>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                                            {inviteList.map(inv => (
+                                                <div key={inv.uid} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--color-bg-secondary)', padding: '4px 10px', borderRadius: '16px' }}>
+                                                    <span style={{ fontSize: 'var(--font-size-sm)' }}>{inv.nickname}</span>
+                                                    <button type="button" onClick={() => setInviteList(prev => prev.filter(i => i.uid !== inv.uid))} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0 4px', fontSize: '14px' }}>✕</button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>

@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-03-11 14:53 — 멤버 초대 UI 컴팩트화 및 흰 화면 크래시 버그 수정
+- `ProjectPage.jsx`, `MainPage.jsx`: 초대 대기열(Staging List)을 세로형 리스트에서 가로 감싸기(Flex-Wrap) 둥근 칩 버튼으로 전면 전환하여 공간 낭비 방지
+- `MainPage.jsx`: 개별 대기 인원마다 존재하던 권한 드롭다운 UI를 하나의 일괄 권한 설정 스위치로 통합(`inviteRole` 상태 신설) 및 항상 노출되도록 분리
+- `MainPage.jsx`: 가로형 즐겨찾기 버튼의 아바타 아이콘 중복 텍스트 렌더링 뷰 제거
+- `MainPage.jsx`: 잘못된 JSX 들여쓰기로 인한 컴포넌트 렌더링 파싱 에러(흰 화면 먹통) 버그 수정 및 누락된 전역 상태 선언문 주입
+- `invitationService.js`: 배열 다중 초대를 지원하도록 병렬 전송(Promise.all) 호출 로직으로 리팩토링
+- Git 태그: `v260311-1453`
+- 복원: `git checkout v260311-1453`
+
 ## 2026-03-09 04:20 — 하이브리드 QA 파이프라인 3단계 (Firebase 로보 테스트) 디바이스 모델 에러 수정
 - `.github/workflows/qa-pipeline.yml`: Firebase Test Lab 구동 시 계속된 지원 기기 명칭 충돌 에러(`is not a valid model`)를 방지하기 위해 `--device` 강제 지정 옵션을 제거하여 구글의 가장 안정적인 기본 테스트 머신(Default Virtual Device)을 자동으로 알아서 타도록 수정.
 - Git 태그: `v260309-0420`

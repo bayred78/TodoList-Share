@@ -54,17 +54,39 @@ export async function acceptInvitation(invitationId, displayName = '') {
     // 프로젝트 읽기 없이 바로 멤버 추가 (비멤버는 프로젝트 읽기 불가)
     const { increment } = await import('firebase/firestore');
 
-    await updateDoc(projectRef, {
-        [`members.${invite.inviteeId}`]: {
-            nickname: invite.inviteeNickname,
-            displayName: displayName,
-            role: invite.role,
-            joinedAt: new Date().toISOString(),
-        },
-        memberUIDs: arrayUnion(invite.inviteeId),
-        memberCount: increment(1),
-        updatedAt: serverTimestamp(),
-    });
+    try {
+        await updateDoc(projectRef, {
+            [`members.${invite.inviteeId}`]: {
+                nickname: invite.inviteeNickname,
+                displayName: displayName,
+                role: invite.role,
+                joinedAt: new Date().toISOString(),
+            },
+            memberUIDs: arrayUnion(invite.inviteeId),
+            memberCount: increment(1),
+            updatedAt: serverTimestamp(),
+        });
+    } catch (error) {
+        // Capacitor/Firebase 환경에 따라 에러 형식이 다를 수 있으므로 폭넓게 검사
+        const errCode = error?.code || '';
+        const errMsg = error?.message?.toLowerCase() || '';
+
+        if (
+            errCode === 'not-found' ||
+            errCode === 'permission-denied' ||
+            errMsg.includes('not-found') ||
+            errMsg.includes('permission') ||
+            errMsg.includes('insufficient')
+        ) {
+            // 초대받은 자는 삭제 권한이 없으므로, 거절 상태로 업데이트하여 무효화 처리
+            await updateDoc(doc(db, 'invitations', invitationId), {
+                status: 'rejected',
+                respondedAt: serverTimestamp(),
+            });
+            throw new Error('존재하지 않거나 삭제된 페이지입니다.');
+        }
+        throw error;
+    }
 
     // 초대 상태 업데이트
     await updateDoc(doc(db, 'invitations', invitationId), {

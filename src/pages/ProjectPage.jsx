@@ -403,6 +403,9 @@ export default function ProjectPage() {
     const [showDisplayNamePrompt, setShowDisplayNamePrompt] = useState(false);
     const [myDisplayNameInput, setMyDisplayNameInput] = useState('');
     const [favoriteFriendIds, setFavoriteFriendIds] = useState(new Set());
+    const [favoriteFriends, setFavoriteFriends] = useState([]); // 리스트 렌더링용 배열
+    const [showFavFriends, setShowFavFriends] = useState(false); // 아코디언 상태
+    const [inviteStagingList, setInviteStagingList] = useState([]); // 다중 초대 대기열
 
     // 반복 체크리스트 확인 모달
     const [showRepeatConfirm, setShowRepeatConfirm] = useState(false);
@@ -1720,37 +1723,51 @@ export default function ProjectPage() {
     };
 
     const handleInvite = async (e) => {
-        e.preventDefault();
-        if (!inviteNickname.trim()) {
-            addToast('닉네임 또는 이메일을 입력해주세요.', 'warning');
-            return;
-        }
-        // ★ 멤버 수 제한 체크 (프로젝트 기반)
-        const currentMemberCount = project?.memberCount || Object.keys(project?.members || {}).length;
-        if (currentMemberCount >= effectiveLimits.maxMembers) {
-            setUpgradeReason('maxMembers');
-            setShowUpgradeModal(true);
-            return;
-        }
-        setInviting(true);
-        try {
-            const targetUser = await findUserByNicknameOrEmail(inviteNickname.trim());
+        if (e) e.preventDefault();
+        
+        const finalInvitees = [...inviteStagingList];
+        
+        const term = inviteNickname.trim();
+        if (term) {
+            const targetUser = await findUserByNicknameOrEmail(term);
             if (!targetUser) {
-                addToast('존재하지 않는 사용자입니다.', 'error');
-                setInviting(false);
+                addToast(`'${term}' 사용자를 찾을 수 없습니다.`, 'error');
                 return;
             }
             if (targetUser.uid === profile.uid) {
                 addToast('자기 자신은 초대할 수 없습니다.', 'warning');
-                setInviting(false);
                 return;
             }
-            await inviteUser(projectId, project.name, profile.uid, profile.nickname, targetUser.uid, targetUser.nickname, inviteRole);
+            if (!finalInvitees.some(inv => inv.uid === targetUser.uid)) {
+                finalInvitees.push({ uid: targetUser.uid, nickname: targetUser.nickname });
+            }
+        }
+
+        if (finalInvitees.length === 0) {
+            addToast('초대할 대상(목록이나 닉네임)을 추가해주세요.', 'warning');
+            return;
+        }
+
+        const currentMemberCount = project?.memberCount || Object.keys(project?.members || {}).length;
+        if (currentMemberCount + finalInvitees.length > effectiveLimits.maxMembers) {
+            setUpgradeReason('maxMembers');
+            setShowUpgradeModal(true);
+            return;
+        }
+
+        setInviting(true);
+        try {
+            await Promise.allSettled(
+                finalInvitees.map(inv => 
+                    inviteUser(projectId, project.name, profile.uid, profile.nickname, inv.uid, inv.nickname, inviteRole)
+                )
+            );
             setInviteNickname('');
+            setInviteStagingList([]);
             setShowInviteModal(false);
-            addToast(`${targetUser.nickname}님에게 초대를 보냈습니다!`, 'success');
+            addToast(`${finalInvitees.length}명에게 초대를 성공적으로 발송했습니다!`, 'success');
         } catch (error) {
-            addToast(error.message || '초대에 실패했습니다.', 'error');
+            addToast('초대 발송 중 오류가 발생했습니다.', 'error');
         } finally {
             setInviting(false);
         }
@@ -2171,11 +2188,11 @@ export default function ProjectPage() {
         }
     }, [project?.members, profile?.uid]);
 
-    // 즐겨찾기 친구 목록 구독
     useEffect(() => {
         if (!profile?.uid) return;
         return subscribeToFavoriteFriends(profile.uid, (friends) => {
             setFavoriteFriendIds(new Set(friends.map(f => f.friendUid)));
+            setFavoriteFriends(friends);
         });
     }, [profile?.uid]);
 
@@ -2233,11 +2250,6 @@ export default function ProjectPage() {
                         <h1>{project.name}</h1>
                     </div>
                     <div className="header-actions">
-                        {userCanAdmin && (
-                            <button className="header-icon-btn" onClick={() => setShowInviteModal(true)} title="초대">
-                                👤+
-                            </button>
-                        )}
                         <button
                             className="header-icon-btn"
                             onClick={() => {
@@ -4101,11 +4113,11 @@ export default function ProjectPage() {
             {/* 초대 모달 */}
             <Modal
                 isOpen={showInviteModal}
-                onClose={() => setShowInviteModal(false)}
+                onClose={() => { setShowInviteModal(false); setInviteStagingList([]); setInviteNickname(''); }}
                 title="멤버 초대"
                 footer={
                     <>
-                        <button className="btn btn-secondary" onClick={() => setShowInviteModal(false)}>취소</button>
+                        <button className="btn btn-secondary" onClick={() => { setShowInviteModal(false); setInviteStagingList([]); setInviteNickname(''); }}>취소</button>
                         <button className="btn btn-primary" onClick={handleInvite} disabled={inviting}>
                             {inviting ? <span className="spinner"></span> : '초대'}
                         </button>
@@ -4113,8 +4125,60 @@ export default function ProjectPage() {
                 }
             >
                 <form onSubmit={handleInvite}>
+                    {favoriteFriends.length > 0 && (
+                        <div className="input-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
+                            <div 
+                                className="flex-row-gap-sm" 
+                                style={{ justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '8px 0' }}
+                                onClick={() => setShowFavFriends(!showFavFriends)}
+                            >
+                                <label className="input-label" style={{ margin: 0, cursor: 'pointer' }}>⭐ 즐겨찾기한 친구 빠르게 추가</label>
+                                <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{showFavFriends ? '▲' : '▼'}</span>
+                            </div>
+                            {showFavFriends && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: 'var(--spacing-xs)' }}>
+                                    {favoriteFriends.map(f => {
+                                        const already = inviteStagingList.some(inv => inv.uid === f.friendUid);
+                                        return (
+                                            <button
+                                                key={f.id}
+                                                type="button"
+                                                className={`btn ${already ? 'btn-danger' : 'btn-secondary'} btn-sm`}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '16px', padding: '4px 10px' }}
+                                                onClick={() => {
+                                                    if (already) {
+                                                        setInviteStagingList(prev => prev.filter(inv => inv.uid !== f.friendUid));
+                                                    } else {
+                                                        setInviteStagingList(prev => [...prev, { uid: f.friendUid, nickname: f.nickname }]);
+                                                    }
+                                                }}
+                                                disabled={inviting}
+                                            >
+                                                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: already ? 'bold' : 'normal' }}>
+                                                    {already ? '✓ ' : ''}{f.nickname}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {inviteStagingList.length > 0 && (
+                        <div className="input-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                            <label className="input-label">📝 초대 대기 인원 ({inviteStagingList.length}명)</label>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {inviteStagingList.map(inv => (
+                                    <div key={inv.uid} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--color-bg-secondary)', padding: '4px 10px', borderRadius: '16px' }}>
+                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>{inv.nickname}</span>
+                                        <button type="button" onClick={() => setInviteStagingList(prev => prev.filter(i => i.uid !== inv.uid))} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0 4px', fontSize: '14px' }}>✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <div className="input-group">
-                        <label className="input-label">닉네임 또는 이메일</label>
+                        <label className="input-label">닉네임 또는 이메일 (직접 입력)</label>
                         <input
                             type="text"
                             className="input-field"
@@ -4150,7 +4214,14 @@ export default function ProjectPage() {
                         </div>
                         <div className="fullscreen-editor-body">
                             <div className="settings-card card">
-                                <h3 className="settings-card-title">멤버 ({sortedMembers.length}명)</h3>
+                                <div className="flex-row-gap-sm" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                    <h3 className="settings-card-title" style={{ margin: 0 }}>멤버 ({sortedMembers.length}명)</h3>
+                                    {userCanAdmin && (
+                                        <button className="btn btn-primary btn-sm" onClick={() => { setShowSettingsModal(false); setShowInviteModal(true); }}>
+                                            👤 초대
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="member-list">
                                     {sortedMembers.map(([userId, member]) => (
                                         <div key={userId} className="member-item">

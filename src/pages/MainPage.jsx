@@ -10,7 +10,7 @@ import Modal from '../components/common/Modal';
 import PageHeader from '../components/common/PageHeader';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
 import './MainPage.css';
-import { toggleCheck, createTemplateItems } from '../services/todoService';
+import { toggleCheck, createTemplateItems, checkItemExists } from '../services/todoService';
 import {
     searchProjects, searchItems, sortResults, highlightText,
     getRecentSearches, addRecentSearch, clearRecentSearches, preloadAllItems
@@ -1346,7 +1346,16 @@ export default function MainPage() {
                                     </div>
                                 ) : (
                                     favoriteItems.map((fav) => (
-                                        <div key={fav.id} className="card fav-item-card" onClick={() => navigate(`/project/${fav.projectId}?openItem=${fav.itemId}`)}>
+                                        <div key={fav.id} className="card fav-item-card" onClick={async () => {
+                                            const exists = await checkItemExists(fav.projectId, fav.itemId);
+                                            if (!exists) {
+                                                if (window.confirm('이 체크리스트는 삭제되었습니다. 즐겨찾기에서 삭제할까요?')) {
+                                                    removeFavoriteItem(profile.uid, fav.projectId, fav.itemId);
+                                                }
+                                            } else {
+                                                navigate(`/project/${fav.projectId}?openItem=${fav.itemId}`);
+                                            }
+                                        }}>
                                             <div className="fav-item-header">
                                                 <div className="fav-item-info-row">
                                                     <span className="fav-item-project">{fav.projectName}</span>

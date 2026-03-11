@@ -9,7 +9,7 @@ import { subscribeToAllItems, addTodoItem, updateTodoItem, deleteTodoItem, toggl
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
-import { getNotificationSettings } from '../services/notificationService';
+import { getNotificationSettings, setChatNotiMuted } from '../services/notificationService';
 import { sendMessage, subscribeToRecentMessages, loadOlderMessages, updateLastRead, getCachedMessages, setCachedMessages, sendDirectMessage } from '../services/chatService';
 import { inviteUser } from '../services/invitationService';
 import { findUserByNicknameOrEmail } from '../services/userService';
@@ -378,6 +378,9 @@ export default function ProjectPage() {
     const chatFileInputRef = React.useRef(null);
     const tabBarRef = React.useRef(null);
     const [chatTopOffset, setChatTopOffset] = useState(0);
+    const [chatPageNoti, setChatPageNoti] = useState(
+        () => !(profile?.chatNotiMuted?.[projectId] === true)
+    );
 
     // 체크리스트 첨부파일
     const [itemImageUploading, setItemImageUploading] = useState(false);
@@ -2646,6 +2649,29 @@ export default function ProjectPage() {
                                     />
                                 )}
                             </>
+                            {/* 🔔 체팅 알림 토글 버튼 */}
+                            <button
+                                type="button"
+                                className="chat-attach-btn"
+                                title={
+                                    !notiSettings?.chat
+                                        ? '설정 > 알림에서 체팅 알림을 먼저 켜주세요'
+                                        : chatPageNoti ? '이 페이지 체팅 알림 끄기' : '이 페이지 체팅 알림 켜기'
+                                }
+                                onClick={() => {
+                                    if (!notiSettings?.chat) {
+                                        addToast('설정 > 알림에서 체팅 알림을 먼저 켜주세요.', 'info');
+                                        return;
+                                    }
+                                    const next = !chatPageNoti;
+                                    setChatPageNoti(next);
+                                    setChatNotiMuted(profile.uid, projectId, !next).catch(() => {
+                                        addToast('알림 설정 저장에 실패했습니다.', 'error');
+                                    });
+                                }}
+                            >
+                                {!notiSettings?.chat || !chatPageNoti ? <span className="chat-noti-muted">🔔</span> : '🔔'}
+                            </button>
                             <input
                                 ref={chatInputRef}
                                 type="text"
@@ -2884,45 +2910,8 @@ export default function ProjectPage() {
                                             >
                                                 {item.checked && '✓'}
                                             </button>
-                                            {pageViewMode !== 'list' && (
-                                                <button
-                                                    className="todo-fav-btn"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const isFav = favoriteItemSet.has(`${projectId}_${item.id}`);
-                                                        if (isFav) {
-                                                            if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
-                                                                removeFavoriteItem(profile.uid, projectId, item.id);
-                                                            }
-                                                        } else {
-                                                            addFavoriteItem(profile.uid, projectId, item.id, item.title, project?.name || '');
-                                                        }
-                                                    }}
-                                                    title="즐겨찾기"
-                                                >
-                                                    {favoriteItemSet.has(`${projectId}_${item.id}`) ? '⭐' : '☆'}
-                                                </button>
-                                            )}
                                         </div>
-                                        {pageViewMode === 'list' && (
-                                            <button
-                                                className="todo-fav-btn"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const isFav = favoriteItemSet.has(`${projectId}_${item.id}`);
-                                                    if (isFav) {
-                                                        if (window.confirm('즐겨찾기를 해제하시겠습니까?')) {
-                                                            removeFavoriteItem(profile.uid, projectId, item.id);
-                                                        }
-                                                    } else {
-                                                        addFavoriteItem(profile.uid, projectId, item.id, item.title, project?.name || '');
-                                                    }
-                                                }}
-                                                title="즐겨찾기"
-                                            >
-                                                {favoriteItemSet.has(`${projectId}_${item.id}`) ? '⭐' : '☆'}
-                                            </button>
-                                        )}
+
                                         <div className="todo-content" onClick={() => {
                                             if (userCanWrite && !item.locked) {
                                                 const copy = { ...item };
@@ -2948,6 +2937,23 @@ export default function ProjectPage() {
                                                         </span>
                                                     ) : null;
                                                 })()}
+                                                {pageViewMode !== 'grid' && item.dueDate && (() => {
+                                                    const dueText = formatDueText(item.dueDate);
+                                                    const dp = getDuePriority(item.dueDate);
+                                                    return dueText ? (
+                                                        <span
+                                                            className="due-date-inline"
+                                                            style={{ color: dp.color, cursor: 'pointer' }}
+                                                            title={dueDisplayMode === 'date' ? '⏳ 남은 시간으로 보기' : '📅 마감일로 보기'}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const next = dueDisplayMode === 'date' ? 'remaining' : 'date';
+                                                                setDueDisplayMode(next);
+                                                                localStorage.setItem('dueDisplayMode', next);
+                                                            }}
+                                                        >{dueText}</span>
+                                                    ) : null;
+                                                })()}
                                                 {item.repeatType && item.repeatType !== 'none' && (
                                                     <span className="priority-badge" title={
                                                         item.repeatType === 'daily' ? '매일 반복' :
@@ -2959,13 +2965,6 @@ export default function ProjectPage() {
                                                         🔄
                                                     </span>
                                                 )}
-                                                {pageViewMode !== 'grid' && item.dueDate && (() => {
-                                                    const dueText = formatDueText(item.dueDate);
-                                                    const dp = getDuePriority(item.dueDate);
-                                                    return dueText ? (
-                                                        <span className="due-date-inline" style={{ color: dp.color }}>{dueText}</span>
-                                                    ) : null;
-                                                })()}
                                                 {item.title}
                                             </h4>
                                             {item.content && (
@@ -4318,25 +4317,6 @@ export default function ProjectPage() {
                                 </div>
                             </div>
 
-                            {/* 보기 설정 */}
-                            <div className="settings-card card">
-                                <h3 className="settings-card-title">⚙️ 보기 설정</h3>
-                                <div className="settings-row">
-                                    <span>마감일 표시 형식</span>
-                                    <select
-                                        className="input-field"
-                                        style={{ width: 'auto', padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}
-                                        value={dueDisplayMode}
-                                        onChange={(e) => {
-                                            setDueDisplayMode(e.target.value);
-                                            localStorage.setItem('dueDisplayMode', e.target.value);
-                                        }}
-                                    >
-                                        <option value="date">📅 마감일 (월.일 / 시:분)</option>
-                                        <option value="remaining">⏳ 남은 시간</option>
-                                    </select>
-                                </div>
-                            </div>
 
 
                             {/* 구글 캘린더 연동 */}

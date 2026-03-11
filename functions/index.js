@@ -435,7 +435,7 @@ exports.onItemCreate = onDocumentCreated('projects/{projectId}/items/{itemId}', 
 
     // 프로젝트 이름 조회
     const projectDoc = await db.collection('projects').doc(projectId).get();
-    const projectName = projectDoc.data()?.title || '프로젝트';
+    const projectName = projectDoc.data()?.name || '페이지';
     const creatorName = projectDoc.data()?.members?.[creatorUid]?.nickname || '멤버';
 
     const members = await getProjectMembersExcept(projectId, creatorUid);
@@ -511,7 +511,7 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
 
     const itemTitle = after.title || before.title || '항목';
     const projectDoc = await db.collection('projects').doc(projectId).get();
-    const projectName = projectDoc.data()?.title || '프로젝트';
+    const projectName = projectDoc.data()?.name || '페이지';
     const updaterName = projectDoc.data()?.members?.[updaterUid]?.nickname || '멤버';
 
     const members = await getProjectMembersExcept(projectId, updaterUid);
@@ -538,11 +538,20 @@ exports.onChatCreate = onDocumentCreated('projects/{projectId}/messages/{message
     const preview = messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText;
 
     const projectDoc = await db.collection('projects').doc(projectId).get();
-    const projectName = projectDoc.data()?.title || '프로젝트';
+    const projectName = projectDoc.data()?.name || '페이지';
 
     const members = await getProjectMembersExcept(projectId, senderUid);
 
-    const promises = members.map(uid =>
+    // chatNotiMuted.{projectId} === true 인 사용자 제외
+    const notifyMembers = (await Promise.all(
+        members.map(async (uid) => {
+            const uDoc = await db.collection('users').doc(uid).get();
+            const muted = uDoc.data()?.chatNotiMuted?.[projectId] === true;
+            return muted ? null : uid;
+        })
+    )).filter(Boolean);
+
+    const promises = notifyMembers.map(uid =>
         sendPushToUser(uid, 'chat', {
             title: `💬 ${projectName}`,
             body: `${senderName}: ${preview}`,

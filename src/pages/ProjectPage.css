@@ -1743,6 +1743,11 @@
     cursor: not-allowed;
 }
 
+.chat-noti-muted {
+    filter: grayscale(1);
+    opacity: 0.5;
+}
+
 /* ===== 체크리스트 이미지 ===== */
 .todo-images {
     display: flex;

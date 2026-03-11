@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
+import useToastStore from './stores/toastStore';
 import Toast from './components/common/Toast';
+import { setForegroundNotificationHandler } from './services/notificationService';
 import BannerAd from './components/ads/BannerAd';
 import DevPlanSwitcher from './components/dev/DevPlanSwitcher';
 import LoginPage from './pages/LoginPage';
@@ -131,11 +133,20 @@ export default function App() {
         return () => unsubscribe();
     }, [initialize]);
 
+    const addToast = useToastStore((s) => s.addToast);
+    useEffect(() => {
+        setForegroundNotificationHandler((notification) => {
+            const title = notification.title || '';
+            const body = notification.body || '';
+            addToast(title ? `${title}: ${body}` : body, 'info');
+        });
+    }, [addToast]);
+
     if (loading) {
         return (
             <div className="loading-screen">
                 <div className="spinner spinner-lg"></div>
-                <p style={{ color: 'var(--color-text-secondary)', marginTop: '8px' }}>TodoList Share</p>
+                <p style={{ color: 'var(--color-text-secondary)', marginTop: 'var(--spacing-sm)' }}>TodoList Share</p>
             </div>
         );
     }

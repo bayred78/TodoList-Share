@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-03-11 21:18 — 채팅 알림 버그 수정 및 디자인 일관성 개선
+- `functions/index.js`: 모든 푸시 알림(채팅, 항목 생성/수정)에서 프로젝트 이름을 가져올 때 잘못된 필드(`title`) 대신 올바른 필드(`name`)를 참조하도록 수정하여 "페이지" 대신 실제 이름이 출력되도록 함.
+- `ProjectPage.jsx`, `notificationService.js`: 채팅 탭 내 개별 페이지 알림 끄기/켜기 토글 기능 및 포그라운드 알림 토스트 연동 완비 (설정창 전역 알림과 동기화).
+- `todoService.js`, `MainPage.jsx`: 삭제된 체크리스트를 즐겨찾기에서 클릭 시 방어 로직(`checkItemExists`) 및 확인 후 삭제 유도창 추가.
+- `App.jsx`, `ProjectPage.css`: 하드코딩된 간격 및 인라인 스타일을 디자인 시스템 토큰(`--spacing-sm`, 공용 CSS 클래스)으로 리팩토링.
+- Git 태그: `v260311-2118`
+- 복원: `git checkout v260311-2118`
+
 ## 2026-03-11 14:53 — 멤버 초대 UI 컴팩트화 및 흰 화면 크래시 버그 수정
 - `ProjectPage.jsx`, `MainPage.jsx`: 초대 대기열(Staging List)을 세로형 리스트에서 가로 감싸기(Flex-Wrap) 둥근 칩 버튼으로 전면 전환하여 공간 낭비 방지
 - `MainPage.jsx`: 개별 대기 인원마다 존재하던 권한 드롭다운 UI를 하나의 일괄 권한 설정 스위치로 통합(`inviteRole` 상태 신설) 및 항상 노출되도록 분리

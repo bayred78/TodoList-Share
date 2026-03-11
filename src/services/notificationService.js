@@ -9,6 +9,11 @@ import { doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'fireba
 import { db } from './firebase';
 import { Capacitor } from '@capacitor/core';
 
+// 포그라운드 알림 수신 콜백
+let _foregroundHandler = null;
+export function setForegroundNotificationHandler(fn) {
+    _foregroundHandler = fn;
+}
 let PushNotifications = null;
 
 async function loadPushPlugin() {
@@ -74,6 +79,9 @@ export async function registerPushNotifications(userId) {
     // 알림 수신 시 (포그라운드)
     await PushNotifications.addListener('pushNotificationReceived', (notification) => {
         console.log('푸시 알림 수신 (포그라운드):', notification);
+        if (_foregroundHandler) {
+            _foregroundHandler(notification);
+        }
     });
 
     // 알림 클릭 시
@@ -114,4 +122,12 @@ export function getNotificationSettings(profile) {
         ...DEFAULT_NOTIFICATION_SETTINGS,
         ...(profile?.notificationSettings || {}),
     };
+}
+
+// 페이지별 채팅 알림 뮤트 저장
+export async function setChatNotiMuted(uid, projectId, muted) {
+    await updateDoc(doc(db, 'users', uid), {
+        [`chatNotiMuted.${projectId}`]: muted,
+        updatedAt: serverTimestamp(),
+    });
 }

@@ -488,3 +488,10 @@ export async function createTemplateItems(projectId, items, creatorInfo) {
 
     await batch.commit();
 }
+
+// 체크리스트가 존재하는지 (삭제되지 않았는지) 확인
+export async function checkItemExists(projectId, itemId) {
+    const snap = await getDoc(doc(db, 'projects', projectId, 'items', itemId));
+    if (!snap.exists()) return false;   // 문서 자체가 없음 (완전 삭제)
+    return !snap.data().deleted;        // 소프트 삭제 여부 확인
+}

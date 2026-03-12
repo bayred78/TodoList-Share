@@ -860,3 +860,52 @@ ol {
     background-position: -200% 0;
   }
 }
+
+/* ===== PC / Tablet (768px 이상) ===== */
+@media (min-width: 768px) {
+  /* 1. 메인 컨테이너 확장 */
+  .container {
+    max-width: 860px;
+    padding: 0 var(--spacing-xl);
+  }
+
+  /* 2. 고정 헤더 확장 */
+  .page-header {
+    max-width: 860px;
+  }
+
+  /* 3. 전체화면 에디터 확장 */
+  .fullscreen-editor {
+    width: 860px;
+  }
+
+  /* 4. 모달 확대 */
+  .modal-content {
+    max-width: 560px;
+  }
+
+  /* 5. 하단 내비 — page-header와 동일 패턴 */
+  .bottom-nav {
+    max-width: 860px;
+    margin: 0 auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* 6. FAB 위치 — 콘텐츠 영역 우측 끝 */
+  .fab {
+    right: max(var(--spacing-md), calc(50% - 400px));
+  }
+
+  /* 7. 카드 호버 효과 강화 (마우스 환경) */
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* 8. 탭바 폰트/패딩 확대 */
+  .tab-item {
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+}

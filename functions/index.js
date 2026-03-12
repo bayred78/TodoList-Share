@@ -505,6 +505,14 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
         } else {
             action = '마감일을 삭제';
         }
+    } else if ((before.content || '') !== (after.content || '')
+        || JSON.stringify(before.contentBlocks || []) !== JSON.stringify(after.contentBlocks || [])) {
+        action = '내용 수정';
+    } else if ((before.color || null) !== (after.color || null)
+        || JSON.stringify(before.labels || []) !== JSON.stringify(after.labels || [])
+        || (before.repeatType || null) !== (after.repeatType || null)
+        || JSON.stringify(before.assignees || []) !== JSON.stringify(after.assignees || [])) {
+        action = '옵션 수정';
     } else {
         return;
     }

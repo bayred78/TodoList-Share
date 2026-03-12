@@ -4,6 +4,13 @@
 
 ---
 
+## 2026-03-13 00:34 — 체크리스트 편집 시 내용/옵션 변경 FCM 알림 누락 버그 수정
+- `functions/index.js`: `onItemUpdate` Cloud Function 로직 확장 (내용, 색상, 라벨, 반복, 참여자 변경 시에도 푸시 알림 정상 발송 처리)
+- `ProjectPage.jsx`: 파일 첨부 시 `pendingFile` 객체로 인한 Firestore 저장 예외 처리 및 체크리스트 `VERSION_CONFLICT` 발생 빈도 감소 로직 추가
+- UI 여백 최적화: `ProjectPage.css`, `MainPage.css`, `global.css`
+- Git 태그: `v260313-0034`
+- 복원: `git checkout v260313-0034`
+
 ## 2026-03-12 19:30 — 체크리스트 중복 저장 충돌 해결 및 설정 탭 UI 레이아웃 고도화
 - `ProjectPage.jsx`: 편집 완료된 체크리스트를 재차 저장 시 발생하는 `VERSION_CONFLICT` 충돌 결함 해결 (클라이언트 상태 버전 번호 동기화, UI 뷰어 전환 적용)
 - `PlanCompareTable.jsx`, `UpgradeModal.css`: 설정 창 플랜 비교표의 첫 범주(기능명)가 화면 크기에 따라 인접 행을 침범하고 중앙 정렬되던 디자인 버그 해결

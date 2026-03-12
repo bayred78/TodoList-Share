@@ -296,12 +296,20 @@ function injectEditorToolbars(editorEl) {
         // img를 wrapper로 감싸기
         img.parentNode.insertBefore(wrap, img);
         wrap.appendChild(img);
-        // 리사이즈 핸들 주입
-        const handle = document.createElement('div');
-        handle.className = 'rich-img-resize-handle';
-        handle.setAttribute('contenteditable', 'false');
-        handle.title = '드래그하여 크기 조절';
-        wrap.appendChild(handle);
+        // 사이즈 프리셋 버튼 주입
+        const sizeBar = document.createElement('div');
+        sizeBar.className = 'rich-img-size-bar';
+        sizeBar.setAttribute('contenteditable', 'false');
+        const currentW = img.style.width || '100%';
+        [['소', '25%'], ['중', '50%'], ['대', '100%']].forEach(([label, pct]) => {
+            const btn = document.createElement('button');
+            btn.className = 'rich-img-size-btn' + (currentW === pct ? ' active' : '');
+            btn.dataset.size = pct;
+            btn.textContent = label;
+            btn.setAttribute('contenteditable', 'false');
+            sizeBar.appendChild(btn);
+        });
+        wrap.appendChild(sizeBar);
         // 툴바 주입
         const toolbar = document.createElement('div');
         toolbar.className = 'rich-block-toolbar';
@@ -421,9 +429,9 @@ function htmlToBlocks(html, existingBlocks) {
                 });
                 continue;
             }
-            // DOM 주입된 toolbar/resize 요소 스킵
+            // DOM 주입된 toolbar/size-bar 요소 스킵
             if (node.classList?.contains('rich-block-toolbar') ||
-                node.classList?.contains('rich-img-resize-handle')) {
+                node.classList?.contains('rich-img-size-bar')) {
                 continue;
             }
             if (node.nodeName === 'P' || node.nodeName === 'DIV') {
@@ -2198,47 +2206,28 @@ export default function ProjectPage() {
                 return;
             }
 
-            // 리사이즈 핸들
-            if (target.classList.contains('rich-img-resize-handle')) {
-                const wrap = target.closest('.rich-img-wrap');
-                const img = wrap?.querySelector('img');
-                if (!img) return;
+            // 사이즈 프리셋 버튼
+            if (target.classList.contains('rich-img-size-btn')) {
                 e.preventDefault();
                 e.stopPropagation();
-                resizingRef.current = { img, startX: e.clientX, startW: img.offsetWidth };
-                wrap.classList.add('resizing');
+                const img = target.closest('.rich-img-wrap')?.querySelector('img');
+                if (!img) return;
+                img.style.width = target.dataset.size;
+                target.closest('.rich-img-size-bar')?.querySelectorAll('.rich-img-size-btn')
+                    .forEach(btn => btn.classList.toggle('active', btn === target));
+                syncToState();
                 return;
             }
 
             // 편집 모드에서는 이미지 클릭 시 뷰어 비활성화 (편집 중이므로)
         };
 
-
-        const onMouseMove = (e) => {
-            if (!resizingRef.current) return;
-            e.preventDefault();
-            const { img, startX, startW } = resizingRef.current;
-            const newW = Math.max(50, startW + (e.clientX - startX));
-            img.style.width = newW + 'px';
-        };
-
-        const onMouseUp = () => {
-            if (resizingRef.current) {
-                resizingRef.current.img.closest('.rich-img-wrap')?.classList.remove('resizing');
-                resizingRef.current = null;
-                syncToState();
-            }
-        };
-
         editor.addEventListener('mousedown', onMouseDown);
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
         return () => {
             editor.removeEventListener('mousedown', onMouseDown);
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
         };
     }, [isEditingContent]);
+
 
     // 추가 모달: 에디터 초기화 (1회만)
     React.useEffect(() => {
@@ -2286,43 +2275,28 @@ export default function ProjectPage() {
                 }
                 return;
             }
-            // 리사이즈 핸들
-            if (target.classList.contains('rich-img-resize-handle')) {
-                const wrap = target.closest('.rich-img-wrap');
-                const img = wrap?.querySelector('img');
-                if (!img) return;
+            // 사이즈 프리셋 버튼
+            if (target.classList.contains('rich-img-size-btn')) {
                 e.preventDefault();
                 e.stopPropagation();
-                addResizingRef.current = { img, startX: e.clientX, startW: img.offsetWidth };
-                wrap.classList.add('resizing');
+                const img = target.closest('.rich-img-wrap')?.querySelector('img');
+                if (!img) return;
+                img.style.width = target.dataset.size;
+                target.closest('.rich-img-size-bar')?.querySelectorAll('.rich-img-size-btn')
+                    .forEach(btn => btn.classList.toggle('active', btn === target));
+                syncToState();
                 return;
             }
         };
 
-        const onMouseMove = (e) => {
-            if (!addResizingRef.current) return;
-            e.preventDefault();
-            const { img, startX, startW } = addResizingRef.current;
-            img.style.width = Math.max(50, startW + (e.clientX - startX)) + 'px';
-        };
-
-        const onMouseUp = () => {
-            if (addResizingRef.current) {
-                addResizingRef.current.img.closest('.rich-img-wrap')?.classList.remove('resizing');
-                addResizingRef.current = null;
-                syncToState();
-            }
-        };
-
         editor.addEventListener('mousedown', onMouseDown);
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
         return () => {
             editor.removeEventListener('mousedown', onMouseDown);
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
         };
     }, [showAddModal]);
+
+
+
 
 
     const handleEditItem = async (e) => {
@@ -2393,19 +2367,27 @@ export default function ProjectPage() {
                 ...deletedFileUrls.map(url => deleteStorageFile(url))
             ]);
 
+            // ★ 저장 직전 items 배열에서 최신 version 동기화 (VERSION_CONFLICT 방지)
+            // subscribeToAllItems가 실시간으로 items를 갱신하므로, 편집 중 version 변경 시 정확한 버전 사용
+            const latestItem = items.find(i => i.id === editItem.id);
+            const currentVersion = latestItem?.version || editItem.version || 1;
+
+            // ★ Firestore 저장 전 pendingFile/preview 제거 (File/Blob은 Firestore 비허용 → updateDoc 예외 → 알림 누락 원인)
+            const blocksToSave = saveBlocks.map(({ pendingFile, preview, ...rest }) => rest);
+
             await updateTodoItem(projectId, editItem.id, {
                 title: editItem.title,
                 content: syncContent,
                 images: syncImages,
                 files: syncFiles,
-                contentBlocks: saveBlocks,
+                contentBlocks: blocksToSave,
                 color: editItem.color || null,
                 dueDate: editItem.dueDate || null,
                 labels: editItem.labels || [],
                 repeatType: editItem.repeatType || null,
                 assignees: editItem.assignees || [],
                 updatedBy: profile?.uid,
-            }, { expectedVersion: editItem.version || 1 });
+            }, { expectedVersion: currentVersion });
             // 활동 알림 전송 (메인페이지 메세지탭에 표시)
             try {
                 const { updateDoc: ud, doc: d, arrayUnion: au } = await import('firebase/firestore');
@@ -2473,11 +2455,28 @@ export default function ProjectPage() {
                 repeatType: conflictData.myData.repeatType || null,
                 assignees: conflictData.myData.assignees || [],
             }, { forceOverwrite: true });
+            // 활동 알림 전송
+            try {
+                const { updateDoc: ud, doc: d, arrayUnion: au } = await import('firebase/firestore');
+                const { db: fdb } = await import('../services/firebase');
+                await ud(d(fdb, 'projects', projectId), {
+                    notifications: au({
+                        type: 'activity',
+                        action: 'edit',
+                        text: `✏️ "${conflictData.myData.title}" 항목을 수정했습니다.`,
+                        actorId: profile.uid,
+                        actorName: getMemberName(profile.uid) || profile.nickname,
+                        projectName: project?.name || '',
+                        createdAt: new Date().toISOString(),
+                        itemId: conflictData.itemId,
+                    }),
+                });
+            } catch (e) { /* 알림 실패해도 수정은 완료 */ }
             addToast('덮어쓰기로 저장되었습니다.', 'success');
             // ★ 덮어쓰기 후 editItem 갱신 및 버전 동기화
             setEditItem(prev => ({
                 ...prev,
-                contentBlocks: conflictData.myData.contentBlocks || [],
+                contentBlocks: (conflictData.myData.contentBlocks || []).map(({ pendingFile, preview, ...rest }) => rest),
                 content: conflictData.myData.content || '',
                 images: conflictData.myData.images || [],
                 files: conflictData.myData.files || [],
@@ -2500,7 +2499,7 @@ export default function ProjectPage() {
                 content: conflictData.myData.content,
                 images: conflictData.myData.images || [],
                 files: conflictData.myData.files || [],
-                contentBlocks: conflictData.myData.contentBlocks || [],
+                contentBlocks: (conflictData.myData.contentBlocks || []).map(({ pendingFile, preview, ...rest }) => rest),
                 color: conflictData.myData.color || null,
                 dueDate: conflictData.myData.dueDate || null,
                 labels: conflictData.myData.labels || [],
@@ -2509,6 +2508,22 @@ export default function ProjectPage() {
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
+            // 활동 알림 전송
+            try {
+                const { updateDoc: ud, doc: d, arrayUnion: au } = await import('firebase/firestore');
+                const { db: fdb } = await import('../services/firebase');
+                await ud(d(fdb, 'projects', projectId), {
+                    notifications: au({
+                        type: 'activity',
+                        action: 'add',
+                        text: `➕ "${conflictData.myData.title} (사본)" 항목을 추가했습니다.`,
+                        actorId: profile.uid,
+                        actorName: getMemberName(profile.uid) || profile.nickname,
+                        projectName: project?.name || '',
+                        createdAt: new Date().toISOString(),
+                    }),
+                });
+            } catch (e) { /* 알림 실패해도 추가는 완료 */ }
             addToast('새 항목으로 저장되었습니다.', 'success');
             setConflictData(null);
             setIsEditingContent(false);

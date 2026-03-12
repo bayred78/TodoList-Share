@@ -2424,8 +2424,16 @@ export default function ProjectPage() {
                 });
             } catch (e) { /* 알림 실패해도 수정은 완료 */ }
             setEditOptionSheet(null);
-            // ★ 저장 완료 후 editItem을 saveBlocks로 확실히 갱신 (이전 state 잔류 방지)
-            setEditItem(prev => ({ ...prev, contentBlocks: saveBlocks, content: syncContent, images: syncImages, files: syncFiles }));
+            // ★ 저장 완료 후 editItem을 갱신하고 편집 모드 종료 (뷰어 이동)
+            setEditItem(prev => ({ 
+                ...prev, 
+                contentBlocks: saveBlocks, 
+                content: syncContent, 
+                images: syncImages, 
+                files: syncFiles,
+                version: (prev.version || 1) + 1 
+            }));
+            setIsEditingContent(false);
             addToast('수정되었습니다.', 'success');
         } catch (error) {
             if (error.code === 'VERSION_CONFLICT') {
@@ -2466,13 +2474,14 @@ export default function ProjectPage() {
                 assignees: conflictData.myData.assignees || [],
             }, { forceOverwrite: true });
             addToast('덮어쓰기로 저장되었습니다.', 'success');
-            // ★ 덮어쓰기 후 editItem을 저장된 데이터로 갱신 (중복 방지)
+            // ★ 덮어쓰기 후 editItem 갱신 및 버전 동기화
             setEditItem(prev => ({
                 ...prev,
                 contentBlocks: conflictData.myData.contentBlocks || [],
                 content: conflictData.myData.content || '',
                 images: conflictData.myData.images || [],
                 files: conflictData.myData.files || [],
+                version: (conflictData.serverData?.version || prev.version || 1) + 1
             }));
             setConflictData(null);
             setIsEditingContent(false);
@@ -2509,13 +2518,18 @@ export default function ProjectPage() {
         }
     };
 
-    // 충돌 처리: 취소 (내 변경사항 버리고 서버 데이터로 복귀)
+    // 충돌 처리: 취소 (내 변경사항 버리고 서버 데이터로 복귀하되, 편집 모드는 유지)
     const handleConflictCancel = () => {
         if (conflictData?.serverData) {
             setEditItem({ ...conflictData.serverData });
+            // 서버 데이터를 덮어쓴 후 리치 에디터 DOM 강제 갱신
+            if (richEditorRef.current) {
+                richEditorRef.current.innerHTML = blocksToHtml(conflictData.serverData.contentBlocks);
+                injectEditorToolbars(richEditorRef.current);
+            }
         }
         setConflictData(null);
-        setIsEditingContent(false);
+        // 사용자 요청: 취소 시 편집 뷰어가 아닌 편집 모드(입력창) 상태를 유지해야 하므로 false로 바꾸지 않음.
     };
 
     const handleLeaveProject = async () => {

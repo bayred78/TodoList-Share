@@ -4,6 +4,12 @@
 
 ---
 
+## 2026-03-12 19:30 — 체크리스트 중복 저장 충돌 해결 및 설정 탭 UI 레이아웃 고도화
+- `ProjectPage.jsx`: 편집 완료된 체크리스트를 재차 저장 시 발생하는 `VERSION_CONFLICT` 충돌 결함 해결 (클라이언트 상태 버전 번호 동기화, UI 뷰어 전환 적용)
+- `PlanCompareTable.jsx`, `UpgradeModal.css`: 설정 창 플랜 비교표의 첫 범주(기능명)가 화면 크기에 따라 인접 행을 침범하고 중앙 정렬되던 디자인 버그 해결
+- Git 태그: `v260312-1930`
+- 복원: `git checkout v260312-1930`
+
 ## 2026-03-12 18:42 — 웹 버전 앱 설치 기능(PWA) 추가
 - `vite-plugin-pwa` 추가, PWA 매니페스트 및 서비스 워커 생성 (`vite.config.js`, `package.json`)
 - Service Worker 캐시 갱신을 방지하기 위한 헤더 제어 (`firebase.json`)

@@ -4,6 +4,7 @@ import { isTrialUsed, isTrialActive, startFreeTrial, getTrialRemainingDays } fro
 import RewardedAd from '../ads/RewardedAd';
 import { Capacitor } from '@capacitor/core';
 import { Purchases } from '@revenuecat/purchases-capacitor';
+import './UpgradeModal.css'; // PlanCompareTable 테이블 스타일 공유 (SettingsPage 포함)
 
 /**
  * Pro/Team 비교표 + 무료/참여 비교표 공유 컴포넌트

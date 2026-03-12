@@ -61,12 +61,13 @@
     width: 40%;
 }
 
-.plan-compare-table .feature-label {
+/* 테이블 구조적 일관성 강제 (클래스명 누락 방어) */
+.plan-compare-table tbody td:first-child {
     text-align: left;
     font-weight: 500;
     color: var(--color-text-secondary);
     padding-left: var(--spacing-sm);
-    white-space: nowrap;
+    word-break: keep-all; 
 }
 
 .plan-compare-table .highlight-col {
@@ -131,6 +132,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     overflow: hidden;
+    table-layout: fixed;
 }
 
 .feature-access-table th,

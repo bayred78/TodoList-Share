@@ -8,6 +8,21 @@ import BannerAd from './components/ads/BannerAd';
 import DevPlanSwitcher from './components/dev/DevPlanSwitcher';
 import { isTrialActive } from './services/subscriptionService';
 
+// PWA 설치 이벤트 전역 캡처 (마운트 전 발생 대응 + HMR 중복 방지)
+if (typeof window !== 'undefined' && !window._pwaListenerAttached) {
+    window._pwaListenerAttached = true;
+    window.deferredPWAInstallPrompt = window.deferredPWAInstallPrompt || null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPWAInstallPrompt = e;
+        window.dispatchEvent(new Event('pwa-prompt-ready'));
+    });
+    window.addEventListener('appinstalled', () => {
+        window.deferredPWAInstallPrompt = null;
+        window.dispatchEvent(new Event('pwa-app-installed'));
+    });
+}
+
 // Code Splitting: 페이지 컴포넌트 지연 로딩
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const MainPage = lazy(() => import('./pages/MainPage'));

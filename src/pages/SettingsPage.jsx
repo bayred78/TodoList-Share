@@ -28,6 +28,37 @@ export default function SettingsPage() {
     const [dueDateUnit, setDueDateUnit] = useState('day');
     const [dueDateValue, setDueDateValue] = useState(1);
     const [products, setProducts] = useState(null);
+    const [installPrompt, setInstallPrompt] = useState(
+        typeof window !== 'undefined' ? window.deferredPWAInstallPrompt : null
+    );
+
+    useEffect(() => {
+        const onReady = () => setInstallPrompt(window.deferredPWAInstallPrompt);
+        const onInstalled = () => setInstallPrompt(null);
+        window.addEventListener('pwa-prompt-ready', onReady);
+        window.addEventListener('pwa-app-installed', onInstalled);
+        return () => {
+            window.removeEventListener('pwa-prompt-ready', onReady);
+            window.removeEventListener('pwa-app-installed', onInstalled);
+        };
+    }, []);
+
+    const handleInstallClick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!installPrompt) return;
+        try {
+            installPrompt.prompt();
+            const { outcome } = await installPrompt.userChoice;
+            if (outcome === 'accepted') {
+                setInstallPrompt(null);
+                window.deferredPWAInstallPrompt = null;
+                addToast('앱이 성공적으로 설치되었습니다! 🎉', 'success');
+            }
+        } catch (err) {
+            console.warn('PWA 설치 오류:', err);
+        }
+    };
 
     useEffect(() => {
         if (profile) {
@@ -227,11 +258,27 @@ export default function SettingsPage() {
                     }}
                 >
                     <div className="web-url-content">
-                        <span className="web-url-icon">🌐</span>
-                        <div className="web-url-details">
-                            <p className="web-url-label">PC 웹 버전 주소 (클릭하여 복사)</p>
-                            <p className="web-url-link">todolist-share.web.app</p>
+                        <div className="web-url-left">
+                            <span className="web-url-icon">🌐</span>
+                            <div className="web-url-details">
+                                <p className="web-url-label">PC 웹 버전 주소 (클릭하여 복사)</p>
+                                <p className="web-url-link">todolist-share.web.app</p>
+                            </div>
                         </div>
+                        {installPrompt && (
+                            <button
+                                type="button"
+                                className="pwa-install-block"
+                                onClick={handleInstallClick}
+                                aria-label="앱으로 설치"
+                            >
+                                <span className="pwa-install-icon">📲</span>
+                                <div className="pwa-install-info">
+                                    <span className="pwa-install-title">앱으로 설치</span>
+                                    <span className="pwa-install-hint">더 빠르게 접속</span>
+                                </div>
+                            </button>
+                        )}
                     </div>
                 </div>
 

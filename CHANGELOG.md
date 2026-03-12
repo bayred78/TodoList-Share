@@ -4,6 +4,15 @@
 
 ---
 
+## 2026-03-12 18:42 — 웹 버전 앱 설치 기능(PWA) 추가
+- `vite-plugin-pwa` 추가, PWA 매니페스트 및 서비스 워커 생성 (`vite.config.js`, `package.json`)
+- Service Worker 캐시 갱신을 방지하기 위한 헤더 제어 (`firebase.json`)
+- 전역 PWA 설치 이벤트(beforeinstallprompt) 캡처 로직 추가 (`src/App.jsx`)
+- 설정 페이지에 PWA 설치 버튼 UI 및 이벤트 구현 (`src/pages/SettingsPage.jsx`, `src/pages/SettingsPage.css`)
+- 웹앱 아이콘 에셋 추가 (`public/pwa-192x192.png`, `public/pwa-512x512.png`, `index.html`)
+- Git 태그: `v260312-1842`
+- 복원: `git checkout v260312-1842`
+
 ## 2026-03-12 17:57 — 버그 수정: 리치 에디터 중복 렌더링 및 첨부 툴바 미작동 기능 정상화
 - `ProjectPage.jsx`: 체크리스트 편집 후 저장 시 내용이 중복되어 보이던 현상 수정 (React Fragment에 key 부여하여 DOM 재사용 차단)
 - `ProjectPage.jsx`: 새 체크리스트 추가 모달에서 이미지/파일 첨부 시 ▲▼× 버튼이 바로 동작하지 않던 버그 수정 (추가 모달 전용 이벤트 리스너 및 ref 할당)

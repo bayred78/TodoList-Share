@@ -220,6 +220,250 @@ function toLocalDatetime(ts) {
     return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
+// ===== contentBlocks 유틸 =====
+function initContentBlocks(item) {
+    if (item.contentBlocks && item.contentBlocks.length > 0) return item.contentBlocks;
+    const blocks = [];
+    if (item.content) blocks.push({ type: 'text', text: item.content, id: 'init_t_' + Date.now() });
+    (item.images || []).forEach((url, i) => blocks.push({ type: 'image', url, id: 'init_img_' + i + '_' + Date.now() }));
+    (item.files || []).forEach((f, i) => blocks.push({ type: 'file', url: f.url, name: f.name, size: f.size, fileType: f.type, id: 'init_f_' + i + '_' + Date.now() }));
+    if (blocks.length === 0) blocks.push({ type: 'text', text: '', id: 'init_empty_' + Date.now() });
+    return blocks;
+}
+
+function extractFromBlocks(blocks) {
+    const content = blocks.filter(b => b.type === 'text' && b.text.trim()).map(b => b.text).join('\n');
+    const images = blocks.filter(b => b.type === 'image').map(b => b.url).filter(Boolean);
+    const files = blocks.filter(b => b.type === 'file').map(b => ({
+        url: b.url, name: b.name, size: b.size, type: b.fileType
+    })).filter(f => f.url);
+    return { content, images, files };
+}
+
+let _blockIdCounter = 0;
+function genBlockId(prefix = 'b') { return `${prefix}_${Date.now()}_${++_blockIdCounter}`; }
+
+function countAttachments(blocks) {
+    if (!blocks) return 0;
+    return blocks.filter(b => b.type === 'image' || b.type === 'file').length;
+}
+
+// ===== 리치 에디터 유틸 =====
+function blocksToHtml(blocks) {
+    if (!blocks || blocks.length === 0) return '<p><br></p>';
+    return blocks.map(b => {
+        if (b.type === 'text') {
+            const lines = (b.text || '').split('\n');
+            return lines.map(line => `<p>${line || '<br>'}</p>`).join('');
+        }
+        if (b.type === 'image') {
+            const src = b.preview || b.url;
+            if (!src) return '';
+            const w = b.width || '100%';
+            // contentEditable은 <img>를 유지함. data-* 속성을 img에 직접 부여
+            return `<img src="${src}" style="width:${w}" data-block-id="${b.id}" data-type="image" data-url="${b.url || ''}" />`;
+        }
+        if (b.type === 'file') {
+            // contentEditable은 <span>을 유지함. data-* 속성을 span에 직접 부여
+            return `<span class="rich-file-badge" data-block-id="${b.id}" data-type="file" data-url="${b.url || ''}" data-name="${b.name || ''}" data-size="${b.size || 0}" data-filetype="${b.fileType || ''}">📄 ${b.name || '파일'}</span>`;
+        }
+        return '';
+    }).join('');
+}
+
+// innerHTML 설정 후 DOM API로 img/file을 wrapper로 감싸고 toolbar + resize handle 주입
+function injectEditorToolbars(editorEl) {
+    if (!editorEl) return;
+    // 이미지: img[data-type="image"]를 찾아 wrapper로 감싸기
+    editorEl.querySelectorAll('img[data-type="image"]').forEach(img => {
+        // 이미 wrapper로 감싸져 있는지 확인
+        if (img.parentElement?.classList?.contains('rich-img-wrap')) return;
+        // img가 P, SPAN 등 인라인 컨테이너 안에 있으면 밖으로 이동
+        let parent = img.parentElement;
+        while (parent && parent !== editorEl && (parent.nodeName === 'P' || parent.nodeName === 'SPAN' || parent.nodeName === 'A')) {
+            parent.parentNode.insertBefore(img, parent.nextSibling);
+            // 빈 P 태그 정리
+            if (!parent.textContent.trim() && !parent.querySelector('img,span,br')) parent.remove();
+            parent = img.parentElement;
+        }
+        // wrapper div 생성
+        const wrap = document.createElement('div');
+        wrap.className = 'rich-img-wrap';
+        wrap.setAttribute('contenteditable', 'false');
+        wrap.dataset.blockId = img.dataset.blockId;
+        wrap.dataset.type = 'image';
+        wrap.dataset.url = img.dataset.url || '';
+        // img를 wrapper로 감싸기
+        img.parentNode.insertBefore(wrap, img);
+        wrap.appendChild(img);
+        // 리사이즈 핸들 주입
+        const handle = document.createElement('div');
+        handle.className = 'rich-img-resize-handle';
+        handle.setAttribute('contenteditable', 'false');
+        handle.title = '드래그하여 크기 조절';
+        wrap.appendChild(handle);
+        // 툴바 주입
+        const toolbar = document.createElement('div');
+        toolbar.className = 'rich-block-toolbar';
+        toolbar.setAttribute('contenteditable', 'false');
+        toolbar.innerHTML = '<span class="rich-move-up" title="위로 이동">▲</span>'
+            + '<span class="rich-move-down" title="아래로 이동">▼</span>'
+            + '<span class="rich-img-remove" title="삭제">×</span>';
+        wrap.appendChild(toolbar);
+    });
+    // 파일: span[data-type="file"]을 찾아 wrapper로 감싸기
+    editorEl.querySelectorAll('span[data-type="file"]').forEach(span => {
+        if (span.parentElement?.classList?.contains('rich-file-wrap')) return;
+        // span이 P 등 인라인 컨테이너 안에 있으면 밖으로 이동
+        let fParent = span.parentElement;
+        while (fParent && fParent !== editorEl && (fParent.nodeName === 'P' || fParent.nodeName === 'A')) {
+            fParent.parentNode.insertBefore(span, fParent.nextSibling);
+            if (!fParent.textContent.trim() && !fParent.querySelector('img,span,br')) fParent.remove();
+            fParent = span.parentElement;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'rich-file-wrap';
+        wrap.setAttribute('contenteditable', 'false');
+        wrap.dataset.blockId = span.dataset.blockId;
+        wrap.dataset.type = 'file';
+        wrap.dataset.url = span.dataset.url || '';
+        wrap.dataset.name = span.dataset.name || '';
+        wrap.dataset.size = span.dataset.size || '0';
+        wrap.dataset.filetype = span.dataset.filetype || '';
+        span.parentNode.insertBefore(wrap, span);
+        wrap.appendChild(span);
+        // 툴바 주입
+        const toolbar = document.createElement('div');
+        toolbar.className = 'rich-block-toolbar';
+        toolbar.setAttribute('contenteditable', 'false');
+        toolbar.innerHTML = '<span class="rich-move-up" title="위로 이동">▲</span>'
+            + '<span class="rich-move-down" title="아래로 이동">▼</span>'
+            + '<span class="rich-file-remove" title="삭제">×</span>';
+        wrap.appendChild(toolbar);
+    });
+}
+
+function htmlToBlocks(html, existingBlocks) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const blocks = [];
+    let textBuf = [];
+    const flush = () => {
+        if (textBuf.length > 0) {
+            blocks.push({ type: 'text', text: textBuf.join('\n'), id: genBlockId('t') });
+            textBuf = [];
+        }
+    };
+    const walk = (nodes) => {
+        for (const node of nodes) {
+            if (node.nodeType === 3) {
+                const t = node.textContent;
+                if (t && t !== '\n') textBuf.push(t);
+                continue;
+            }
+            if (node.nodeType !== 1) continue;
+            // rich-img-wrap (DOM 주입 후) 또는 img[data-type="image"] (innerHTML 직접)
+            if (node.classList?.contains('rich-img-wrap')) {
+                flush();
+                const id = node.dataset.blockId || genBlockId('img');
+                const img = node.querySelector('img');
+                const existing = existingBlocks?.find(b => b.id === id);
+                blocks.push({
+                    type: 'image',
+                    url: node.dataset.url || existing?.url || '',
+                    width: img?.style.width || existing?.width || '100%',
+                    id,
+                    ...(existing?.pendingFile ? { pendingFile: existing.pendingFile, preview: existing.preview } : {}),
+                });
+                continue;
+            }
+            if (node.nodeName === 'IMG' && node.dataset.type === 'image') {
+                flush();
+                const id = node.dataset.blockId || genBlockId('img');
+                const existing = existingBlocks?.find(b => b.id === id);
+                blocks.push({
+                    type: 'image',
+                    url: node.dataset.url || existing?.url || '',
+                    width: node.style.width || existing?.width || '100%',
+                    id,
+                    ...(existing?.pendingFile ? { pendingFile: existing.pendingFile, preview: existing.preview } : {}),
+                });
+                continue;
+            }
+            // rich-file-wrap (DOM 주입 후) 또는 span[data-type="file"] (innerHTML 직접)
+            if (node.classList?.contains('rich-file-wrap')) {
+                flush();
+                const id = node.dataset.blockId || genBlockId('f');
+                const existing = existingBlocks?.find(b => b.id === id);
+                blocks.push({
+                    type: 'file',
+                    url: node.dataset.url || existing?.url || '',
+                    name: node.dataset.name || existing?.name || '',
+                    size: Number(node.dataset.size) || existing?.size || 0,
+                    fileType: node.dataset.filetype || existing?.fileType || '',
+                    id,
+                    ...(existing?.pendingFile ? { pendingFile: existing.pendingFile } : {}),
+                });
+                continue;
+            }
+            if (node.dataset?.type === 'file') {
+                flush();
+                const id = node.dataset.blockId || genBlockId('f');
+                const existing = existingBlocks?.find(b => b.id === id);
+                blocks.push({
+                    type: 'file',
+                    url: node.dataset.url || existing?.url || '',
+                    name: node.dataset.name || existing?.name || '',
+                    size: Number(node.dataset.size) || existing?.size || 0,
+                    fileType: node.dataset.filetype || existing?.fileType || '',
+                    id,
+                    ...(existing?.pendingFile ? { pendingFile: existing.pendingFile } : {}),
+                });
+                continue;
+            }
+            // DOM 주입된 toolbar/resize 요소 스킵
+            if (node.classList?.contains('rich-block-toolbar') ||
+                node.classList?.contains('rich-img-resize-handle')) {
+                continue;
+            }
+            if (node.nodeName === 'P' || node.nodeName === 'DIV') {
+                const inner = node.innerHTML.trim();
+                if (inner === '<br>' || inner === '') {
+                    textBuf.push('');
+                } else {
+                    textBuf.push(node.textContent || '');
+                }
+                continue;
+            }
+            if (node.nodeName === 'BR') { textBuf.push(''); continue; }
+            if (node.textContent) textBuf.push(node.textContent);
+        }
+    };
+    walk(div.childNodes);
+    flush();
+    if (blocks.length === 0) blocks.push({ type: 'text', text: '', id: genBlockId('t') });
+    return blocks;
+}
+
+function insertHtmlAtCursor(editorEl, html) {
+    editorEl.focus();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        const frag = document.createDocumentFragment();
+        while (temp.firstChild) frag.appendChild(temp.firstChild);
+        range.insertNode(frag);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        editorEl.insertAdjacentHTML('beforeend', html);
+    }
+}
+
 export default function ProjectPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
@@ -269,6 +513,17 @@ export default function ProjectPage() {
     const [newAssignees, setNewAssignees] = useState([]); // UID[]
     const [newImages, setNewImages] = useState([]); // { file: File, preview: string }[]
     const [newFiles, setNewFiles] = useState([]);   // File[]
+    const [newContentBlocks, setNewContentBlocks] = useState([{ type: 'text', text: '', id: genBlockId('nt') }]);
+    const richEditorRef = React.useRef(null);
+    const addRichEditorRef = React.useRef(null);
+    const editorInitRef = React.useRef(false);
+    const addEditorInitRef = React.useRef(false);
+    const resizingRef = React.useRef(null);
+    const addResizingRef = React.useRef(null);
+    const editItemRef = React.useRef(editItem);
+    editItemRef.current = editItem;
+    const newContentBlocksRef = React.useRef(newContentBlocks);
+    newContentBlocksRef.current = newContentBlocks;
     const addImageRef = React.useRef(null);
     const addDocRef = React.useRef(null);
     const [showDueHelp, setShowDueHelp] = useState(false);
@@ -689,8 +944,9 @@ export default function ProjectPage() {
             const targetItem = items.find(i => i.id === openItemId);
             if (targetItem) {
                 const copy = { ...targetItem };
+                copy.contentBlocks = initContentBlocks(copy);
                 setEditItem(copy);
-                setEditItemOriginal({ ...copy });
+                setEditItemOriginal({ ...copy, contentBlocks: [...copy.contentBlocks] });
                 setShowEditModal(true);
             }
             // 다음 틱에서 쿼리 파라미터 정리 (searchParams 의존성 재실행 방지)
@@ -1051,7 +1307,7 @@ export default function ProjectPage() {
             const newItemId = await addTodoItem(projectId, {
                 type: 'checklist',
                 title: newTitle.trim(),
-                content: newContent.trim(),
+                content: extractFromBlocks(newContentBlocks).content,
                 color: newColor,
                 dueDate: newDueDate ? Timestamp.fromDate(new Date(newDueDate)) : null,
                 labels: newLabels,
@@ -1060,29 +1316,34 @@ export default function ProjectPage() {
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
-            // 첨부 파일 업로드 (생성 후 ID 확보)
-            if (newImages.length > 0 || newFiles.length > 0) {
+            // 첨부 파일 업로드 (contentBlocks 기반)
+            const pendingBlocks = newContentBlocks.filter(b => b.pendingFile);
+            if (pendingBlocks.length > 0) {
                 const uploadedImages = [];
                 const uploadedFiles = [];
-                for (const img of newImages) {
+                const finalBlocks = newContentBlocks.map(b => ({ ...b }));
+                for (const block of pendingBlocks) {
+                    const idx = finalBlocks.findIndex(fb => fb.id === block.id);
+                    if (idx < 0) continue;
                     try {
-                        const { downloadUrl } = await uploadItemImage(projectId, newItemId, img.file);
-                        uploadedImages.push(downloadUrl);
-                    } catch (err) { addToast('이미지 업로드 실패: ' + img.file.name, 'error'); }
+                        if (block.type === 'image') {
+                            const { downloadUrl } = await uploadItemImage(projectId, newItemId, block.pendingFile);
+                            finalBlocks[idx] = { type: 'image', url: downloadUrl, id: block.id };
+                            uploadedImages.push(downloadUrl);
+                        } else if (block.type === 'file') {
+                            const { downloadUrl, fileName, fileSize, fileType } = await uploadItemFile(projectId, newItemId, block.pendingFile);
+                            finalBlocks[idx] = { type: 'file', url: downloadUrl, name: fileName, size: fileSize, fileType, id: block.id };
+                            uploadedFiles.push({ url: downloadUrl, name: fileName, size: fileSize, type: fileType });
+                        }
+                    } catch (err) { addToast('파일 업로드 실패: ' + (block.pendingFile?.name || ''), 'error'); }
                 }
-                for (const f of newFiles) {
-                    try {
-                        const { downloadUrl, fileName, fileSize, fileType } = await uploadItemFile(projectId, newItemId, f);
-                        uploadedFiles.push({ url: downloadUrl, name: fileName, size: fileSize, type: fileType });
-                    } catch (err) { addToast('파일 업로드 실패: ' + f.name, 'error'); }
-                }
-                if (uploadedImages.length > 0 || uploadedFiles.length > 0) {
-                    await updateTodoItem(projectId, newItemId, {
-                        ...(uploadedImages.length > 0 ? { images: uploadedImages } : {}),
-                        ...(uploadedFiles.length > 0 ? { files: uploadedFiles } : {}),
-                    });
-                }
-                newImages.forEach(img => URL.revokeObjectURL(img.preview));
+                const cleanBlocks = finalBlocks.filter(b => b.type === 'text' || b.url);
+                await updateTodoItem(projectId, newItemId, {
+                    images: uploadedImages,
+                    files: uploadedFiles,
+                    contentBlocks: cleanBlocks,
+                });
+                newContentBlocks.filter(b => b.preview).forEach(b => URL.revokeObjectURL(b.preview));
             }
             // 활동 알림 전송 (메인페이지 메세지탭에 표시)
             try {
@@ -1110,6 +1371,7 @@ export default function ProjectPage() {
             setNewAssignees([]);
             setNewImages([]);
             setNewFiles([]);
+            setNewContentBlocks([{ type: 'text', text: '', id: genBlockId('nt') }]);
             setShowAddModal(false);
             addToast('아이템이 추가되었습니다!', 'success');
         } catch (error) {
@@ -1800,7 +2062,7 @@ export default function ProjectPage() {
             addToast('5MB 이하 이미지만 가능합니다.', 'error');
             return;
         }
-        const totalAttachments = (editItem.images || []).length + (editItem.files || []).length;
+        const totalAttachments = countAttachments(editItem.contentBlocks);
         if (totalAttachments >= 5) {
             addToast('첨부파일은 이미지+서류 합산 최대 5개까지 가능합니다.', 'error');
             return;
@@ -1808,10 +2070,20 @@ export default function ProjectPage() {
         try {
             setItemImageUploading(true);
             const { downloadUrl } = await uploadItemImage(projectId, editItem.id, file);
-            setEditItem(prev => ({
-                ...prev,
-                images: [...(prev.images || []), downloadUrl],
-            }));
+            const newId = genBlockId('img');
+            const imgHtml = blocksToHtml([{ type: 'image', url: downloadUrl, id: newId, width: '100%' }]);
+            if (richEditorRef.current) {
+                insertHtmlAtCursor(richEditorRef.current, imgHtml);
+                injectEditorToolbars(richEditorRef.current);
+                const newBlocks = htmlToBlocks(richEditorRef.current.innerHTML, editItem.contentBlocks);
+                setEditItem(prev => ({ ...prev, contentBlocks: newBlocks }));
+            } else {
+                setEditItem(prev => ({
+                    ...prev,
+                    contentBlocks: [...(prev.contentBlocks || []),
+                        { type: 'image', url: downloadUrl, id: newId, width: '100%' }],
+                }));
+            }
             addToast('이미지가 추가되었습니다.', 'success');
         } catch (err) {
             addToast('이미지 업로드에 실패했습니다.', 'error');
@@ -1821,12 +2093,20 @@ export default function ProjectPage() {
         }
     };
 
-    // 체크리스트 이미지 삭제
-    const handleItemImageRemove = (index) => {
-        setEditItem(prev => ({
-            ...prev,
-            images: (prev.images || []).filter((_, i) => i !== index),
-        }));
+    // 체크리스트 블록 삭제 (이미지·파일 공통)
+    const handleBlockRemove = (blockId) => {
+        const editorEl = richEditorRef.current;
+        if (editorEl) {
+            const el = editorEl.querySelector(`[data-block-id="${blockId}"]`);
+            if (el) el.remove();
+            const newBlocks = htmlToBlocks(editorEl.innerHTML, editItem.contentBlocks);
+            setEditItem(prev => ({ ...prev, contentBlocks: newBlocks }));
+        } else {
+            setEditItem(prev => ({
+                ...prev,
+                contentBlocks: (prev.contentBlocks || []).filter(b => b.id !== blockId),
+            }));
+        }
     };
 
     // 체크리스트 서류 파일 추가
@@ -1837,7 +2117,7 @@ export default function ProjectPage() {
             addToast('파일 크기는 5MB 이하만 가능합니다.', 'error');
             return;
         }
-        const totalAttachments = (editItem.images || []).length + (editItem.files || []).length;
+        const totalAttachments = countAttachments(editItem.contentBlocks);
         if (totalAttachments >= 5) {
             addToast('첨부파일은 이미지+서류 합산 최대 5개까지 가능합니다.', 'error');
             return;
@@ -1845,10 +2125,20 @@ export default function ProjectPage() {
         try {
             setItemFileUploading(true);
             const { downloadUrl, fileName, fileSize, fileType } = await uploadItemFile(projectId, editItem.id, file);
-            setEditItem(prev => ({
-                ...prev,
-                files: [...(prev.files || []), { url: downloadUrl, name: fileName, size: fileSize, type: fileType }],
-            }));
+            const newId = genBlockId('file');
+            const fileHtml = blocksToHtml([{ type: 'file', url: downloadUrl, name: fileName, size: fileSize, fileType: fileType, id: newId }]);
+            if (richEditorRef.current) {
+                insertHtmlAtCursor(richEditorRef.current, fileHtml);
+                injectEditorToolbars(richEditorRef.current);
+                const newBlocks = htmlToBlocks(richEditorRef.current.innerHTML, editItem.contentBlocks);
+                setEditItem(prev => ({ ...prev, contentBlocks: newBlocks }));
+            } else {
+                setEditItem(prev => ({
+                    ...prev,
+                    contentBlocks: [...(prev.contentBlocks || []),
+                        { type: 'file', url: downloadUrl, name: fileName, size: fileSize, fileType: fileType, id: newId }],
+                }));
+            }
             addToast('파일이 추가되었습니다.', 'success');
         } catch (err) {
             addToast(err.message || '파일 업로드에 실패했습니다.', 'error');
@@ -1858,13 +2148,181 @@ export default function ProjectPage() {
         }
     };
 
-    // 체크리스트 서류 파일 삭제
-    const handleItemFileRemove = (index) => {
-        setEditItem(prev => ({
-            ...prev,
-            files: (prev.files || []).filter((_, i) => i !== index),
-        }));
-    };
+    // ===== 리치 에디터 useEffect =====
+    // 편집 모달: 에디터 초기화 (1회만)
+    React.useEffect(() => {
+        if (isEditingContent && richEditorRef.current && !editorInitRef.current) {
+            richEditorRef.current.innerHTML = blocksToHtml(editItemRef.current?.contentBlocks);
+            injectEditorToolbars(richEditorRef.current);
+            editorInitRef.current = true;
+        }
+        if (!isEditingContent) editorInitRef.current = false;
+    }, [isEditingContent]);
+
+    // 편집 모달: 네이티브 이벤트 핸들러 (mousedown + resize)
+    React.useEffect(() => {
+        const editor = richEditorRef.current;
+        if (!editor || !isEditingContent) return;
+
+        const syncToState = () => {
+            const newBlocks = htmlToBlocks(editor.innerHTML, editItemRef.current?.contentBlocks);
+            setEditItem(prev => ({ ...prev, contentBlocks: newBlocks }));
+            // DOM 변경 후 toolbar 재주입
+            injectEditorToolbars(editor);
+        };
+
+        const onMouseDown = (e) => {
+            const target = e.target;
+
+            // 툴바 버튼 (삭제/이동)
+            if (target.closest('.rich-block-toolbar')) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (target.classList.contains('rich-img-remove') || target.classList.contains('rich-file-remove')) {
+                    const parent = target.closest('.rich-img-wrap, .rich-file-wrap');
+                    if (parent) parent.remove();
+                    syncToState();
+                } else if (target.classList.contains('rich-move-up')) {
+                    const blockEl = target.closest('.rich-img-wrap, .rich-file-wrap');
+                    if (blockEl) {
+                        const prev = blockEl.previousElementSibling;
+                        if (prev) { blockEl.parentNode.insertBefore(blockEl, prev); syncToState(); }
+                    }
+                } else if (target.classList.contains('rich-move-down')) {
+                    const blockEl = target.closest('.rich-img-wrap, .rich-file-wrap');
+                    if (blockEl) {
+                        const next = blockEl.nextElementSibling;
+                        if (next) { blockEl.parentNode.insertBefore(next, blockEl); syncToState(); }
+                    }
+                }
+                return;
+            }
+
+            // 리사이즈 핸들
+            if (target.classList.contains('rich-img-resize-handle')) {
+                const wrap = target.closest('.rich-img-wrap');
+                const img = wrap?.querySelector('img');
+                if (!img) return;
+                e.preventDefault();
+                e.stopPropagation();
+                resizingRef.current = { img, startX: e.clientX, startW: img.offsetWidth };
+                wrap.classList.add('resizing');
+                return;
+            }
+
+            // 편집 모드에서는 이미지 클릭 시 뷰어 비활성화 (편집 중이므로)
+        };
+
+
+        const onMouseMove = (e) => {
+            if (!resizingRef.current) return;
+            e.preventDefault();
+            const { img, startX, startW } = resizingRef.current;
+            const newW = Math.max(50, startW + (e.clientX - startX));
+            img.style.width = newW + 'px';
+        };
+
+        const onMouseUp = () => {
+            if (resizingRef.current) {
+                resizingRef.current.img.closest('.rich-img-wrap')?.classList.remove('resizing');
+                resizingRef.current = null;
+                syncToState();
+            }
+        };
+
+        editor.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        return () => {
+            editor.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+    }, [isEditingContent]);
+
+    // 추가 모달: 에디터 초기화 (1회만)
+    React.useEffect(() => {
+        if (showAddModal && addRichEditorRef.current && !addEditorInitRef.current) {
+            addRichEditorRef.current.innerHTML = blocksToHtml(newContentBlocks);
+            injectEditorToolbars(addRichEditorRef.current);
+            addEditorInitRef.current = true;
+        }
+        if (!showAddModal) addEditorInitRef.current = false;
+    }, [showAddModal]);
+
+    // 추가 모달: 네이티브 이벤트 핸들러 (mousedown + resize)
+    React.useEffect(() => {
+        const editor = addRichEditorRef.current;
+        if (!editor || !showAddModal) return;
+
+        const syncToState = () => {
+            const nb = htmlToBlocks(editor.innerHTML, newContentBlocksRef.current);
+            setNewContentBlocks(nb);
+            injectEditorToolbars(editor);
+        };
+
+        const onMouseDown = (e) => {
+            const target = e.target;
+            // 툴바 버튼 (삭제/이동)
+            if (target.closest('.rich-block-toolbar')) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (target.classList.contains('rich-img-remove') || target.classList.contains('rich-file-remove')) {
+                    const parent = target.closest('.rich-img-wrap, .rich-file-wrap');
+                    if (parent) parent.remove();
+                    syncToState();
+                } else if (target.classList.contains('rich-move-up')) {
+                    const blockEl = target.closest('.rich-img-wrap, .rich-file-wrap');
+                    if (blockEl) {
+                        const prev = blockEl.previousElementSibling;
+                        if (prev) { blockEl.parentNode.insertBefore(blockEl, prev); syncToState(); }
+                    }
+                } else if (target.classList.contains('rich-move-down')) {
+                    const blockEl = target.closest('.rich-img-wrap, .rich-file-wrap');
+                    if (blockEl) {
+                        const next = blockEl.nextElementSibling;
+                        if (next) { blockEl.parentNode.insertBefore(next, blockEl); syncToState(); }
+                    }
+                }
+                return;
+            }
+            // 리사이즈 핸들
+            if (target.classList.contains('rich-img-resize-handle')) {
+                const wrap = target.closest('.rich-img-wrap');
+                const img = wrap?.querySelector('img');
+                if (!img) return;
+                e.preventDefault();
+                e.stopPropagation();
+                addResizingRef.current = { img, startX: e.clientX, startW: img.offsetWidth };
+                wrap.classList.add('resizing');
+                return;
+            }
+        };
+
+        const onMouseMove = (e) => {
+            if (!addResizingRef.current) return;
+            e.preventDefault();
+            const { img, startX, startW } = addResizingRef.current;
+            img.style.width = Math.max(50, startW + (e.clientX - startX)) + 'px';
+        };
+
+        const onMouseUp = () => {
+            if (addResizingRef.current) {
+                addResizingRef.current.img.closest('.rich-img-wrap')?.classList.remove('resizing');
+                addResizingRef.current = null;
+                syncToState();
+            }
+        };
+
+        editor.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        return () => {
+            editor.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+    }, [showAddModal]);
 
 
     const handleEditItem = async (e) => {
@@ -1875,6 +2333,12 @@ export default function ProjectPage() {
             addToast('참여자를 최소 1명 선택해주세요.', 'warning');
             setEditOptionSheet('assign');
             return false;
+        }
+
+        // ★ 저장 전 에디터 DOM에서 최신 contentBlocks 동기화
+        let saveBlocks = editItem.contentBlocks || [];
+        if (richEditorRef.current) {
+            saveBlocks = htmlToBlocks(richEditorRef.current.innerHTML, editItem.contentBlocks);
         }
 
         // ★ 편집 시 신규 마감일 추가 제한 (기존 마감일 수정은 허용)
@@ -1911,25 +2375,30 @@ export default function ProjectPage() {
             }
         }
         try {
-            // 편집 중 삭제된 스토리지 파일(이미지, 파일) 실제 삭제 처리
-            const oldImages = editItemOriginal?.images || [];
-            const newImages = editItem.images || [];
-            const deletedImages = oldImages.filter(url => !newImages.includes(url));
+            // contentBlocks에서 역산 (Firestore 호환 필드 동기화)
+            const { content: syncContent, images: syncImages, files: syncFiles } = extractFromBlocks(saveBlocks);
 
-            const oldFiles = editItemOriginal?.files || [];
-            const newFiles = editItem.files || [];
-            const deletedFiles = oldFiles.filter(f => !newFiles.some(nf => nf.url === f.url));
+            // 편집 중 삭제된 스토리지 파일 실제 삭제 처리 (contentBlocks 기반)
+            const origBlocks = editItemOriginal?.contentBlocks || [];
+            const currBlocks = saveBlocks;
+            const origImageUrls = origBlocks.filter(b => b.type === 'image').map(b => b.url);
+            const currImageUrls = new Set(currBlocks.filter(b => b.type === 'image').map(b => b.url));
+            const deletedImages = origImageUrls.filter(url => !currImageUrls.has(url));
+            const origFileUrls = origBlocks.filter(b => b.type === 'file').map(b => b.url);
+            const currFileUrls = new Set(currBlocks.filter(b => b.type === 'file').map(b => b.url));
+            const deletedFileUrls = origFileUrls.filter(url => !currFileUrls.has(url));
 
             await Promise.all([
                 ...deletedImages.map(url => deleteStorageFile(url)),
-                ...deletedFiles.map(f => deleteStorageFile(f.url))
+                ...deletedFileUrls.map(url => deleteStorageFile(url))
             ]);
 
             await updateTodoItem(projectId, editItem.id, {
                 title: editItem.title,
-                content: editItem.content,
-                images: editItem.images || [],
-                files: editItem.files || [],
+                content: syncContent,
+                images: syncImages,
+                files: syncFiles,
+                contentBlocks: saveBlocks,
                 color: editItem.color || null,
                 dueDate: editItem.dueDate || null,
                 labels: editItem.labels || [],
@@ -1955,14 +2424,18 @@ export default function ProjectPage() {
                 });
             } catch (e) { /* 알림 실패해도 수정은 완료 */ }
             setEditOptionSheet(null);
+            // ★ 저장 완료 후 editItem을 saveBlocks로 확실히 갱신 (이전 state 잔류 방지)
+            setEditItem(prev => ({ ...prev, contentBlocks: saveBlocks, content: syncContent, images: syncImages, files: syncFiles }));
             addToast('수정되었습니다.', 'success');
         } catch (error) {
             if (error.code === 'VERSION_CONFLICT') {
+                const { content: conflictContent, images: conflictImages, files: conflictFiles } = extractFromBlocks(saveBlocks);
                 setConflictData({
                     serverData: error.serverData,
                     myData: {
-                        title: editItem.title, content: editItem.content,
-                        images: editItem.images || [], files: editItem.files || [],
+                        title: editItem.title, content: conflictContent,
+                        images: conflictImages, files: conflictFiles,
+                        contentBlocks: saveBlocks,
                         color: editItem.color || null, dueDate: editItem.dueDate || null,
                         labels: editItem.labels || [], repeatType: editItem.repeatType || null,
                         assignees: editItem.assignees || [],
@@ -1972,6 +2445,7 @@ export default function ProjectPage() {
             } else {
                 addToast('수정에 실패했습니다.', 'error');
             }
+            return false; // ★ 에러 시 편집 모드 유지 (.then에서 setIsEditingContent(false) 방지)
         }
     };
 
@@ -1984,6 +2458,7 @@ export default function ProjectPage() {
                 content: conflictData.myData.content,
                 images: conflictData.myData.images || [],
                 files: conflictData.myData.files || [],
+                contentBlocks: conflictData.myData.contentBlocks || [],
                 color: conflictData.myData.color || null,
                 dueDate: conflictData.myData.dueDate || null,
                 labels: conflictData.myData.labels || [],
@@ -1991,6 +2466,14 @@ export default function ProjectPage() {
                 assignees: conflictData.myData.assignees || [],
             }, { forceOverwrite: true });
             addToast('덮어쓰기로 저장되었습니다.', 'success');
+            // ★ 덮어쓰기 후 editItem을 저장된 데이터로 갱신 (중복 방지)
+            setEditItem(prev => ({
+                ...prev,
+                contentBlocks: conflictData.myData.contentBlocks || [],
+                content: conflictData.myData.content || '',
+                images: conflictData.myData.images || [],
+                files: conflictData.myData.files || [],
+            }));
             setConflictData(null);
             setIsEditingContent(false);
             setEditOptionSheet(null);
@@ -2008,6 +2491,7 @@ export default function ProjectPage() {
                 content: conflictData.myData.content,
                 images: conflictData.myData.images || [],
                 files: conflictData.myData.files || [],
+                contentBlocks: conflictData.myData.contentBlocks || [],
                 color: conflictData.myData.color || null,
                 dueDate: conflictData.myData.dueDate || null,
                 labels: conflictData.myData.labels || [],
@@ -2927,15 +3411,17 @@ export default function ProjectPage() {
                                         <div className="todo-content" onClick={() => {
                                             if (userCanWrite && !item.locked) {
                                                 const copy = { ...item };
+                                                copy.contentBlocks = initContentBlocks(copy);
                                                 setEditItem(copy);
-                                                setEditItemOriginal({ ...copy });
+                                                setEditItemOriginal({ ...copy, contentBlocks: [...copy.contentBlocks] });
                                                 setIsEditingContent(false);
                                                 setShowEditModal(true);
                                             } else {
                                                 // 잠긴 상태에서도 읽기 전용으로 열기
                                                 const copy = { ...item };
+                                                copy.contentBlocks = initContentBlocks(copy);
                                                 setEditItem(copy);
-                                                setEditItemOriginal({ ...copy });
+                                                setEditItemOriginal({ ...copy, contentBlocks: [...copy.contentBlocks] });
                                                 setIsEditingContent(false);
                                                 setShowEditModal(true);
                                             }
@@ -3176,7 +3662,7 @@ export default function ProjectPage() {
 
             {/* FAB - 체크리스트 탭에서만 표시 */}
             {userCanWrite && activeTab === 'checklist' && (
-                <button className="fab" onClick={() => { setNewColor(null); setNewTitle(''); setNewContent(''); setNewDueDate(''); setNewLabels([]); setNewRepeatType('none'); setNewAssignees(allMemberList.map(m => m.uid)); setAddOptionSheet(null); setNewImages([]); setNewFiles([]); setShowAddModal(true); }} title="새 체크리스트">
+                <button className="fab" onClick={() => { setNewColor(null); setNewTitle(''); setNewContent(''); setNewDueDate(''); setNewLabels([]); setNewRepeatType('none'); setNewAssignees(allMemberList.map(m => m.uid)); setAddOptionSheet(null); setNewImages([]); setNewFiles([]); setNewContentBlocks([{ type: 'text', text: '', id: genBlockId('nt') }]); setShowAddModal(true); }} title="새 체크리스트">
                     +
                 </button>
             )}
@@ -3185,7 +3671,7 @@ export default function ProjectPage() {
             {showAddModal && (
                 <div className="fullscreen-editor">
                     <div className="fullscreen-editor-header">
-                        <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); setNewImages([]); setNewFiles([]); setNewAssignees([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
+                        <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); newContentBlocks.filter(b => b.preview).forEach(b => URL.revokeObjectURL(b.preview)); setNewImages([]); setNewFiles([]); setNewContentBlocks([{ type: 'text', text: '', id: genBlockId('nt') }]); setNewAssignees([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
                         <div className="fullscreen-editor-actions">
                             <button className="btn btn-primary btn-sm" onClick={handleAddItem} disabled={isCreatingItem}>
                                 {isCreatingItem ? '추가 중...' : '추가'}
@@ -3248,10 +3734,10 @@ export default function ProjectPage() {
                             type="button"
                             className={`edit-toolbar-btn ${addOptionSheet === 'file' ? 'active' : ''}`}
                             onClick={() => setAddOptionSheet(addOptionSheet === 'file' ? null : 'file')}
-                            disabled={(newImages.length + newFiles.length) >= 5}
+                            disabled={countAttachments(newContentBlocks) >= 5}
                         >
                             <span>📎</span><span className="edit-toolbar-label">파일</span>
-                            {(newImages.length + newFiles.length) > 0 && <span className="edit-toolbar-count">{newImages.length + newFiles.length}</span>}
+                            {countAttachments(newContentBlocks) > 0 && <span className="edit-toolbar-count">{countAttachments(newContentBlocks)}/5</span>}
                         </button>
                     </div>
                     <input ref={addImageRef} type="file" accept="image/*" className="hidden"
@@ -3260,8 +3746,16 @@ export default function ProjectPage() {
                             if (!file) return;
                             if (!file.type.startsWith('image/')) { addToast('이미지 파일만 추가할 수 있습니다.', 'error'); return; }
                             if (file.size > 5 * 1024 * 1024) { addToast('5MB 이하 이미지만 가능합니다.', 'error'); return; }
-                            if ((newImages.length + newFiles.length) >= 5) { addToast('첨부파일은 최대 5개까지 가능합니다.', 'error'); return; }
-                            setNewImages(prev => [...prev, { file, preview: URL.createObjectURL(file) }]);
+                            if (countAttachments(newContentBlocks) >= 5) { addToast('첨부파일은 최대 5개까지 가능합니다.', 'error'); return; }
+                            const preview = URL.createObjectURL(file);
+                            const newId = genBlockId('nimg');
+                            setNewImages(prev => [...prev, { file, preview }]);
+                            setNewContentBlocks(prev => [...prev, { type: 'image', pendingFile: file, preview, url: '', id: newId }]);
+                            if (addRichEditorRef.current) {
+                                const imgHtml = blocksToHtml([{ type: 'image', preview, url: '', id: newId, width: '100%' }]);
+                                insertHtmlAtCursor(addRichEditorRef.current, imgHtml);
+                                injectEditorToolbars(addRichEditorRef.current);
+                            }
                             e.target.value = '';
                         }}
                     />
@@ -3270,8 +3764,15 @@ export default function ProjectPage() {
                             const file = e.target.files?.[0];
                             if (!file) return;
                             if (file.size > 5 * 1024 * 1024) { addToast('5MB 이하 파일만 가능합니다.', 'error'); return; }
-                            if ((newImages.length + newFiles.length) >= 5) { addToast('첨부파일은 최대 5개까지 가능합니다.', 'error'); return; }
+                            if (countAttachments(newContentBlocks) >= 5) { addToast('첨부파일은 최대 5개까지 가능합니다.', 'error'); return; }
+                            const newId = genBlockId('nf');
                             setNewFiles(prev => [...prev, file]);
+                            setNewContentBlocks(prev => [...prev, { type: 'file', pendingFile: file, name: file.name, size: file.size, fileType: file.type, url: '', id: newId }]);
+                            if (addRichEditorRef.current) {
+                                const fileHtml = blocksToHtml([{ type: 'file', url: '', name: file.name, size: file.size, fileType: file.type, id: newId }]);
+                                insertHtmlAtCursor(addRichEditorRef.current, fileHtml);
+                                injectEditorToolbars(addRichEditorRef.current);
+                            }
                             e.target.value = '';
                         }}
                     />
@@ -3483,7 +3984,7 @@ export default function ProjectPage() {
                                     type="button"
                                     className="file-upload-btn"
                                     onClick={() => { addImageRef.current?.click(); setAddOptionSheet(null); }}
-                                    disabled={(newImages.length + newFiles.length) >= 5}
+                                    disabled={countAttachments(newContentBlocks) >= 5}
                                 >
                                     🖼️ 이미지 업로드
                                 </button>
@@ -3491,7 +3992,7 @@ export default function ProjectPage() {
                                     type="button"
                                     className="file-upload-btn"
                                     onClick={() => { addDocRef.current?.click(); setAddOptionSheet(null); }}
-                                    disabled={(newImages.length + newFiles.length) >= 5}
+                                    disabled={countAttachments(newContentBlocks) >= 5}
                                 >
                                     📄 서류 업로드
                                 </button>
@@ -3512,44 +4013,18 @@ export default function ProjectPage() {
                             onChange={(e) => setNewTitle(e.target.value)}
                             autoFocus
                         />
-                        <textarea
-                            className="fullscreen-editor-content"
-                            placeholder="내용을 입력하세요"
-                            value={newContent}
-                            onChange={(e) => setNewContent(e.target.value)}
+                        <div className="rich-editor"
+                            ref={addRichEditorRef}
+                            contentEditable
+                            suppressContentEditableWarning
+                            onBlur={() => {
+                                if (addRichEditorRef.current) {
+                                    const nb = htmlToBlocks(addRichEditorRef.current.innerHTML, newContentBlocks);
+                                    setNewContentBlocks(nb);
+                                }
+                            }}
+                            data-placeholder="내용을 입력하세요"
                         />
-                        {/* 첨부 이미지 미리보기 */}
-                        {newImages.length > 0 && (
-                            <div className="edit-images-grid">
-                                {newImages.map((img, i) => (
-                                    <div key={i} className="edit-image-item">
-                                        <img src={img.preview} alt={`첨부 ${i + 1}`} />
-                                        <button
-                                            type="button"
-                                            className="edit-image-remove"
-                                            onClick={() => {
-                                                URL.revokeObjectURL(img.preview);
-                                                setNewImages(prev => prev.filter((_, idx) => idx !== i));
-                                            }}
-                                        >×</button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        {newFiles.length > 0 && (
-                            <div className="edit-files-list padding-x-md">
-                                {newFiles.map((f, i) => (
-                                    <div key={i} className="edit-file-item">
-                                        <span className="file-name">📄 {f.name} ({(f.size / 1024).toFixed(0)}KB)</span>
-                                        <button
-                                            type="button"
-                                            className="file-remove"
-                                            onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))}
-                                        >×</button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
@@ -3567,11 +4042,9 @@ export default function ProjectPage() {
                                         // 업로드 중이면 경고 + 정리
                                         if (itemImageUploading || itemFileUploading) {
                                             if (window.confirm('파일 업로드가 진행 중입니다. 나가면 업로드된 파일이 삭제됩니다. 나가시겠습니까?')) {
-                                                const origImages = editItemOriginal?.images || [];
-                                                const origFiles = (editItemOriginal?.files || []).map(f => f.url);
-                                                const newImages = (editItem?.images || []).filter(url => !origImages.includes(url));
-                                                const newFileUrls = (editItem?.files || []).filter(f => !origFiles.includes(f.url)).map(f => f.url);
-                                                Promise.all([...newImages, ...newFileUrls].map(url => deleteStorageFile(url))).catch(console.error);
+                                                const origUrls = new Set((editItemOriginal?.contentBlocks || []).filter(b => b.type !== 'text').map(b => b.url));
+                                                const addedUrls = (editItem?.contentBlocks || []).filter(b => b.type !== 'text' && b.url && !origUrls.has(b.url)).map(b => b.url);
+                                                Promise.all(addedUrls.map(url => deleteStorageFile(url))).catch(console.error);
                                                 setIsEditingContent(false);
                                                 setEditOptionSheet(null);
                                             }
@@ -3582,8 +4055,7 @@ export default function ProjectPage() {
                                             const hasChanges = editItem.title !== editItemOriginal.title
                                                 || (editItem.content || '') !== (editItemOriginal.content || '')
                                                 || (editItem.color || null) !== (editItemOriginal.color || null)
-                                                || JSON.stringify(editItem.images || []) !== JSON.stringify(editItemOriginal.images || [])
-                                                || JSON.stringify(editItem.files || []) !== JSON.stringify(editItemOriginal.files || [])
+                                                || JSON.stringify(editItem.contentBlocks || []) !== JSON.stringify(editItemOriginal.contentBlocks || [])
                                                 || (editItem.dueDate || null) !== (editItemOriginal.dueDate || null)
                                                 || JSON.stringify(editItem.labels || []) !== JSON.stringify(editItemOriginal.labels || [])
                                                 || (editItem.repeatType || null) !== (editItemOriginal.repeatType || null)
@@ -3746,10 +4218,10 @@ export default function ProjectPage() {
                                     type="button"
                                     className={`edit-toolbar-btn ${editOptionSheet === 'file' ? 'active' : ''}`}
                                     onClick={() => setEditOptionSheet(editOptionSheet === 'file' ? null : 'file')}
-                                    disabled={itemImageUploading || itemFileUploading || ((editItem.images || []).length + (editItem.files || []).length) >= 5}
+                                    disabled={itemImageUploading || itemFileUploading || countAttachments(editItem.contentBlocks) >= 5}
                                 >
                                     <span>{(itemImageUploading || itemFileUploading) ? '⏳' : '📎'}</span><span className="edit-toolbar-label">파일</span>
-                                    {((editItem.images || []).length + (editItem.files || []).length) > 0 && <span className="edit-toolbar-count">{(editItem.images || []).length + (editItem.files || []).length}/5</span>}
+                                    {countAttachments(editItem.contentBlocks) > 0 && <span className="edit-toolbar-count">{countAttachments(editItem.contentBlocks)}/5</span>}
                                 </button>
 
 
@@ -3977,7 +4449,7 @@ export default function ProjectPage() {
                                         type="button"
                                         className="file-upload-btn"
                                         onClick={() => { editItemImageRef.current?.click(); setEditOptionSheet(null); }}
-                                        disabled={itemImageUploading || itemFileUploading || ((editItem.images || []).length + (editItem.files || []).length) >= 5}
+                                        disabled={itemImageUploading || itemFileUploading || countAttachments(editItem.contentBlocks) >= 5}
                                     >
                                         🖼️ 이미지 업로드
                                     </button>
@@ -3985,7 +4457,7 @@ export default function ProjectPage() {
                                         type="button"
                                         className="file-upload-btn"
                                         onClick={() => { editItemDocRef.current?.click(); setEditOptionSheet(null); }}
-                                        disabled={itemImageUploading || itemFileUploading || ((editItem.images || []).length + (editItem.files || []).length) >= 5}
+                                        disabled={itemImageUploading || itemFileUploading || countAttachments(editItem.contentBlocks) >= 5}
                                     >
                                         📄 서류 업로드
                                     </button>
@@ -3999,7 +4471,7 @@ export default function ProjectPage() {
 
                         <div className="fullscreen-editor-body">
                             {isEditingContent ? (
-                                <>
+                                <React.Fragment key="editor-mode">
                                     <input
                                         type="text"
                                         className="fullscreen-editor-title"
@@ -4007,71 +4479,43 @@ export default function ProjectPage() {
                                         value={editItem.title}
                                         onChange={(e) => setEditItem({ ...editItem, title: e.target.value })}
                                     />
-                                    <textarea
-                                        className="fullscreen-editor-content"
-                                        placeholder="메모"
-                                        value={editItem.content || ''}
-                                        onChange={(e) => setEditItem({ ...editItem, content: e.target.value })}
+                                    <div className="rich-editor"
+                                        ref={richEditorRef}
+                                        contentEditable
+                                        suppressContentEditableWarning
+                                        data-placeholder="내용을 입력하세요"
                                     />
-                                    {/* 첨부 이미지 목록 (편집 모드) */}
-                                    {(editItem.images || []).length > 0 && (
-                                        <div className="edit-images-grid">
-                                            {editItem.images.map((url, i) => (
-                                                <div key={i} className="edit-image-item">
-                                                    <img src={url} alt={`첨부 ${i + 1}`} onClick={() => setViewerImage(url)} />
-                                                    <button
-                                                        type="button"
-                                                        className="edit-image-remove"
-                                                        onClick={() => handleItemImageRemove(i)}
-                                                    >×</button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {/* 첨부 파일 목록 (편집 모드) */}
-                                    {(editItem.files || []).length > 0 && (
-                                        <div className="edit-files-list">
-                                            {(editItem.files || []).map((f, i) => (
-                                                <div key={i} className="edit-file-item">
-                                                    <span className="file-name">📄 {f.name}</span>
-                                                    <span className="file-size">{formatFileSize(f.size)}</span>
-                                                    <button type="button" className="file-remove" onClick={() => handleItemFileRemove(i)}>×</button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
+                                </React.Fragment>
                             ) : (
-                                <>
+                                <React.Fragment key="view-mode">
                                     <h2 className="fullscreen-editor-title" style={{ border: 'none', cursor: 'default' }}>
                                         {editItem.title}
                                     </h2>
                                     <div className="fullscreen-editor-content-view">
-                                        {editItem.content ? renderContentWithLinks(editItem.content) : (
-                                            <p style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>내용이 없습니다. ✏️ 편집 버튼을 눌러 내용을 추가하세요.</p>
-                                        )}
-                                        {/* 첨부 이미지 (읽기 모드) */}
-                                        {(editItem.images || []).length > 0 && (
-                                            <div className="edit-images-grid margin-t-md">
-                                                {editItem.images.map((url, i) => (
-                                                    <div key={i} className="edit-image-item">
-                                                        <img src={url} alt={`첨부 ${i + 1}`} onClick={() => setViewerImage(url)} />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {/* 첨부 파일 (읽기 모드) */}
-                                        {(editItem.files || []).length > 0 && (
-                                            <div className="edit-files-list margin-t-sm">
-                                                {(editItem.files || []).map((f, i) => (
-                                                    <span key={i} className="todo-file-link" onClick={() => downloadFile(f.url, f.name || `파일_${i + 1}`)}>
-                                                        📄 {f.name} ({formatFileSize(f.size)})
+                                        {(editItem.contentBlocks || initContentBlocks(editItem)).map((block, i) => (
+                                            <React.Fragment key={block.id || i}>
+                                                {block.type === 'text' && block.text && (
+                                                    <div>{renderContentWithLinks(block.text)}</div>
+                                                )}
+                                                {block.type === 'image' && (
+                                                    <img className="block-view-image" src={block.url} alt={`첨부 ${i + 1}`}
+                                                        style={block.width && block.width !== '100%' ? { width: block.width, maxWidth: '100%' } : undefined}
+                                                        onClick={() => setViewerImage(block.url)} />
+                                                )}
+                                                {block.type === 'file' && (
+                                                    <span className="todo-file-link" onClick={() => downloadFile(block.url, block.name || `파일_${i + 1}`)}>
+                                                        📄 {block.name} ({formatFileSize(block.size)})
                                                     </span>
-                                                ))}
-                                            </div>
+                                                )}
+                                            </React.Fragment>
+                                        ))}
+                                        {(editItem.contentBlocks || []).every(b => b.type === 'text' && !b.text?.trim()) && (
+                                            <p style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
+                                                내용이 없습니다. ✏️ 편집 버튼을 눌러 내용을 추가하세요.
+                                            </p>
                                         )}
                                     </div>
-                                </>
+                                </React.Fragment>
                             )}
                         </div>
 

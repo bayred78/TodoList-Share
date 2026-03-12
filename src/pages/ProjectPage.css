@@ -2353,3 +2353,148 @@
 .stats-row.muted .stats-row-name {
     color: var(--color-text-muted);
 }
+
+/* ===== 리치 에디터 ===== */
+.rich-editor {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+    font-size: var(--font-size-md);
+    line-height: 1.8;
+    outline: none;
+    min-height: 120px;
+    color: var(--color-text);
+}
+.rich-editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--color-text-muted);
+    pointer-events: none;
+    position: absolute;
+}
+.rich-editor p {
+    margin: 0 0 0.3em;
+}
+
+/* 인라인 이미지 */
+.rich-img-wrap {
+    position: relative;
+    display: block;
+    margin: var(--spacing-sm) 0;
+    user-select: none;
+}
+.rich-img-wrap img {
+    display: block;
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+/* 리사이즈 핸들 - 시각적 */
+.rich-img-resize-handle {
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 36px;
+    cursor: ew-resize;
+    background: rgba(99, 102, 241, 0.6);
+    border-radius: 4px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+.rich-img-resize-handle::after {
+    content: '⋮';
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+}
+.rich-editor .rich-img-wrap:hover .rich-img-resize-handle {
+    display: flex;
+}
+.rich-img-wrap.resizing {
+    outline: 2px solid rgba(99, 102, 241, 0.5);
+    border-radius: var(--radius-sm);
+}
+.rich-editor .rich-img-wrap.resizing .rich-img-resize-handle {
+    display: flex;
+    background: rgba(99, 102, 241, 0.9);
+}
+
+/* 블록 툴바 (이동 + 삭제) */
+.rich-block-toolbar {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: none;
+    gap: 2px;
+    z-index: 3;
+}
+.rich-editor .rich-img-wrap:hover .rich-block-toolbar,
+.rich-editor .rich-file-wrap:hover .rich-block-toolbar {
+    display: flex;
+}
+.rich-move-up, .rich-move-down,
+.rich-img-remove, .rich-file-remove {
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: background 0.15s;
+    user-select: none;
+}
+.rich-move-up:hover, .rich-move-down:hover {
+    background: rgba(99, 102, 241, 0.8);
+}
+.rich-img-remove:hover, .rich-file-remove:hover {
+    background: rgba(220, 38, 38, 0.8);
+}
+
+/* 파일 블록 래퍼 */
+.rich-file-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0;
+    user-select: none;
+}
+
+/* 인라인 파일 배지 */
+.rich-file-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    background: var(--color-primary, #6366f1);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    cursor: default;
+    user-select: none;
+}
+.rich-file-wrap:hover {
+    background: var(--color-bg-secondary, rgba(0,0,0,0.02));
+    border-radius: var(--radius-sm);
+}
+
+/* 읽기 모드 인라인 이미지 */
+.block-view-image {
+    width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin: var(--spacing-xs) 0;
+    display: block;
+}

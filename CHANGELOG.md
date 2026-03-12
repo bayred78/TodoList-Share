@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-03-12 17:57 — 버그 수정: 리치 에디터 중복 렌더링 및 첨부 툴바 미작동 기능 정상화
+- `ProjectPage.jsx`: 체크리스트 편집 후 저장 시 내용이 중복되어 보이던 현상 수정 (React Fragment에 key 부여하여 DOM 재사용 차단)
+- `ProjectPage.jsx`: 새 체크리스트 추가 모달에서 이미지/파일 첨부 시 ▲▼× 버튼이 바로 동작하지 않던 버그 수정 (추가 모달 전용 이벤트 리스너 및 ref 할당)
+- `ProjectPage.css`: 에디터 툴바 관련 CSS 보정
+- `todoService.js`: 관련 서비스 로직 안정성 보완
+- Git 태그: `v260312-1757`
+- 복원: `git checkout v260312-1757`
+
 ## 2026-03-12 06:17 — 웹 최적화(코드 스플리팅) 및 애드센스/웹 가상 방어막 구축
 - `App.jsx`, `vite.config.js`: `React.lazy` 및 `manualChunks` 적용으로 번들 용량 최적화 (초기 로딩 속도 개선).
 - `index.html`, `public/ads.txt`: 구글 애드센스 소유권 확인 태그 및 `ads.txt` 설치 완료 (웹 수익화 기초 공사).

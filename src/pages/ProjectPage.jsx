@@ -506,6 +506,8 @@ export default function ProjectPage() {
     const [editItemOriginal, setEditItemOriginal] = useState(null);
     const [isEditingContent, setIsEditingContent] = useState(false);
     const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+    const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [conflictData, setConflictData] = useState(null); // { serverData, myData }
 
     // 새 아이템 폼
@@ -1369,7 +1371,7 @@ export default function ProjectPage() {
                         itemId: newItemId,
                     }),
                 });
-            } catch (e) { /* 알림 실패해도 추가는 완료 */ }
+            } catch (e) { console.error('활동 알림 전송 실패:', e); }
             setNewTitle('');
             setNewContent('');
             setNewColor(null);
@@ -1507,7 +1509,7 @@ export default function ProjectPage() {
                         createdAt: new Date().toISOString(),
                     }),
                 });
-            } catch (e) { /* 알림 실패해도 삭제는 완료 */ }
+            } catch (e) { console.error('활동 알림 전송 실패:', e); }
             addToast('휴지통으로 이동했습니다. (7일 후 영구 삭제)', 'success');
         } catch (error) {
             addToast('삭제에 실패했습니다.', 'error');
@@ -2009,9 +2011,9 @@ export default function ProjectPage() {
 
     const handleInvite = async (e) => {
         if (e) e.preventDefault();
-        
+
         const finalInvitees = [...inviteStagingList];
-        
+
         const term = inviteNickname.trim();
         if (term) {
             const targetUser = await findUserByNicknameOrEmail(term);
@@ -2043,7 +2045,7 @@ export default function ProjectPage() {
         setInviting(true);
         try {
             await Promise.allSettled(
-                finalInvitees.map(inv => 
+                finalInvitees.map(inv =>
                     inviteUser(projectId, project.name, profile.uid, profile.nickname, inv.uid, inv.nickname, inviteRole)
                 )
             );
@@ -2089,7 +2091,7 @@ export default function ProjectPage() {
                 setEditItem(prev => ({
                     ...prev,
                     contentBlocks: [...(prev.contentBlocks || []),
-                        { type: 'image', url: downloadUrl, id: newId, width: '100%' }],
+                    { type: 'image', url: downloadUrl, id: newId, width: '100%' }],
                 }));
             }
             addToast('이미지가 추가되었습니다.', 'success');
@@ -2144,7 +2146,7 @@ export default function ProjectPage() {
                 setEditItem(prev => ({
                     ...prev,
                     contentBlocks: [...(prev.contentBlocks || []),
-                        { type: 'file', url: downloadUrl, name: fileName, size: fileSize, fileType: fileType, id: newId }],
+                    { type: 'file', url: downloadUrl, name: fileName, size: fileSize, fileType: fileType, id: newId }],
                 }));
             }
             addToast('파일이 추가되었습니다.', 'success');
@@ -2404,16 +2406,16 @@ export default function ProjectPage() {
                         itemId: editItem.id,
                     }),
                 });
-            } catch (e) { /* 알림 실패해도 수정은 완료 */ }
+            } catch (e) { console.error('활동 알림 전송 실패:', e); }
             setEditOptionSheet(null);
             // ★ 저장 완료 후 editItem을 갱신하고 편집 모드 종료 (뷰어 이동)
-            setEditItem(prev => ({ 
-                ...prev, 
-                contentBlocks: saveBlocks, 
-                content: syncContent, 
-                images: syncImages, 
+            setEditItem(prev => ({
+                ...prev,
+                contentBlocks: saveBlocks,
+                content: syncContent,
+                images: syncImages,
                 files: syncFiles,
-                version: (prev.version || 1) + 1 
+                version: (prev.version || 1) + 1
             }));
             setIsEditingContent(false);
             addToast('수정되었습니다.', 'success');
@@ -2448,7 +2450,7 @@ export default function ProjectPage() {
                 content: conflictData.myData.content,
                 images: conflictData.myData.images || [],
                 files: conflictData.myData.files || [],
-                contentBlocks: conflictData.myData.contentBlocks || [],
+                contentBlocks: (conflictData.myData.contentBlocks || []).map(({ pendingFile, preview, ...rest }) => rest),
                 color: conflictData.myData.color || null,
                 dueDate: conflictData.myData.dueDate || null,
                 labels: conflictData.myData.labels || [],
@@ -2471,7 +2473,7 @@ export default function ProjectPage() {
                         itemId: conflictData.itemId,
                     }),
                 });
-            } catch (e) { /* 알림 실패해도 수정은 완료 */ }
+            } catch (e) { console.error('활동 알림 전송 실패:', e); }
             addToast('덮어쓰기로 저장되었습니다.', 'success');
             // ★ 덮어쓰기 후 editItem 갱신 및 버전 동기화
             setEditItem(prev => ({
@@ -2523,7 +2525,7 @@ export default function ProjectPage() {
                         createdAt: new Date().toISOString(),
                     }),
                 });
-            } catch (e) { /* 알림 실패해도 추가는 완료 */ }
+            } catch (e) { console.error('활동 알림 전송 실패:', e); }
             addToast('새 항목으로 저장되었습니다.', 'success');
             setConflictData(null);
             setIsEditingContent(false);
@@ -2559,8 +2561,10 @@ export default function ProjectPage() {
     };
 
     const handleDeleteProject = async () => {
-        if (!confirm('정말 이 페이지를 삭제하시겠습니까?\n모든 데이터가 삭제됩니다.')) return;
+        if (deleteConfirmText.trim() !== (project?.name || '').trim()) return;
         try {
+            setShowDeleteConfirmModal(false);
+            setDeleteConfirmText('');
             await deleteProject(projectId);
             navigate('/');
             addToast('페이지가 삭제되었습니다.', 'success');
@@ -4611,8 +4615,8 @@ export default function ProjectPage() {
                 <form onSubmit={handleInvite}>
                     {favoriteFriends.length > 0 && (
                         <div className="input-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
-                            <div 
-                                className="flex-row-gap-sm" 
+                            <div
+                                className="flex-row-gap-sm"
                                 style={{ justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '8px 0' }}
                                 onClick={() => setShowFavFriends(!showFavFriends)}
                             >
@@ -4932,7 +4936,7 @@ export default function ProjectPage() {
                                 <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)' }}>
                                     <button
                                         className="btn btn-danger btn-block"
-                                        onClick={handleDeleteProject}
+                                        onClick={() => { setDeleteConfirmText(''); setShowDeleteConfirmModal(true); }}
                                     >
                                         🗑️ 페이지 삭제
                                     </button>
@@ -5076,6 +5080,52 @@ export default function ProjectPage() {
                     />
                 </div>
             </Modal>
+
+            {/* 페이지 삭제 확인 모달 (2단계: 이름 입력 검증) */}
+            {showDeleteConfirmModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', zIndex: 'var(--z-modal)',
+                }}>
+                    <div style={{
+                        background: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)',
+                        padding: 'var(--spacing-lg)', maxWidth: '340px', width: '90%',
+                        boxShadow: 'var(--shadow-lg)',
+                    }}>
+                        <p style={{ fontWeight: 700, fontSize: 'var(--font-size-md)', color: 'var(--color-danger)', marginBottom: 'var(--spacing-sm)' }}>
+                            🗑️ 페이지를 삭제할까요?
+                        </p>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', lineHeight: 1.6 }}>
+                            체크리스트와 데이터가 <b>영구적으로 삭제</b>됩니다.<br />
+                            계속하려면 페이지 이름 <b style={{ color: 'var(--color-text)' }}>"{project?.name}"</b>을 입력하세요.
+                        </p>
+                        <input
+                            className="input-field"
+                            type="text"
+                            placeholder={project?.name || ''}
+                            value={deleteConfirmText}
+                            onChange={e => setDeleteConfirmText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && deleteConfirmText.trim() === (project?.name || '').trim()) handleDeleteProject(); }}
+                            style={{ marginBottom: 'var(--spacing-md)', width: '100%' }}
+                            autoFocus
+                        />
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                            <button
+                                className="btn btn-secondary"
+                                style={{ flex: 1 }}
+                                onClick={() => { setShowDeleteConfirmModal(false); setDeleteConfirmText(''); }}
+                            >취소</button>
+                            <button
+                                className="btn btn-danger"
+                                style={{ flex: 1 }}
+                                disabled={deleteConfirmText.trim() !== (project?.name || '').trim()}
+                                onClick={handleDeleteProject}
+                            >삭제</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 수정사항 저장 확인 모달 */}
             {

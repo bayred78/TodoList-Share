@@ -4,6 +4,12 @@
 
 ---
 
+## 2026-03-13 11:02 — 페이지 삭제 2단계 텍스트 검증 추가 및 UI 디자인 토큰 교체
+- `ProjectPage.jsx`: 프로젝트 영구 삭제 전 확인 텍스트 검증하는 2단계 보안 모달 창 추가
+- `ProjectPage.jsx`: 사용자 초대, 이미지, 파일 추가 시 콘텐츠 블록 업데이트 최적화 
+- `MainPage.css`, `ProjectPage.css`, `global.css`: 하드코딩된 UI 크기, 폰트, 반투명 효과 애니메이션을 디자인 토큰(`var()`) 체계로 100% 교체하여 일관성 향상
+- Git 태그: `v260313-1102`
+- 복원: `git checkout v260313-1102`
 ## 2026-03-13 00:34 — 체크리스트 편집 시 내용/옵션 변경 FCM 알림 누락 버그 수정
 - `functions/index.js`: `onItemUpdate` Cloud Function 로직 확장 (내용, 색상, 라벨, 반복, 참여자 변경 시에도 푸시 알림 정상 발송 처리)
 - `ProjectPage.jsx`: 파일 첨부 시 `pendingFile` 객체로 인한 Firestore 저장 예외 처리 및 체크리스트 `VERSION_CONFLICT` 발생 빈도 감소 로직 추가

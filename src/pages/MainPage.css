@@ -1005,8 +1005,8 @@
     position: absolute;
     top: var(--spacing-xs);
     right: calc(50% - 16px);
-    width: 8px;
-    height: 8px;
+    width: var(--spacing-sm);
+    height: var(--spacing-sm);
     border-radius: 50%;
     border: 1.5px solid var(--color-bg-secondary);
 }
@@ -1015,12 +1015,12 @@
     position: absolute;
     top: 2px;
     right: calc(50% - 18px);
-    min-width: 16px;
-    height: 16px;
-    border-radius: 8px;
+    min-width: var(--spacing-md);
+    height: var(--spacing-md);
+    border-radius: var(--radius-sm);
     background: var(--color-primary);
     color: var(--color-text-inverse);
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -1033,7 +1033,7 @@
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg-card);
     flex-shrink: 0;
-    animation: fadeIn 0.15s ease;
+    animation: fadeIn var(--transition-fast) ease;
 }
 
 .edit-option-sheet-header {

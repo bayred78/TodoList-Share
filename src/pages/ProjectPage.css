@@ -2301,8 +2301,8 @@
     right: 0;
     display: none;
     justify-content: center;
-    gap: 4px;
-    padding: 4px 6px;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
     background: rgba(0, 0, 0, 0.5);
     border-radius: 0 0 var(--radius-sm) var(--radius-sm);
     z-index: 3;
@@ -2325,12 +2325,12 @@
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.15);
     color: #fff;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     cursor: pointer;
     line-height: 1.4;
     user-select: none;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
 }
 .rich-img-size-btn:hover {
     background: rgba(255, 255, 255, 0.3);

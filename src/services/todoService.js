@@ -270,8 +270,14 @@ function calcNextDueDate(dueDate, repeatType) {
         next.setDate(next.getDate() + 1);
     } else if (repeatType === 'weekly') {
         next.setDate(next.getDate() + 7);
+    } else if (repeatType === 'biweekly') {
+        next.setDate(next.getDate() + 14);
     } else if (repeatType === 'monthly') {
         next.setMonth(next.getMonth() + 1);
+    } else if (repeatType === 'quarterly') {
+        next.setMonth(next.getMonth() + 3);
+    } else if (repeatType === 'yearly') {
+        next.setFullYear(next.getFullYear() + 1);
     } else if (repeatType?.startsWith('weekday:')) {
         const targetDay = parseInt(repeatType.split(':')[1]); // 0=일 ~ 6=토
         do { next.setDate(next.getDate() + 1); }

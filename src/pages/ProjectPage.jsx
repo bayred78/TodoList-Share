@@ -517,8 +517,8 @@ export default function ProjectPage() {
     const [newDueDate, setNewDueDate] = useState('');
     const [newLabels, setNewLabels] = useState([]);
     const [newRepeatType, setNewRepeatType] = useState('none');
-    const [editOptionSheet, setEditOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'assign'|'file'|null
-    const [addOptionSheet, setAddOptionSheet] = useState(null); // 'color'|'dueDate'|'label'|'repeat'|'assign'|'file'|null
+    const [editOptionSheet, setEditOptionSheet] = useState(null); // 'color'|'schedule'|'label'|'assign'|'file'|null
+    const [addOptionSheet, setAddOptionSheet] = useState(null); // 'color'|'schedule'|'label'|'assign'|'file'|null
     const [isCreatingItem, setIsCreatingItem] = useState(false); // 항목 생성 중 여부 (중복 연타 방지)
     const [newAssignees, setNewAssignees] = useState([]); // UID[]
     const [newImages, setNewImages] = useState([]); // { file: File, preview: string }[]
@@ -3462,13 +3462,22 @@ export default function ProjectPage() {
                                             <h4 className={`todo-title ${item.checked ? 'line-through' : ''}`}>
                                                 {(() => {
                                                     const dp = getDuePriority(item.dueDate);
-                                                    return dp.level > 0 ? (
-                                                        <span className="priority-badge" style={{ color: dp.color }} title={`마감: ${item.dueDate?.toDate ? item.dueDate.toDate().toLocaleString('ko-KR') : ''}`}>
+                                                    return dp.level > 0 && !item.checked ? (
+                                                        <span className="priority-badge" style={{ color: dp.color, cursor: 'pointer' }}
+                                                            title={dueDisplayMode === 'date' ? '⏳ 남은 시간으로 보기' : '📅 마감일로 보기'}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const next = dueDisplayMode === 'date' ? 'remaining' : 'date';
+                                                                setDueDisplayMode(next);
+                                                                localStorage.setItem('dueDisplayMode', next);
+                                                            }}
+                                                        >
                                                             {dp.icon}
                                                         </span>
                                                     ) : null;
                                                 })()}
                                                 {pageViewMode !== 'grid' && item.dueDate && (() => {
+                                                    if (item.checked) return <span className="due-date-inline" style={{ color: 'var(--color-text-muted)' }}>✅ 마감완료</span>;
                                                     const dueText = formatDueText(item.dueDate);
                                                     const dp = getDuePriority(item.dueDate);
                                                     return dueText ? (
@@ -3724,14 +3733,15 @@ export default function ProjectPage() {
                         </button>
                         <button
                             type="button"
-                            className={`edit-toolbar-btn ${addOptionSheet === 'dueDate' ? 'active' : ''}`}
+                            className={`edit-toolbar-btn ${addOptionSheet === 'schedule' ? 'active' : ''}`}
                             onClick={() => {
                                 if (!effectiveLimits.priority) { setUpgradeReason('priority'); setShowUpgradeModal(true); return; }
-                                setAddOptionSheet(addOptionSheet === 'dueDate' ? null : 'dueDate');
+                                setAddOptionSheet(addOptionSheet === 'schedule' ? null : 'schedule');
                             }}
                         >
-                            <span>⏰</span><span className="edit-toolbar-label">마감일</span>
-                            {newDueDate && <span className="edit-toolbar-dot" style={{ background: getDuePriority(new Date(newDueDate)).color }}></span>}
+                            <span>⏰</span><span className="edit-toolbar-label">일정</span>
+                            {(newDueDate || (newRepeatType && newRepeatType !== 'none')) &&
+                                <span className="edit-toolbar-dot" style={{ background: newDueDate ? getDuePriority(new Date(newDueDate)).color : 'var(--color-primary)' }} />}
                         </button>
                         <button
                             type="button"
@@ -3743,17 +3753,6 @@ export default function ProjectPage() {
                         >
                             <span>🏷️</span><span className="edit-toolbar-label">라벨</span>
                             {newLabels.length > 0 && <span className="edit-toolbar-count">{newLabels.length}</span>}
-                        </button>
-                        <button
-                            type="button"
-                            className={`edit-toolbar-btn ${addOptionSheet === 'repeat' ? 'active' : ''}`}
-                            onClick={() => {
-                                // 반복 패널 열기는 허용 (저장 시 수량 체크)
-                                setAddOptionSheet(addOptionSheet === 'repeat' ? null : 'repeat');
-                            }}
-                        >
-                            <span>🔄</span><span className="edit-toolbar-label">반복</span>
-                            {newRepeatType && newRepeatType !== 'none' && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
                         </button>
                         <button
                             type="button"
@@ -3841,25 +3840,48 @@ export default function ProjectPage() {
                         </div>
                     )}
 
-                    {/* 옵션 시트: 마감일 */}
-                    {addOptionSheet === 'dueDate' && (
+                    {/* 옵션 시트: 일정 (마감일+반복 통합) */}
+                    {addOptionSheet === 'schedule' && (
                         <div className="edit-option-sheet">
                             <div className="edit-option-sheet-header">
-                                <span>⏰ 마감일 설정</span>
-                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                                <span>⏰ 일정 설정</span>
+                                <div className="flex-row-gap-sm" style={{ alignItems: 'center' }}>
+                                    {newDueDate && (() => { const dp = getDuePriority(new Date(newDueDate)); return dp.level > 0 ? <span style={{ fontWeight: 400, marginRight: 'var(--spacing-xs)' }}>{dp.icon} 단계 {dp.level}</span> : null; })()}
+                                    <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
+                                </div>
                             </div>
                             <div className="padding-y-sm-x-md">
-                                <input
-                                    type="datetime-local"
-                                    className="input-field"
-                                    value={newDueDate}
-                                    onChange={(e) => setNewDueDate(e.target.value)}
-                                />
-                                {newDueDate && (
-                                    <div className="margin-t-xs meta-text-sm">
-                                        {getDuePriority(new Date(newDueDate)).icon} {getDuePriority(new Date(newDueDate)).level > 0 ? `단계 ${getDuePriority(new Date(newDueDate)).level}` : ''}
+                                {/* 마감일 영역 — 가로 배치 */}
+                                <div className="schedule-row">
+                                    <label className="schedule-row-label">📅 마감일</label>
+                                    <input type="datetime-local" className="input-field" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} />
+                                </div>
+                                {/* 반복 영역 — 가로 배치 */}
+                                <div className="schedule-row" style={{ marginBottom: 0 }}>
+                                    <label className="schedule-row-label">🔄 반복</label>
+                                    <div className="repeat-selector flex-wrap">
+                                        {[
+                                            { v: 'none', l: '없음' },
+                                            { v: 'daily', l: '매일', e: '🔄' },
+                                            { v: 'weekly', l: '매주', e: '🔄' },
+                                            { v: 'biweekly', l: '격주', e: '🔄' },
+                                            { v: 'monthly', l: '매달', e: '🔄' },
+                                            { v: 'quarterly', l: '분기', e: '🔄' },
+                                            { v: 'yearly', l: '매년', e: '🔄' },
+                                        ].map(r => (
+                                            <button key={r.v} type="button"
+                                                className={`priority-option ${newRepeatType === r.v || (r.v === 'none' && !newRepeatType) ? 'active' : ''}`}
+                                                onClick={() => {
+                                                    if (r.v !== 'none' && effectiveLimits.freeRepeatLimit !== Infinity) {
+                                                        const repeatCount = items.filter(i => !i.deleted && i.repeatType && i.repeatType !== 'none').length;
+                                                        if (repeatCount >= effectiveLimits.freeRepeatLimit) { setUpgradeReason('freeRepeat'); setShowUpgradeModal(true); return; }
+                                                    }
+                                                    setNewRepeatType(r.v);
+                                                }}
+                                            >{r.e || ''} {r.l}</button>
+                                        ))}
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -3915,64 +3937,6 @@ export default function ProjectPage() {
                         </div>
                     )}
 
-                    {/* 옵션 시트: 반복 */}
-                    {addOptionSheet === 'repeat' && (
-                        <div className="edit-option-sheet">
-                            <div className="edit-option-sheet-header">
-                                <span>🔄 반복 설정</span>
-                                <button type="button" onClick={() => setAddOptionSheet(null)}>✕</button>
-                            </div>
-                            <div className="padding-y-sm-x-md">
-                                <div className="repeat-selector flex-wrap">
-                                    {[
-                                        { v: 'none', l: '없음' },
-                                        { v: 'daily', l: '매일', e: '🔄' },
-                                        { v: 'weekly', l: '매주', e: '📅' },
-                                        { v: 'monthly', l: '매달', e: '🗓️' },
-                                    ].map(r => (
-                                        <button
-                                            key={r.v}
-                                            type="button"
-                                            className={`priority-option ${newRepeatType === r.v || (r.v === 'none' && !newRepeatType) ? 'active' : ''}`}
-                                            onClick={() => {
-                                                if (r.v !== 'none' && effectiveLimits.freeRepeatLimit !== Infinity) {
-                                                    const repeatCount = items.filter(i => !i.deleted && i.repeatType && i.repeatType !== 'none').length;
-                                                    if (repeatCount >= effectiveLimits.freeRepeatLimit) { setUpgradeReason('freeRepeat'); setShowUpgradeModal(true); return; }
-                                                }
-                                                setNewRepeatType(r.v);
-                                            }}
-                                        >
-                                            {r.e || ''} {r.l}
-                                        </button>
-                                    ))}
-                                    <div className="repeat-dropdowns">
-                                        <select
-                                            className={`input-field${newRepeatType?.startsWith('weekday:') ? ' selected' : ''}`}
-                                            style={{ padding: '4px 6px', fontSize: 'var(--font-size-xs)' }}
-                                            value={newRepeatType?.startsWith('weekday:') ? newRepeatType : ''}
-                                            onChange={(e) => setNewRepeatType(e.target.value || 'none')}
-                                        >
-                                            <option value="">매주 요일...</option>
-                                            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                                                <option key={i} value={`weekday:${i}`}>매주 {d}요일</option>
-                                            ))}
-                                        </select>
-                                        <select
-                                            className={`input-field${newRepeatType?.startsWith('monthday:') ? ' selected' : ''}`}
-                                            style={{ padding: '4px 6px', fontSize: 'var(--font-size-xs)' }}
-                                            value={newRepeatType?.startsWith('monthday:') ? newRepeatType : ''}
-                                            onChange={(e) => setNewRepeatType(e.target.value || 'none')}
-                                        >
-                                            <option value="">매달 일자...</option>
-                                            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                                                <option key={d} value={`monthday:${d}`}>매달 {d}일</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* 옵션 시트: 참여자 선택 */}
                     {addOptionSheet === 'assign' && (
@@ -4207,14 +4171,15 @@ export default function ProjectPage() {
                                 </button>
                                 <button
                                     type="button"
-                                    className={`edit-toolbar-btn ${editOptionSheet === 'dueDate' ? 'active' : ''}`}
+                                    className={`edit-toolbar-btn ${editOptionSheet === 'schedule' ? 'active' : ''}`}
                                     onClick={() => {
                                         if (!effectiveLimits.priority) { setUpgradeReason('priority'); setShowUpgradeModal(true); return; }
-                                        setEditOptionSheet(editOptionSheet === 'dueDate' ? null : 'dueDate');
+                                        setEditOptionSheet(editOptionSheet === 'schedule' ? null : 'schedule');
                                     }}
                                 >
-                                    <span>⏰</span><span className="edit-toolbar-label">마감일</span>
-                                    {editItem.dueDate && <span className="edit-toolbar-dot" style={{ background: getDuePriority(editItem.dueDate).color }}></span>}
+                                    <span>⏰</span><span className="edit-toolbar-label">일정</span>
+                                    {(editItem.dueDate || (editItem.repeatType && editItem.repeatType !== 'none')) &&
+                                        <span className="edit-toolbar-dot" style={{ background: editItem.dueDate ? getDuePriority(editItem.dueDate).color : 'var(--color-primary)' }} />}
                                 </button>
                                 <button
                                     type="button"
@@ -4226,17 +4191,6 @@ export default function ProjectPage() {
                                 >
                                     <span>🏷️</span><span className="edit-toolbar-label">라벨</span>
                                     {(editItem.labels || []).length > 0 && <span className="edit-toolbar-count">{(editItem.labels || []).length}</span>}
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`edit-toolbar-btn ${editOptionSheet === 'repeat' ? 'active' : ''}`}
-                                    onClick={() => {
-                                        // 반복 패널 열기는 허용 (저장 시 수량 체크)
-                                        setEditOptionSheet(editOptionSheet === 'repeat' ? null : 'repeat');
-                                    }}
-                                >
-                                    <span>🔄</span><span className="edit-toolbar-label">반복</span>
-                                    {editItem.repeatType && editItem.repeatType !== 'none' && <span className="edit-toolbar-dot" style={{ background: 'var(--color-primary)' }}></span>}
                                 </button>
                                 <button
                                     type="button"
@@ -4306,29 +4260,46 @@ export default function ProjectPage() {
                             </div>
                         )}
 
-                        {/* 옵션 시트: 마감일 */}
-                        {editOptionSheet === 'dueDate' && (
+                        {/* 옵션 시트: 일정 (마감일+반복 통합) */}
+                        {editOptionSheet === 'schedule' && (
                             <div className="edit-option-sheet">
                                 <div className="edit-option-sheet-header">
-                                    <span>⏰ 마감일 설정</span>
-                                    <div className="flex-row-gap-sm">
+                                    <span>⏰ 일정 설정</span>
+                                    <div className="flex-row-gap-sm" style={{ alignItems: 'center' }}>
+                                        {editItem.dueDate && (() => { const dp = getDuePriority(editItem.dueDate); return dp.level > 0 ? <span style={{ fontWeight: 400, marginRight: 'var(--spacing-xs)' }}>{dp.icon} 단계 {dp.level}</span> : null; })()}
                                         <button type="button" className="edit-help-btn" onClick={() => setShowDueHelp(true)} title="도움말">❓</button>
                                         <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
                                     </div>
                                 </div>
                                 <div style={{ padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md)' }}>
-                                    <input
-                                        type="datetime-local"
-                                        className="input-field"
-                                        value={toLocalDatetime(editItem.dueDate)}
-                                        onChange={(e) => setEditItem({ ...editItem, dueDate: e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null })}
-                                    />
-                                    {editItem.dueDate && (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'var(--spacing-sm)' }}>
-                                            <span>{getDuePriority(editItem.dueDate).icon} 단계 {getDuePriority(editItem.dueDate).level}</span>
-                                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditItem({ ...editItem, dueDate: null })}>삭제</button>
+                                    {/* 마감일 영역 — 가로 배치 */}
+                                    <div className="schedule-row">
+                                        <label className="schedule-row-label">📅 마감일</label>
+                                        <input type="datetime-local" className="input-field"
+                                            value={toLocalDatetime(editItem.dueDate)}
+                                            onChange={(e) => setEditItem({ ...editItem, dueDate: e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null })}
+                                        />
+                                    </div>
+                                    {/* 반복 영역 — 가로 배치 */}
+                                    <div className="schedule-row" style={{ marginBottom: 0 }}>
+                                        <label className="schedule-row-label">🔄 반복</label>
+                                        <div className="repeat-selector flex-wrap">
+                                            {[
+                                                { v: 'none', l: '없음' },
+                                                { v: 'daily', l: '매일', e: '🔄' },
+                                                { v: 'weekly', l: '매주', e: '🔄' },
+                                                { v: 'biweekly', l: '격주', e: '🔄' },
+                                                { v: 'monthly', l: '매달', e: '🔄' },
+                                                { v: 'quarterly', l: '분기', e: '🔄' },
+                                                { v: 'yearly', l: '매년', e: '🔄' },
+                                            ].map(r => (
+                                                <button key={r.v} type="button"
+                                                    className={`priority-option ${(editItem.repeatType || 'none') === r.v ? 'active' : ''}`}
+                                                    onClick={() => setEditItem({ ...editItem, repeatType: r.v === 'none' ? null : r.v })}
+                                                >{r.e || ''} {r.l}</button>
+                                            ))}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -4382,59 +4353,6 @@ export default function ProjectPage() {
                                             }}>추가</button>
                                     </div>
                                 )}
-                            </div>
-                        )}
-
-                        {/* 옵션 시트: 반복 */}
-                        {editOptionSheet === 'repeat' && (
-                            <div className="edit-option-sheet">
-                                <div className="edit-option-sheet-header">
-                                    <span>🔄 반복 설정</span>
-                                    <button type="button" onClick={() => setEditOptionSheet(null)}>✕</button>
-                                </div>
-                                <div style={{ padding: 'var(--spacing-sm) var(--spacing-md) var(--spacing-md)' }}>
-                                    <div className="repeat-selector">
-                                        {[
-                                            { v: 'none', l: '없음' },
-                                            { v: 'daily', l: '매일', e: '🔄' },
-                                            { v: 'weekly', l: '매주', e: '📅' },
-                                            { v: 'monthly', l: '매달', e: '🗓️' },
-                                        ].map(r => (
-                                            <button
-                                                key={r.v}
-                                                type="button"
-                                                className={`priority-option ${(editItem.repeatType || 'none') === r.v ? 'active' : ''}`}
-                                                onClick={() => setEditItem({ ...editItem, repeatType: r.v === 'none' ? null : r.v })}
-                                            >
-                                                {r.e || ''} {r.l}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="repeat-advanced" style={{ marginTop: 'var(--spacing-sm)', display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                        <select
-                                            className="input-field"
-                                            style={{ flex: 1 }}
-                                            value={(editItem.repeatType || '').startsWith('weekday:') ? editItem.repeatType : ''}
-                                            onChange={(e) => setEditItem({ ...editItem, repeatType: e.target.value || null })}
-                                        >
-                                            <option value="">특정 요일...</option>
-                                            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                                                <option key={i} value={`weekday:${i}`}>매주 {d}요일</option>
-                                            ))}
-                                        </select>
-                                        <select
-                                            className="input-field"
-                                            style={{ flex: 1 }}
-                                            value={(editItem.repeatType || '').startsWith('monthday:') ? editItem.repeatType : ''}
-                                            onChange={(e) => setEditItem({ ...editItem, repeatType: e.target.value || null })}
-                                        >
-                                            <option value="">특정 일...</option>
-                                            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                                                <option key={d} value={`monthday:${d}`}>매달 {d}일</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
                             </div>
                         )}
 

@@ -1425,6 +1425,32 @@
     flex-wrap: wrap;
 }
 
+/* 일정 설정 가로 배치 */
+.schedule-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+.schedule-row-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding-top: 6px;
+    min-width: fit-content;
+}
+.schedule-row .input-field {
+    flex: 1;
+    min-width: 0;
+}
+.schedule-row .repeat-selector {
+    flex: 1;
+}
+
 .repeat-dropdowns {
     display: flex;
     gap: var(--spacing-sm);

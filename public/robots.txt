@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /shared/
+Allow: /privacy
+Allow: /terms
+Disallow: /project/
+Disallow: /settings
+Sitemap: https://todolist-share.web.app/sitemap.xml

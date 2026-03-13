@@ -27,6 +27,20 @@
                     "order": "DESCENDING"
                 }
             ]
+        },
+        {
+            "collectionGroup": "sharedItems",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "itemId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "sharedBy",
+                    "order": "ASCENDING"
+                }
+            ]
         }
     ],
     "fieldOverrides": []

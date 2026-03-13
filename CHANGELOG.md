@@ -4,6 +4,14 @@
 
 ---
 
+## 2026-03-13 20:15 — AdSense 승인용 공개 페이지(랜딩/약관) 추가 및 공유 기능 버그 수정
+- `LandingPage`, `PrivacyPage`, `TermsPage` 추가 (비로그인 접근 허용)
+- `App.jsx`: `/`, `/privacy`, `/terms` 공개 라우트 분기 처리
+- `index.html`, `robots.txt`, `sitemap.xml`: SEO 파일 추가 및 메타 태그 보강
+- `ProjectPage.jsx`, `SharedItemPage.jsx`: 공유 버튼 모바일 한정 표시, 공유 이미지 크기 및 파일 다운로드 버그 수정
+- Git 태그: `v260313-2015`
+- 복원: `git checkout v260313-2015`
+
 ## 2026-03-13 13:17 — 체크리스트 상세 정보창 추가 및 마감완료 표시 수정
 - `ProjectPage.jsx`: 읽기 모드에 접이식 정보창(중요도/일정/라벨/참여자) 추가, 완료 항목 마감완료 표시 분기 추가
 - `ProjectPage.css`: `.item-meta-*` 정보창 관련 CSS 6개 클래스 추가

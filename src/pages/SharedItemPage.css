@@ -1,0 +1,254 @@
+.shared-page {
+    min-height: 100vh;
+    background: var(--color-bg, #F5F6FA);
+    display: flex;
+    flex-direction: column;
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+/* 헤더 */
+.shared-header {
+    background: var(--color-primary, #6C5CE7);
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
+}
+.shared-header-icon {
+    font-size: 22px;
+}
+
+/* 스냅샷 안내 */
+.shared-snapshot-notice {
+    background: rgba(108, 92, 231, 0.08);
+    border-left: 3px solid var(--color-primary, #6C5CE7);
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--color-text-secondary, #636E72);
+    margin: 12px 16px 0;
+    border-radius: 0 8px 8px 0;
+}
+
+/* 콘텐츠 카드 */
+.shared-card {
+    background: var(--color-bg-card, #fff);
+    margin: 12px 16px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+    overflow: hidden;
+}
+
+/* 제목 영역 */
+.shared-title-section {
+    padding: 20px 20px 12px;
+    border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+}
+.shared-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text, #2D3436);
+    margin: 0 0 8px;
+    line-height: 1.4;
+}
+.shared-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.shared-meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.shared-meta-badge.due {
+    background: rgba(108, 92, 231, 0.1);
+    color: var(--color-primary, #6C5CE7);
+}
+.shared-meta-badge.checked {
+    background: rgba(0, 184, 148, 0.1);
+    color: var(--color-success, #00B894);
+}
+.shared-meta-badge.color-badge {
+    color: #fff;
+}
+.shared-meta-badge.label-badge {
+    background: var(--color-primary, #6C5CE7);
+    color: #fff;
+}
+
+/* 본문 콘텐츠 */
+.shared-content {
+    padding: 16px 20px;
+}
+.shared-text-block {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--color-text, #2D3436);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 12px;
+}
+.shared-image-block {
+    margin: 12px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+}
+.shared-image-block img {
+    width: 100%;
+    display: block;
+    border-radius: 8px;
+    transition: transform 0.2s;
+}
+.shared-image-block img:hover {
+    transform: scale(1.02);
+}
+.shared-file-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--color-bg-elevated, #EDF0F7);
+    border-radius: 8px;
+    margin: 8px 0;
+    text-decoration: none;
+    color: var(--color-text, #2D3436);
+    transition: background 0.15s;
+}
+.shared-file-block:hover {
+    background: var(--color-bg, #F5F6FA);
+}
+.shared-file-icon {
+    font-size: 20px;
+}
+.shared-file-info {
+    flex: 1;
+    min-width: 0;
+}
+.shared-file-name {
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.shared-file-size {
+    font-size: 11px;
+    color: var(--color-text-muted, #B2BEC3);
+}
+.shared-file-download {
+    font-size: 12px;
+    color: var(--color-primary, #6C5CE7);
+    font-weight: 600;
+}
+
+/* 공유 정보 */
+.shared-info {
+    padding: 12px 20px;
+    border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+    font-size: 12px;
+    color: var(--color-text-muted, #B2BEC3);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* 홍보 배너 */
+.shared-promo {
+    margin: 16px;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--color-primary, #6C5CE7), var(--color-primary-dark, #4834D4));
+    border-radius: 12px;
+    text-align: center;
+    color: #fff;
+}
+.shared-promo-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.shared-promo-desc {
+    font-size: 13px;
+    opacity: 0.9;
+    margin-bottom: 14px;
+    line-height: 1.5;
+}
+.shared-promo-link {
+    display: inline-block;
+    padding: 10px 24px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+.shared-promo-link:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+/* 에러/만료 페이지 */
+.shared-error {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+.shared-error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+.shared-error-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text, #2D3436);
+    margin-bottom: 8px;
+}
+.shared-error-desc {
+    font-size: 14px;
+    color: var(--color-text-secondary, #636E72);
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+/* 로딩 */
+.shared-loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+}
+
+/* 이미지 확대 오버레이 */
+.shared-image-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    cursor: pointer;
+    padding: 20px;
+}
+.shared-image-overlay img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}

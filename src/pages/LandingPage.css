@@ -1,0 +1,497 @@
+/* ===== 랜딩 페이지 CSS ===== */
+
+/* 전체 */
+.landing-page {
+    min-height: 100vh;
+    background: var(--color-bg, #F5F6FA);
+    font-family: var(--font-family, 'Noto Sans KR', sans-serif);
+    overflow-x: hidden;
+}
+
+/* ===== 헤더 ===== */
+.landing-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.85);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    transition: background 0.3s;
+}
+
+.landing-nav-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.landing-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-primary, #6C5CE7);
+    text-decoration: none;
+}
+
+.landing-logo-icon {
+    font-size: 1.4rem;
+}
+
+.landing-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.landing-nav-link {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary, #636E72);
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.landing-nav-link:hover {
+    background: rgba(108, 92, 231, 0.08);
+    color: var(--color-primary, #6C5CE7);
+}
+
+.landing-nav-cta {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--color-primary, #6C5CE7);
+    border: none;
+    padding: 8px 18px;
+    border-radius: 20px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.landing-nav-cta:hover {
+    background: var(--color-primary-dark, #4834D4);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+}
+
+/* ===== 히어로 ===== */
+.landing-hero {
+    padding: 100px 20px 60px;
+    text-align: center;
+    background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 50%, #DFE6E9 100%);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+}
+
+.landing-hero::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -20%;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.landing-hero-inner {
+    max-width: 700px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+.landing-hero-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+}
+
+.landing-hero h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1.3;
+    margin-bottom: 16px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.landing-hero-sub {
+    font-size: 1.05rem;
+    opacity: 0.9;
+    line-height: 1.6;
+    margin-bottom: 32px;
+}
+
+.landing-hero-cta {
+    display: inline-block;
+    background: #fff;
+    color: var(--color-primary, #6C5CE7);
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 14px 36px;
+    border-radius: 28px;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.landing-hero-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== 비주얼 쇼케이스 ===== */
+.landing-showcase {
+    max-width: 960px;
+    margin: -40px auto 0;
+    padding: 0 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.landing-showcase img {
+    width: 100%;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ===== 기능 소개 ===== */
+.landing-features {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 60px 20px;
+}
+
+.landing-features-title {
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-text, #2D3436);
+    margin-bottom: 12px;
+}
+
+.landing-features-sub {
+    text-align: center;
+    font-size: 0.95rem;
+    color: var(--color-text-secondary, #636E72);
+    margin-bottom: 40px;
+}
+
+.landing-features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.landing-feature-card {
+    background: var(--color-bg-card, #FFFFFF);
+    border-radius: 16px;
+    padding: 28px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.landing-feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.12);
+}
+
+.landing-feature-icon {
+    font-size: 2rem;
+    margin-bottom: 14px;
+    display: block;
+}
+
+.landing-feature-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text, #2D3436);
+    margin-bottom: 8px;
+}
+
+.landing-feature-desc {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary, #636E72);
+    line-height: 1.5;
+}
+
+/* ===== 시나리오 섹션 ===== */
+.landing-scenarios {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+}
+
+.landing-scenario {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.landing-scenario.reverse {
+    flex-direction: row-reverse;
+}
+
+.landing-scenario-img {
+    flex: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.landing-scenario-img img {
+    width: 100%;
+    display: block;
+}
+
+.landing-scenario-text {
+    flex: 1;
+}
+
+.landing-scenario-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--color-text, #2D3436);
+    margin-bottom: 12px;
+}
+
+.landing-scenario-desc {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary, #636E72);
+    line-height: 1.6;
+}
+
+/* ===== 요금제 ===== */
+.landing-pricing {
+    background: linear-gradient(180deg, var(--color-bg, #F5F6FA) 0%, #EDF0F7 100%);
+    padding: 60px 20px;
+}
+
+.landing-pricing-title {
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-text, #2D3436);
+    margin-bottom: 12px;
+}
+
+.landing-pricing-sub {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary, #636E72);
+    margin-bottom: 40px;
+}
+
+.landing-pricing-grid {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.landing-price-card {
+    background: var(--color-bg-card, #FFFFFF);
+    border-radius: 16px;
+    padding: 28px 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s;
+    position: relative;
+}
+
+.landing-price-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.12);
+}
+
+.landing-price-card.featured {
+    border: 2px solid var(--color-primary, #6C5CE7);
+    box-shadow: 0 4px 16px rgba(108, 92, 231, 0.15);
+}
+
+.landing-price-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-primary, #6C5CE7);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 14px;
+    border-radius: 12px;
+}
+
+.landing-price-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text, #2D3436);
+    margin-bottom: 16px;
+}
+
+.landing-price-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+    text-align: left;
+}
+
+.landing-price-list li {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary, #636E72);
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.landing-price-list li::before {
+    content: '✓ ';
+    color: var(--color-success, #00B894);
+    font-weight: 600;
+}
+
+/* ===== CTA 섹션 ===== */
+.landing-cta {
+    text-align: center;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, #6C5CE7, #A29BFE);
+    color: #fff;
+}
+
+.landing-cta h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.landing-cta p {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin-bottom: 28px;
+}
+
+.landing-cta-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.landing-cta-btn {
+    display: inline-block;
+    padding: 14px 28px;
+    border-radius: 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.landing-cta-btn.primary {
+    background: #fff;
+    color: var(--color-primary, #6C5CE7);
+}
+
+.landing-cta-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.landing-cta-btn.secondary {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.landing-cta-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+/* ===== 푸터 ===== */
+.landing-footer {
+    background: #2D3436;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 32px 20px;
+    text-align: center;
+}
+
+.landing-footer-inner {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.landing-footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.landing-footer-links a {
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+}
+
+.landing-footer-links a:hover {
+    color: #fff;
+}
+
+.landing-footer-copy {
+    font-size: 0.8rem;
+    opacity: 0.6;
+}
+
+/* ===== 반응형 ===== */
+@media (max-width: 768px) {
+    .landing-hero h1 {
+        font-size: 1.6rem;
+    }
+    .landing-hero-sub {
+        font-size: 0.9rem;
+    }
+    .landing-features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .landing-pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+    }
+    .landing-scenario {
+        flex-direction: column !important;
+        gap: 20px;
+    }
+    .landing-cta h2 {
+        font-size: 1.4rem;
+    }
+    .landing-nav-link {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .landing-features-grid {
+        grid-template-columns: 1fr;
+    }
+}

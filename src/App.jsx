@@ -28,6 +28,10 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const MainPage = lazy(() => import('./pages/MainPage'));
 const ProjectPage = lazy(() => import('./pages/ProjectPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const SharedItemPage = lazy(() => import('./pages/SharedItemPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
 
 function ProtectedRoute({ children }) {
     const { user, profile, loading, isNewUser } = useAuthStore();
@@ -194,9 +198,9 @@ export default function App() {
                     <Route
                         path="/"
                         element={
-                            <ProtectedRoute>
-                                <MainPage />
-                            </ProtectedRoute>
+                            user && profile && !isNewUser
+                                ? <MainPage />
+                                : <LandingPage />
                         }
                     />
                     <Route
@@ -215,6 +219,9 @@ export default function App() {
                             </ProtectedRoute>
                         }
                     />
+                    <Route path="/shared/:shareId" element={<SharedItemPage />} />
+                    <Route path="/privacy" element={<PrivacyPage />} />
+                    <Route path="/terms" element={<TermsPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>

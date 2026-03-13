@@ -22,6 +22,7 @@ import Modal from '../components/common/Modal';
 import PageHeader from '../components/common/PageHeader';
 import ImageViewer from '../components/common/ImageViewer';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
+import { createSharedItem, getSharedItemsByItemId, deleteSharedItem, deleteAllSharesForItem } from '../services/shareService';
 import CalendarView from '../components/CalendarView';
 import './ProjectPage.css';
 
@@ -510,6 +511,9 @@ export default function ProjectPage() {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [conflictData, setConflictData] = useState(null); // { serverData, myData }
     const [showItemMetaInfo, setShowItemMetaInfo] = useState(false);
+    const [shareModalItem, setShareModalItem] = useState(null);
+    const [shareLoading, setShareLoading] = useState(false);
+    const [existingShares, setExistingShares] = useState([]);
 
     // 새 아이템 폼
     const [newTitle, setNewTitle] = useState('');
@@ -1490,6 +1494,77 @@ export default function ProjectPage() {
         }
     };
 
+    // ===== 공유 핸들러 =====
+    const handleTextShare = async (item) => {
+        const dueDateStr = item.dueDate
+            ? ` (마감일: ${toLocalDatetime(item.dueDate).replace('T', ' ')})`
+            : '';
+        const textBlocks = (item.contentBlocks || [])
+            .filter(b => b.type === 'text' && b.text?.trim())
+            .map(b => b.text)
+            .join('\n');
+        const shareText = [
+            `📋 ${item.title}${dueDateStr}`,
+            '',
+            textBlocks || '(내용 없음)',
+            '',
+            '---',
+            '📱 TodoList Share에서 작성된 체크리스트입니다.',
+            '🌐 https://todolist-share.web.app',
+        ].join('\n');
+        try {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile && navigator.share) {
+                await navigator.share({ text: shareText });
+            } else {
+                await navigator.clipboard.writeText(shareText);
+                addToast('클립보드에 복사되었습니다.', 'success');
+            }
+        } catch (e) {
+            if (!e.message?.includes('cancel') && !e.message?.includes('abort')) {
+                addToast('공유에 실패했습니다.', 'error');
+            }
+        }
+        setShareModalItem(null);
+    };
+
+    const handleUrlShare = async (item) => {
+        setShareLoading(true);
+        try {
+            const shareId = await createSharedItem(
+                projectId, item.id, item,
+                profile.uid,
+                getMemberName(profile.uid) || profile.nickname,
+                project?.name || ''
+            );
+            const shareUrl = `https://todolist-share.web.app/shared/${shareId}`;
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile && navigator.share) {
+                await navigator.share({ title: item.title, url: shareUrl });
+            } else {
+                await navigator.clipboard.writeText(shareUrl);
+                addToast('공유 링크가 클립보드에 복사되었습니다.', 'success');
+            }
+            // 기존 공유 목록 갱신
+            const shares = await getSharedItemsByItemId(item.id, profile.uid);
+            setExistingShares(shares);
+        } catch (e) {
+            if (!e.message?.includes('cancel') && !e.message?.includes('abort')) {
+                addToast('공유에 실패했습니다.', 'error');
+            }
+        }
+        setShareLoading(false);
+    };
+
+    const handleDeleteShare = async (shareId) => {
+        if (!window.confirm('공유를 취소하시겠습니까?\n취소 후에는 공유 링크로 접근할 수 없습니다.')) return;
+        try {
+            await deleteSharedItem(shareId);
+            setExistingShares(prev => prev.filter(s => s.id !== shareId));
+            addToast('공유가 취소되었습니다.', 'success');
+        } catch { addToast('공유 취소에 실패했습니다.', 'error'); }
+    };
+
     const handleDeleteItem = async (itemId) => {
         if (!confirm('휴지통으로 이동하시겠습니까?')) return;
         const deletedItem = items.find(i => i.id === itemId);
@@ -1554,6 +1629,8 @@ export default function ProjectPage() {
                 await Promise.all(deletePromises);
             }
             await permanentDeleteItem(projectId, itemId);
+            // 공유 스냅샷도 삭제
+            try { await deleteAllSharesForItem(itemId); } catch (e) { console.warn('공유 정리 실패:', e); }
             addToast('영구 삭제되었습니다.', 'success');
         } catch (error) {
             addToast('삭제에 실패했습니다.', 'error');
@@ -1619,6 +1696,8 @@ export default function ProjectPage() {
                     await Promise.all(deletePromises);
                 }
                 await permanentDeleteItem(projectId, id);
+                // 공유 스냅샷도 삭제
+                try { await deleteAllSharesForItem(id); } catch (e) { console.warn('공유 정리 실패:', e); }
             }
             addToast(`${trashSelected.length}개 항목이 영구 삭제되었습니다.`, 'success');
             setTrashSelected([]);
@@ -3559,6 +3638,21 @@ export default function ProjectPage() {
                                                         >
                                                             📅{item.calendarSynced && <span className="action-check">✓</span>}
                                                         </button>
+                                                        {/* 📤 공유 */}
+                                                        <button
+                                                            className="todo-list-action-btn"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                setShareModalItem(item);
+                                                                setShareLoading(true);
+                                                                try {
+                                                                    const shares = await getSharedItemsByItemId(item.id, profile.uid);
+                                                                    setExistingShares(shares);
+                                                                } catch { setExistingShares([]); }
+                                                                setShareLoading(false);
+                                                            }}
+                                                            title="공유"
+                                                        >📤</button>
                                                         {/* 🗑️ 삭제 */}
                                                         <button
                                                             className="todo-list-action-btn"
@@ -3674,6 +3768,21 @@ export default function ProjectPage() {
                                                         📅{item.calendarSynced && <span className="action-check">✓</span>}
                                                     </button>
                                                 )}
+                                                {/* 📤 공유 */}
+                                                <button
+                                                    className="todo-list-action-btn"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        setShareModalItem(item);
+                                                        setShareLoading(true);
+                                                        try {
+                                                            const shares = await getSharedItemsByItemId(item.id, profile.uid);
+                                                            setExistingShares(shares);
+                                                        } catch { setExistingShares([]); }
+                                                        setShareLoading(false);
+                                                    }}
+                                                    title="공유"
+                                                >📤</button>
                                                 {/* 🗑️ 삭제 */}
                                                 {userCanWrite && (
                                                     <button
@@ -5311,6 +5420,58 @@ export default function ProjectPage() {
                             </li>;
                         })}
                     </ul>
+                )}
+            </Modal>
+
+            {/* 공유 모달 */}
+            <Modal isOpen={!!shareModalItem} onClose={() => setShareModalItem(null)} title="📤 체크리스트 공유">
+                {shareModalItem && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', margin: 0 }}>
+                            "{shareModalItem.title}" 을(를) 공유합니다.
+                        </p>
+
+                        {/* 공유 버튼 */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                            <button className="btn btn-secondary" onClick={() => handleTextShare(shareModalItem)} style={{ width: '100%', justifyContent: 'flex-start', gap: 8, display: 'flex', alignItems: 'center' }}>
+                                📝 <span>텍스트로 공유</span>
+                            </button>
+                            <button className="btn btn-primary" onClick={() => handleUrlShare(shareModalItem)} disabled={shareLoading} style={{ width: '100%', justifyContent: 'flex-start', gap: 8, display: 'flex', alignItems: 'center' }}>
+                                {shareLoading ? <span className="spinner"></span> : '🔗'} <span>URL로 공유 (스냅샷)</span>
+                            </button>
+                        </div>
+
+                        {/* 안내 */}
+                        <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
+                            ℹ️ URL 공유 시 현재 시점의 내용이 복사됩니다. 이후 원본을 수정해도 공유된 내용에는 반영되지 않습니다.
+                        </p>
+
+                        {/* 기존 공유 목록 */}
+                        {existingShares.length > 0 && (
+                            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-md)' }}>
+                                <p style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--color-text-secondary)', margin: '0 0 var(--spacing-sm)' }}>
+                                    현재 공유 중 ({existingShares.length})
+                                </p>
+                                {existingShares.map(share => {
+                                    const shareUrl = `https://todolist-share.web.app/shared/${share.id}`;
+                                    return (
+                                        <div key={share.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--color-border)', fontSize: 'var(--font-size-xs)' }}>
+                                            <span style={{ flex: 1, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                📋 {share.sharedAt?.toDate ? share.sharedAt.toDate().toLocaleString('ko-KR') : ''}
+                                            </span>
+                                            <button className="btn btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: 11 }} onClick={async () => {
+                                                try {
+                                                    await navigator.clipboard.writeText(shareUrl);
+                                                    addToast('링크가 복사되었습니다.', 'success');
+                                                } catch { addToast('복사에 실패했습니다.', 'error'); }
+                                            }}>📋 복사</button>
+                                            <button className="btn btn-sm" style={{ padding: '2px 8px', fontSize: 11, color: 'var(--color-danger)' }} onClick={() => handleDeleteShare(share.id)}>🗑️ 취소</button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 )}
             </Modal>
         </div >

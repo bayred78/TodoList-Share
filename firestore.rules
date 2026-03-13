@@ -103,5 +103,18 @@ service cloud.firestore {
       let isReadOnly = project.memberCount >= 3 && project.subscriptionActive != true;
       return isWriter && !isReadOnly;
     }
+
+    // ===== 공유 아이템 (스냅샷) =====
+    match /sharedItems/{shareId} {
+      // 누구나 읽기 가능 (비인증 포함)
+      allow read: if true;
+      // 생성: 로그인 사용자만
+      allow create: if request.auth != null;
+      // 삭제: 공유자 본인만
+      allow delete: if request.auth != null
+        && resource.data.sharedBy == request.auth.uid;
+      // 수정 불가 (스냅샷이므로)
+      allow update: if false;
+    }
   }
 }

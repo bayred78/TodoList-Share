@@ -509,6 +509,7 @@ export default function ProjectPage() {
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [conflictData, setConflictData] = useState(null); // { serverData, myData }
+    const [showItemMetaInfo, setShowItemMetaInfo] = useState(false);
 
     // 새 아이템 폼
     const [newTitle, setNewTitle] = useState('');
@@ -4439,6 +4440,67 @@ export default function ProjectPage() {
                                 </React.Fragment>
                             ) : (
                                 <React.Fragment key="view-mode">
+                                    {/* 상세 옵션 정보창 (읽기 모드 전용) */}
+                                    <div className="item-meta-toggle">
+                                        <button className="item-meta-toggle-btn" onClick={() => setShowItemMetaInfo(!showItemMetaInfo)}>
+                                            <span>ℹ️ 상세 옵션 정보</span>
+                                            <span>{showItemMetaInfo ? '▲' : '▼'}</span>
+                                        </button>
+                                    </div>
+                                    {showItemMetaInfo && (
+                                        <div className="item-meta-panel">
+                                            <div className="item-meta-row">
+                                                <span className="item-meta-label">🏅 중요도</span>
+                                                <div className="item-meta-value">
+                                                    {editItem.color ? (
+                                                        <span className="badge" style={{ backgroundColor: LABEL_COLORS.find(c => c.id === editItem.color)?.hex, color: '#fff' }}>
+                                                            {LABEL_COLORS.find(c => c.id === editItem.color)?.name || '지정됨'}
+                                                        </span>
+                                                    ) : <span style={{ color: 'var(--color-text-muted)' }}>무순위</span>}
+                                                </div>
+                                            </div>
+                                            <div className="item-meta-row">
+                                                <span className="item-meta-label">⏰ 일정</span>
+                                                <div className="item-meta-value">
+                                                    {editItem.dueDate ? (
+                                                        <>
+                                                            <span>{toLocalDatetime(editItem.dueDate).replace('T', ' ')}</span>
+                                                            {editItem.checked
+                                                                ? <span style={{ color: 'var(--color-text-muted)' }}>✅ 마감완료</span>
+                                                                : (() => { const dp = getDuePriority(editItem.dueDate); return dp.level > 0 ? <span>{dp.icon} 단계 {dp.level}</span> : null; })()}
+                                                        </>
+                                                    ) : <span style={{ color: 'var(--color-text-muted)' }}>마감일 없음</span>}
+                                                    {editItem.repeatType && editItem.repeatType !== 'none' && (
+                                                        <span className="badge" style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
+                                                            🔄 {['매일','매주','격주','매달','분기','매년'][['daily','weekly','biweekly','monthly','quarterly','yearly'].indexOf(editItem.repeatType)] || editItem.repeatType}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="item-meta-row">
+                                                <span className="item-meta-label">🏷️ 라벨</span>
+                                                <div className="item-meta-value">
+                                                    {(editItem.labels && editItem.labels.length > 0) ? (
+                                                        editItem.labels.map(l => (
+                                                            <span key={l} className="filter-chip active" style={{ padding: '2px 8px', fontSize: 11, minHeight: 'auto', cursor: 'default' }}>{l}</span>
+                                                        ))
+                                                    ) : <span style={{ color: 'var(--color-text-muted)' }}>없음</span>}
+                                                </div>
+                                            </div>
+                                            <div className="item-meta-row">
+                                                <span className="item-meta-label">👥 참여자</span>
+                                                <div className="item-meta-value">
+                                                    {(editItem.assignees && editItem.assignees.length > 0) ? (
+                                                        editItem.assignees.map(uid => (
+                                                            <span key={uid} className="badge" style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
+                                                                {getMemberName(uid)}
+                                                            </span>
+                                                        ))
+                                                    ) : <span style={{ color: 'var(--color-text-muted)' }}>전체 (지정 안됨)</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     <h2 className="fullscreen-editor-title" style={{ border: 'none', cursor: 'default' }}>
                                         {editItem.title}
                                     </h2>

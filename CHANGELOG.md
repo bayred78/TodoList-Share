@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-03-14 01:47 — 다크모드 디자인 시스템 구현 + 누락 수정
+- `global.css`: 다크모드 토큰 블록(`[data-theme="dark"]`) 추가, `--color-on-primary` 신규, edit-toolbar CSS 전역화
+- `themeStore.js` (신규): Zustand 테마 관리 (light/dark/system + localStorage + matchMedia)
+- `App.jsx`: 테마 초기화 useEffect 추가
+- `SettingsPage.jsx/.css`: 🎨 화면 테마 드롭다운 UI 추가
+- CSS 하드코딩 교체 38건 (10개 파일): `white`/`#fff` → `var(--color-on-primary)`
+- `--color-text-inverse` 21건 → `var(--color-on-primary)` 교체 (5개 파일)
+- 미정의 토큰 수정: `--color-surface` → `--color-bg-elevated`, `--color-bg-hover` → `--color-bg-elevated`
+- edit-toolbar CSS를 `MainPage.css` → `global.css`로 이동 (ProjectPage 렌더링 안정화)
+- Git 태그: `v260314-0147`
+- 복원: `git checkout v260314-0147`
+
 ## 2026-03-13 23:28 — 로그인 페이지 리디자인, 랜딩 페이지 강점 배너, 캘린더 PC 크기 고정
 - `LoginPage.jsx`, `LoginPage.css`: 글래스모피즘 카드 + 블롭 애니메이션 배경 + 기능 4개 슬라이드인 + 하단 소개/법적 링크 추가
 - `LandingPage.jsx`, `LandingPage.css`: 요금제 섹션에 유료 플랜 참여 시 Free 사용자 확장 기능 강점 배너 추가

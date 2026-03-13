@@ -37,7 +37,7 @@
     border-radius: var(--radius-md);
     border: none;
     background: var(--color-primary);
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
     font-size: var(--font-size-md);
     font-weight: 600;
     cursor: pointer;
@@ -93,7 +93,7 @@
 
 .cal-nav-btn:hover {
     background: var(--color-primary);
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
     border-color: var(--color-primary);
 }
 
@@ -127,7 +127,7 @@
 
 .cal-today-btn:hover {
     background: var(--color-primary);
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
 }
 
 .cal-refresh-btn {
@@ -224,7 +224,7 @@
 
 .cal-cell.today .cal-day-num {
     background: var(--color-primary);
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
     border-radius: 50%;
     width: 26px;
     height: 26px;
@@ -248,7 +248,7 @@
 
 .cal-cell.today.sun .cal-day-num,
 .cal-cell.today.sat .cal-day-num {
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
 }
 
 .cal-day-num {
@@ -286,7 +286,7 @@
     left: 50%;
     transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, 0.6);
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
     padding: 10px 20px;
     border-radius: var(--radius-md);
     font-size: var(--font-size-sm);
@@ -337,7 +337,7 @@
 
 .cal-filter-all-btn:hover {
     background: var(--color-primary);
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
 }
 
 .cal-filter-close {

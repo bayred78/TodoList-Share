@@ -10,7 +10,7 @@
 /* 헤더 */
 .shared-header {
     background: var(--color-primary, #6C5CE7);
-    color: #fff;
+    color: var(--color-on-primary);
     padding: 16px 20px;
     display: flex;
     align-items: center;
@@ -79,11 +79,11 @@
     color: var(--color-success, #00B894);
 }
 .shared-meta-badge.color-badge {
-    color: #fff;
+    color: var(--color-on-primary);
 }
 .shared-meta-badge.label-badge {
     background: var(--color-primary, #6C5CE7);
-    color: #fff;
+    color: var(--color-on-primary);
 }
 
 /* 본문 콘텐츠 */
@@ -170,7 +170,7 @@
     background: linear-gradient(135deg, var(--color-primary, #6C5CE7), var(--color-primary-dark, #4834D4));
     border-radius: 12px;
     text-align: center;
-    color: #fff;
+    color: var(--color-on-primary);
 }
 .shared-promo-title {
     font-size: 16px;
@@ -188,7 +188,7 @@
     padding: 10px 24px;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 8px;
-    color: #fff;
+    color: var(--color-on-primary);
     text-decoration: none;
     font-weight: 600;
     font-size: 14px;

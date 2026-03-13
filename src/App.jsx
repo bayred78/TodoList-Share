@@ -2,6 +2,7 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
 import useToastStore from './stores/toastStore';
+import useThemeStore from './stores/themeStore';
 import Toast from './components/common/Toast';
 import { setForegroundNotificationHandler, getActiveChatProjectId } from './services/notificationService';
 import BannerAd from './components/ads/BannerAd';
@@ -154,6 +155,12 @@ export default function App() {
         const unsubscribe = initialize();
         return () => unsubscribe();
     }, [initialize]);
+
+    // 테마 초기화
+    useEffect(() => {
+        const cleanup = useThemeStore.getState().initTheme();
+        return cleanup;
+    }, []);
 
     const addToast = useToastStore((s) => s.addToast);
     useEffect(() => {

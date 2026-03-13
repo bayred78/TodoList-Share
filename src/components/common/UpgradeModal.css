@@ -81,7 +81,7 @@
 .recommend-badge {
     display: inline-block;
     background: var(--color-primary);
-    color: var(--color-text-inverse);
+    color: var(--color-on-primary);
     font-size: var(--font-size-xs);
     font-weight: 700;
     padding: 1px 6px;

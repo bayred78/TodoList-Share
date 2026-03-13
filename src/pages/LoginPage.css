@@ -6,7 +6,7 @@
     align-items: center;
     justify-content: center;
     padding: var(--spacing-md);
-    background: linear-gradient(160deg, #F0EDFF 0%, var(--color-bg) 40%, #E8F8F5 100%);
+    background: linear-gradient(160deg, var(--color-bg-elevated) 0%, var(--color-bg) 40%, var(--color-bg-elevated) 100%);
     position: relative;
     overflow: hidden;
 }
@@ -70,11 +70,11 @@
 .login-card {
     width: 100%;
     max-width: 420px;
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--color-bg-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-radius: var(--radius-xl);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--color-border);
     box-shadow:
         0 20px 60px rgba(108, 92, 231, 0.08),
         0 1px 3px rgba(0, 0, 0, 0.04);

@@ -8,7 +8,7 @@
 
 .legal-header {
     background: var(--color-primary, #6C5CE7);
-    color: #fff;
+    color: var(--color-on-primary);
     padding: 20px 16px;
     text-align: center;
     position: sticky;
@@ -27,7 +27,7 @@
 .legal-back-btn {
     background: none;
     border: none;
-    color: #fff;
+    color: var(--color-on-primary);
     font-size: 1.25rem;
     cursor: pointer;
     padding: 4px 8px;

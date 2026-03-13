@@ -24,6 +24,8 @@
   --color-border: rgba(0, 0, 0, 0.08);
   --color-border-hover: rgba(0, 0, 0, 0.15);
 
+  --color-on-primary: #FFFFFF;
+
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -60,6 +62,30 @@
   --z-banner: 50;
 
   --banner-height: 0px;
+}
+
+/* ===== Dark Theme ===== */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: #1A1A2E;
+  --color-bg-secondary: #16213E;
+  --color-bg-card: #1E2640;
+  --color-bg-elevated: #253050;
+  --color-bg-glass: rgba(30, 38, 64, 0.7);
+
+  --color-text: #E8E8EC;
+  --color-text-secondary: #A0A4B8;
+  --color-text-muted: #636983;
+  --color-text-inverse: #1A1A2E;
+
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-hover: rgba(255, 255, 255, 0.2);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 16px rgba(108, 92, 231, 0.3);
 }
 
 /* 무료 사용자: 배너 광고 높이 반영 */
@@ -174,7 +200,7 @@ ol {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  color: white;
+  color: var(--color-on-primary);
   box-shadow: var(--shadow-glow);
 }
 
@@ -200,7 +226,7 @@ ol {
 
 .btn-danger {
   background: linear-gradient(135deg, var(--color-danger), #D63031);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 .btn-danger:hover {
@@ -304,7 +330,7 @@ ol {
 .toast {
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-md);
-  color: white;
+  color: var(--color-on-primary);
   font-size: var(--font-size-sm);
   font-weight: 500;
   animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
@@ -730,7 +756,7 @@ ol {
 
 .tab-item.active {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
   box-shadow: var(--shadow-sm);
 }
 
@@ -778,7 +804,7 @@ ol {
   height: 56px;
   border-radius: var(--radius-full);
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  color: white;
+  color: var(--color-on-primary);
   font-size: 1.5rem;
   display: flex;
   align-items: center;
@@ -813,6 +839,103 @@ ol {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* ===== 편집 모드 상단 툴바 (공통) ===== */
+.edit-toolbar {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  flex-shrink: 0;
+}
+
+.edit-toolbar-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-xl);
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.edit-toolbar-btn:hover,
+.edit-toolbar-btn.active {
+  background: var(--color-bg-elevated);
+  color: var(--color-primary);
+}
+
+.edit-toolbar-label {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.edit-toolbar-dot {
+  position: absolute;
+  top: var(--spacing-xs);
+  right: calc(50% - 16px);
+  width: var(--spacing-sm);
+  height: var(--spacing-sm);
+  border-radius: 50%;
+  border: 1.5px solid var(--color-bg-secondary);
+}
+
+.edit-toolbar-count {
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 18px);
+  min-width: var(--spacing-md);
+  height: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ===== 바텀시트 (편집 옵션 팝업) ===== */
+.edit-option-sheet {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  flex-shrink: 0;
+  animation: fadeIn var(--transition-fast) ease;
+}
+
+.edit-option-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.edit-option-sheet-header button {
+  background: none;
+  border: none;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+}
+
+.edit-option-sheet-header button:hover {
+  background: var(--color-bg-elevated);
 }
 
 .hidden {

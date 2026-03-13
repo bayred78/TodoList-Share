@@ -8,6 +8,7 @@ import { checkPersonalFeature, getEffectivePlan, getUserPlan, isTrialActive, isT
 import { getNotificationSettings, saveNotificationSettings, registerPushNotifications } from '../services/notificationService';
 import RewardedAd from '../components/ads/RewardedAd';
 import PageHeader from '../components/common/PageHeader';
+import useThemeStore from '../stores/themeStore';
 import { Capacitor } from '@capacitor/core';
 import { Purchases } from '@revenuecat/purchases-capacitor';
 import { getStoreProducts, purchaseStoreProduct } from '../services/revenueCatService';
@@ -282,6 +283,23 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
+
+                {/* 화면 테마 */}
+                <div className="settings-card card">
+                    <h3 className="settings-card-title">🎨 화면 테마</h3>
+                    <div className="settings-row">
+                        <span>테마 모드</span>
+                        <select
+                            className="settings-select"
+                            value={useThemeStore((s) => s.theme)}
+                            onChange={(e) => useThemeStore.getState().setTheme(e.target.value)}
+                        >
+                            <option value="system">시스템</option>
+                            <option value="light">라이트</option>
+                            <option value="dark">다크</option>
+                        </select>
+                    </div>
+                </div>
 
                 {/* 알림 설정 */}
                 <div className="settings-card card">

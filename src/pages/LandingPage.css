@@ -368,6 +368,65 @@
     font-weight: 600;
 }
 
+/* ===== 강점 배너 ===== */
+.landing-pricing-highlight {
+    max-width: 700px;
+    margin: 36px auto 0;
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.06) 0%, rgba(0, 184, 148, 0.06) 100%);
+    border: 1px solid rgba(108, 92, 231, 0.12);
+    transition: all 0.3s;
+}
+
+.landing-pricing-highlight:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.1);
+    border-color: rgba(108, 92, 231, 0.2);
+}
+
+.highlight-glow {
+    position: absolute;
+    top: -30px;
+    right: -30px;
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, rgba(108, 92, 231, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.highlight-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.highlight-emoji {
+    font-size: 2rem;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.highlight-text strong {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-text, #2D3436);
+    margin-bottom: 4px;
+}
+
+.highlight-text p {
+    font-size: 0.82rem;
+    color: var(--color-text-secondary, #636E72);
+    line-height: 1.5;
+    margin: 0;
+}
+
 /* ===== CTA 섹션 ===== */
 .landing-cta {
     text-align: center;

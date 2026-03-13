@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useToastStore from '../stores/toastStore';
 import './LoginPage.css';
@@ -62,9 +63,14 @@ export default function LoginPage() {
     if (isNewUser && user) {
         return (
             <div className="login-page">
+                <div className="login-bg-decoration">
+                    <div className="login-blob login-blob-1"></div>
+                    <div className="login-blob login-blob-2"></div>
+                    <div className="login-blob login-blob-3"></div>
+                </div>
                 <div className="login-card">
-                    <div className="login-logo">📝</div>
-                    <h1 className="login-title">닉네임 설정</h1>
+                    <div className="login-logo">👋</div>
+                    <h1 className="login-title">반갑습니다!</h1>
                     <p className="login-subtitle">앱에서 사용할 닉네임을 설정해주세요</p>
 
                     <form onSubmit={handleSetNickname} className="nickname-form">
@@ -80,7 +86,7 @@ export default function LoginPage() {
                                 autoFocus
                             />
                         </div>
-                        <p className="nickname-hint" style={{ color: 'var(--color-warning)', fontWeight: 600 }}>
+                        <p className="nickname-hint">
                             ⚠ 닉네임은 한 번 설정하면 변경할 수 없습니다.
                         </p>
                         <button
@@ -96,26 +102,53 @@ export default function LoginPage() {
         );
     }
 
-    // 로그인 화면
+    // 메인 로그인 화면
     return (
         <div className="login-page">
+            {/* 배경 블롭 장식 */}
+            <div className="login-bg-decoration">
+                <div className="login-blob login-blob-1"></div>
+                <div className="login-blob login-blob-2"></div>
+                <div className="login-blob login-blob-3"></div>
+            </div>
+
             <div className="login-card">
                 <div className="login-logo">📝</div>
                 <h1 className="login-title">TodoList Share</h1>
-                <p className="login-subtitle">팀과 함께 할 일을 관리하세요</p>
+                <p className="login-subtitle">
+                    할 일을 팀과 함께 공유하고,<br />
+                    목표를 함께 달성하세요.
+                </p>
 
+                {/* 기능 하이라이트 (컬러 아이콘 + 한 줄 설명) */}
                 <div className="login-features">
                     <div className="login-feature">
-                        <span className="login-feature-icon">🤝</span>
-                        <span>실시간 공유</span>
+                        <div className="login-feature-icon-wrap purple">🤝</div>
+                        <div className="login-feature-text">
+                            <span className="login-feature-name">실시간 공유</span>
+                            <span className="login-feature-desc">팀원과 체크리스트를 즉시 동기화</span>
+                        </div>
                     </div>
                     <div className="login-feature">
-                        <span className="login-feature-icon">📅</span>
-                        <span>구글 캘린더 연동</span>
+                        <div className="login-feature-icon-wrap green">📅</div>
+                        <div className="login-feature-text">
+                            <span className="login-feature-name">구글 캘린더 연동</span>
+                            <span className="login-feature-desc">마감일을 일정에 자동 반영</span>
+                        </div>
                     </div>
                     <div className="login-feature">
-                        <span className="login-feature-icon">🔄</span>
-                        <span>크로스 플랫폼 동기화</span>
+                        <div className="login-feature-icon-wrap orange">💬</div>
+                        <div className="login-feature-text">
+                            <span className="login-feature-name">체크리스트 내 채팅</span>
+                            <span className="login-feature-desc">별도 메신저 없이 바로 소통</span>
+                        </div>
+                    </div>
+                    <div className="login-feature">
+                        <div className="login-feature-icon-wrap pink">📱</div>
+                        <div className="login-feature-text">
+                            <span className="login-feature-name">크로스 플랫폼</span>
+                            <span className="login-feature-desc">웹과 안드로이드 어디서든 이용</span>
+                        </div>
                     </div>
                 </div>
 
@@ -138,12 +171,13 @@ export default function LoginPage() {
                         </>
                     )}
                 </button>
-            </div>
 
-            <div className="login-decoration">
-                <div className="decoration-circle decoration-circle-1"></div>
-                <div className="decoration-circle decoration-circle-2"></div>
-                <div className="decoration-circle decoration-circle-3"></div>
+                {/* 하단 링크 */}
+                <div className="login-footer-links">
+                    <Link to="/" className="login-footer-link">소개</Link>
+                    <Link to="/privacy" className="login-footer-link">개인정보처리방침</Link>
+                    <Link to="/terms" className="login-footer-link">이용약관</Link>
+                </div>
             </div>
         </div>
     );

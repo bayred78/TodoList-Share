@@ -119,7 +119,9 @@ export default function LandingPage() {
                             <li>멤버 2명</li>
                             <li>체크리스트 50개</li>
                             <li>중요도 · 라벨 기능</li>
-                            <li>반복 설정 (3개)</li>
+                            <li>마감일 설정</li>
+                            <li>반복 설정</li>
+                            <li>채팅</li>
                         </ul>
                     </div>
                     {/* Pro */}
@@ -148,6 +150,18 @@ export default function LandingPage() {
                             <li>대표 아이콘</li>
                             <li>광고 제거</li>
                         </ul>
+                    </div>
+                </div>
+
+                {/* 강점 배너 */}
+                <div className="landing-pricing-highlight">
+                    <div className="highlight-glow"></div>
+                    <div className="highlight-content">
+                        <span className="highlight-emoji">🎁</span>
+                        <div className="highlight-text">
+                            <strong>무료로도 더 많은 기능을 경험할 수 있어요</strong>
+                            <p>Pro · Team 사용자의 페이지에 초대받으면, 해당 페이지에서 확장된 기능을 함께 사용할 수 있습니다.</p>
+                        </div>
                     </div>
                 </div>
             </section>

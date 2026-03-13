@@ -4,6 +4,13 @@
 
 ---
 
+## 2026-03-13 23:28 — 로그인 페이지 리디자인, 랜딩 페이지 강점 배너, 캘린더 PC 크기 고정
+- `LoginPage.jsx`, `LoginPage.css`: 글래스모피즘 카드 + 블롭 애니메이션 배경 + 기능 4개 슬라이드인 + 하단 소개/법적 링크 추가
+- `LandingPage.jsx`, `LandingPage.css`: 요금제 섹션에 유료 플랜 참여 시 Free 사용자 확장 기능 강점 배너 추가
+- `CalendarView.css`: PC 웹에서 캘린더 max-width 480px 고정 (모바일 유지)
+- Git 태그: `v260313-2328`
+- 복원: `git checkout v260313-2328`
+
 ## 2026-03-13 20:15 — AdSense 승인용 공개 페이지(랜딩/약관) 추가 및 공유 기능 버그 수정
 - `LandingPage`, `PrivacyPage`, `TermsPage` 추가 (비로그인 접근 허용)
 - `App.jsx`: `/`, `/privacy`, `/terms` 공개 라우트 분기 처리

@@ -3,6 +3,8 @@
 .cal-view {
     position: relative;
     padding: var(--spacing-sm);
+    max-width: 480px;
+    margin: 0 auto;
 }
 
 /* 인증 필요 화면 */

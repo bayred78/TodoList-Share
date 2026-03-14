@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-03-15 08:34 — 뱃지 로직 안정화 + 레이아웃 최적화
+- `todoService.js`: `toggleCheck`, `createRepeatItem`, `createTemplateItems`에 `lastItemUpdatedAt` await 추가
+- `chatService.js`: `sendMessage`의 `lastMessageAt` await 처리
+- `ProjectPage.jsx`: 본인 동작(체크토글, 아이템생성, 반복생성, 충돌사본, 자동완료) 후 `markItemAsRead` 추가 (5곳)
+- `ProjectPage.jsx`: `getItemReadMap` useMemo 캐싱 최적화
+- `ProjectPage.css`: 뱃지를 카드 우상단 absolute 오버레이로 변경 (공간 낭비 해소)
+- `MainPage.jsx`: 체크 토글 후 `itemLastViewed` 갱신, ❗ 뱃지 폰트 통일
+- `global.css`: 미사용 `.tab-badge` CSS 제거
+- Git 태그: `v260315-0834`
+- 복원: `git checkout v260315-0834`
+
 ## 2026-03-14 01:47 — 다크모드 디자인 시스템 구현 + 누락 수정
 - `global.css`: 다크모드 토큰 블록(`[data-theme="dark"]`) 추가, `--color-on-primary` 신규, edit-toolbar CSS 전역화
 - `themeStore.js` (신규): Zustand 테마 관리 (light/dark/system + localStorage + matchMedia)

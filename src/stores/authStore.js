@@ -122,7 +122,11 @@ const useAuthStore = create((set, get) => ({
     // 로그아웃
     logout: async () => {
         const { clearChatCache } = await import('../services/chatService');
+        const { clearItemCache } = await import('../services/todoService');
+        const { clearSearchCache } = await import('../services/searchService');
         clearChatCache(); // 모든 채팅 캐시 삭제
+        clearItemCache(); // 아이템 캐시 삭제 (localStorage + 메모리)
+        clearSearchCache(); // 검색 캐시 삭제 (localStorage + 최근 검색어)
         await signOutUser();
         set({ user: null, profile: null, isNewUser: false });
     },

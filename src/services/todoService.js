@@ -208,6 +208,8 @@ export async function addTodoItem(projectId, item) {
         version: 1,
     });
 
+    // 프로젝트 아이템 변경 시간 기록 (뱃지용)
+    await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp() });
     return docRef.id;
 }
 
@@ -236,6 +238,8 @@ export async function updateTodoItem(projectId, itemId, data, options = {}) {
         updatedAt: serverTimestamp(),
         version: increment(1),
     });
+    // 프로젝트 아이템 변경 시간 기록 (뱃지용)
+    await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp() });
 }
 
 // 소프트 삭제 (휴지통으로 이동)
@@ -244,6 +248,8 @@ export async function deleteTodoItem(projectId, itemId) {
         deleted: true,
         deletedAt: serverTimestamp(),
     });
+    // 프로젝트 아이템 변경 시간 기록 (뱃지용)
+    await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp() });
 }
 
 // 휴지통에서 복원
@@ -253,6 +259,8 @@ export async function restoreTodoItem(projectId, itemId) {
         deletedAt: null,
         updatedAt: serverTimestamp(),
     });
+    // 프로젝트 아이템 변경 시간 기록 (뱃지용)
+    await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp() });
 }
 
 // 영구 삭제
@@ -301,6 +309,8 @@ export async function toggleCheck(projectId, itemId, checked, itemData = {}, upd
     };
     if (updatedBy) updateData.updatedBy = updatedBy;
     await updateDoc(doc(db, 'projects', projectId, 'items', itemId), updateData);
+    // 프로젝트 아이템 변경 시간 기록 (뱃지용)
+    await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp() });
 
     // 반복 항목 여부만 알려줌 (실제 생성은 createRepeatItem에서 처리)
     const isRepeat = checked && itemData.repeatType && itemData.repeatType !== 'none';
@@ -342,6 +352,8 @@ export async function createRepeatItem(projectId, itemData) {
         order: minOrder - 1,
         version: 1,
     });
+    // 프로젝트 아이템 변경 시간 기록 (뱃지용)
+    await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp() });
 }
 
 // 구성원 체크 업데이트
@@ -499,6 +511,8 @@ export async function createTemplateItems(projectId, items, creatorInfo) {
     });
 
     await batch.commit();
+    // 프로젝트 아이템 변경 시간 기록 (뱃지용)
+    await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp() });
 }
 
 // 체크리스트가 존재하는지 (삭제되지 않았는지) 확인

@@ -2,12 +2,47 @@
  * 검색 서비스 — 페이지/체크리스트 통합 검색
  * Firebase 비용 절감: 클라이언트 캐시 우선, 미캐시 프로젝트는 수동 로드
  */
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { getCachedItems } from './todoService';
 
-// ===== 검색 전용 세션 캐시 (todoService.setCachedItems는 비공개) =====
-const searchCacheMap = new Map();
+// ===== 검색 전용 localStorage 캐시 =====
+const SEARCH_CACHE_PREFIX = 'searchCache_';
+
+function _serializeTimestamp(val) {
+    if (val?.seconds != null) return { _s: val.seconds, _n: val.nanoseconds };
+    return val;
+}
+
+function _deserializeTimestamp(val) {
+    if (val?._s != null) return new Timestamp(val._s, val._n);
+    return val;
+}
+
+function _saveSearchCache(projectId, activeItems) {
+    try {
+        const serialized = activeItems.map(item => ({
+            ...item,
+            createdAt: _serializeTimestamp(item.createdAt),
+            updatedAt: _serializeTimestamp(item.updatedAt),
+            dueDate: _serializeTimestamp(item.dueDate),
+        }));
+        localStorage.setItem(SEARCH_CACHE_PREFIX + projectId, JSON.stringify(serialized));
+    } catch (e) { /* 저장 실패 무시 */ }
+}
+
+function _getSearchCache(projectId) {
+    try {
+        const stored = localStorage.getItem(SEARCH_CACHE_PREFIX + projectId);
+        if (!stored) return null;
+        return JSON.parse(stored).map(item => ({
+            ...item,
+            createdAt: _deserializeTimestamp(item.createdAt),
+            updatedAt: _deserializeTimestamp(item.updatedAt),
+            dueDate: _deserializeTimestamp(item.dueDate),
+        }));
+    } catch (e) { return null; }
+}
 
 // ===== 페이지 검색 (Firebase 읽기 0건) =====
 export function searchProjects(projects, keyword, filters = {}) {
@@ -110,13 +145,15 @@ function applyFilters(items, filters) {
     return result;
 }
 
-// ===== 모든 프로젝트 아이템 미리 로드 (검색 탭 진입 시 1회) =====
+// ===== 모든 프로젝트 아이템 미리 로드 (검색 탭 진입 시) =====
 let _preloading = null;
 export async function preloadAllItems(projects) {
     // 이미 로드 중이면 기존 Promise 반환
     if (_preloading) return _preloading;
-    const uncached = projects.filter(p => !getCachedItems(p.id) && !searchCacheMap.has(p.id));
-    if (uncached.length === 0) return;
+    // itemCache가 있는(=실시간 구독 중) 프로젝트만 건너뜀
+    // searchCache만 있는 프로젝트는 항상 재로드 (다른 멤버 변경 반영)
+    const uncached = projects.filter(p => !getCachedItems(p.id));
+    if (uncached.length === 0) return Promise.resolve();
     _preloading = (async () => {
         for (const p of uncached) {
             try {
@@ -127,7 +164,7 @@ export async function preloadAllItems(projects) {
                     const data = { id: d.id, ...d.data() };
                     if (!data.deleted) active.push(data);
                 });
-                searchCacheMap.set(p.id, active);
+                _saveSearchCache(p.id, active);
             } catch (e) {
                 console.warn(`preload failed for ${p.id}`, e);
             }
@@ -144,7 +181,7 @@ export function searchItems(projects, keyword, filters) {
 
     for (const project of projects) {
         const cached = getCachedItems(project.id);
-        const searchCached = !cached ? searchCacheMap.get(project.id) : null;
+        const searchCached = !cached ? _getSearchCache(project.id) : null;
         const activeItems = cached ? cached.active : searchCached;
         if (!activeItems) continue;
 
@@ -212,4 +249,15 @@ export function addRecentSearch(keyword) {
 
 export function clearRecentSearches() {
     localStorage.removeItem(RECENT_KEY);
+}
+
+// ===== 로그아웃 시 캐시 삭제 =====
+export function clearSearchCache() {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(SEARCH_CACHE_PREFIX)) {
+            localStorage.removeItem(key);
+        }
+    }
+    clearRecentSearches();
 }

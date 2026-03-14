@@ -95,6 +95,7 @@ export default function MainPage() {
 
     // 7일 체험 환영 팝업
     const [showWelcomeTrialModal, setShowWelcomeTrialModal] = useState(false);
+    const [chatLastReadMap, setChatLastReadMap] = useState({}); // 채팅 뱃지용
 
     // 실효 플랜 제한
     const effectiveLimits = useMemo(() => getUserLimits(profile), [profile]);
@@ -258,6 +259,29 @@ export default function MainPage() {
         return () => { unsub1(); unsub2(); };
     }, [profile?.uid]);
 
+    // ⑤ chatLastRead 로드 (채팅 뱃지용)
+    const projectBadgeKey = projects.map(p => `${p.id}:${p.lastMessageAt?.seconds||0}`).sort().join(',');
+    useEffect(() => {
+        if (!profile?.uid || !projectBadgeKey) return;
+        const ids = projectBadgeKey.split(',').map(s => s.split(':')[0]);
+        (async () => {
+            const { doc: docRef, getDoc } = await import('firebase/firestore');
+            const { db: fireDb } = await import('../services/firebase');
+            const results = {};
+            await Promise.allSettled(
+                ids.map(async (pid) => {
+                    try {
+                        const snap = await getDoc(docRef(fireDb, 'projects', pid, 'chatLastRead', profile.uid));
+                        if (snap.exists()) {
+                            results[pid] = snap.data().lastReadAt?.toDate?.() || null;
+                        }
+                    } catch (e) { /* skip */ }
+                })
+            );
+            setChatLastReadMap(results);
+        })();
+    }, [projectBadgeKey, profile?.uid]);
+
     // UpgradeModal state
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [upgradeReason, setUpgradeReason] = useState('');
@@ -400,31 +424,33 @@ export default function MainPage() {
     // 검색 탭 진입 시 모든 프로젝트 아이템 미리 로드 + 전체 목록 즉시 표시
     useEffect(() => {
         if (activeTab === 'search' && projects.length > 0) {
-            // 페이지 검색은 프리로드 불필요 → 즉시 전체 목록
             if (searchType === 'page') {
                 const res = searchProjects(projects, '', pageFilters);
                 setSearchResults(sortResults(res, pageSortBy));
             }
-            // 체크리스트는 프리로드 후 전체 목록
-            if (!preloadReady) {
+            if (searchType === 'checklist') {
+                // 1) 캐시된 결과 즉시 표시 (앱 재시작 시 localStorage에서)
+                const cachedRes = searchItems(projects, '', filters);
+                if (cachedRes.length > 0) {
+                    setSearchResults(sortResults(cachedRes, sortBy));
+                    setPreloadReady(true);
+                }
+                // 2) 미구독 프로젝트를 DB에서 로드 (다른 멤버 변경 반영)
                 preloadAllItems(projects).then(() => {
                     setPreloadReady(true);
-                    if (searchType === 'checklist') {
-                        const res = searchItems(projects, '', filters);
-                        setSearchResults(sortResults(res, sortBy));
-                    }
-                });
-            } else if (searchType === 'checklist') {
-                const res = searchItems(projects, '', filters);
-                setSearchResults(sortResults(res, sortBy));
+                    const freshRes = searchItems(projects, '', filters);
+                    setSearchResults(sortResults(freshRes, sortBy));
+                }).catch(e => console.warn('preload error', e));
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, projects, preloadReady]);
+    }, [activeTab, projects, searchType]);
 
     const handleSearchToggle = async (item) => {
         try {
             await toggleCheck(item.projectId, item.id, !item.checked, item);
+            // 본인 토글 → 카드 뱃지 미표시
+            localStorage.setItem(`itemLastViewed_${item.projectId}`, new Date().toISOString());
             setSearchResults(prev => prev.map(r =>
                 r.id === item.id && r.projectId === item.projectId
                     ? { ...r, checked: !r.checked }
@@ -658,19 +684,13 @@ export default function MainPage() {
         navigate(`/project/${req.projectId}?openSettings=true`);
     };
 
-    // 캘린더 공유 거절 + notifications에 알림 저장
+    // 캘린더 공유 거절
     const handleRejectCalendarShare = async (req) => {
         try {
-            const { updateDoc, doc, serverTimestamp, arrayUnion } = await import('firebase/firestore');
+            const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
             const { db: fireDb } = await import('../services/firebase');
             await updateDoc(doc(fireDb, 'projects', req.projectId), {
-                [`calendarShareRequests.${req.userId}`]: false,
-                notifications: arrayUnion({
-                    text: `📅 [${req.nickname}]님의 캘린더 공유 요청이 거절되었습니다.`,
-                    projectName: req.projectName,
-                    createdAt: new Date().toISOString(),
-                    type: 'calendar',
-                }),
+                [`calendarInvites.${req.userId}.status`]: 'rejected',
                 updatedAt: serverTimestamp(),
             });
             addToast('캘린더 공유 요청을 거절했습니다.', 'info');
@@ -688,10 +708,10 @@ export default function MainPage() {
 
     // 요청 탭: 받은 초대(pending) + 보낸 초대(전체 상태) + 캘린더 요청 합산 카운트
     const calendarShareRequests = projects.reduce((acc, project) => {
-        if (project.ownerId === profile?.uid && project.calendarShareRequests) {
-            const pending = Object.entries(project.calendarShareRequests)
-                .filter(([uid, requested]) => requested && uid !== profile?.uid);
-            pending.forEach(([uid]) => {
+        if (project.ownerId === profile?.uid && project.calendarInvites) {
+            const pending = Object.entries(project.calendarInvites)
+                .filter(([uid, data]) => data?.direction === 'member-to-admin' && data?.status === 'pending' && uid !== profile?.uid);
+            pending.forEach(([uid, data]) => {
                 const member = project.members?.[uid];
                 if (member) {
                     acc.push({
@@ -708,7 +728,8 @@ export default function MainPage() {
 
     // 참여자용: 관리자가 캘린더를 공유했지만 아직 확인하지 않은 알림
     const calendarSharedNotifications = projects.reduce((acc, project) => {
-        if (project.ownerId !== profile?.uid && project.calendarSharedWith?.[profile?.uid] && !project.calendarShareAccepted?.[profile?.uid]) {
+        const invite = project.calendarInvites?.[profile?.uid];
+        if (project.ownerId !== profile?.uid && invite?.direction === 'admin-to-member' && invite?.status === 'pending') {
             acc.push({
                 projectId: project.id,
                 projectName: project.name,
@@ -724,7 +745,7 @@ export default function MainPage() {
             const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
             const { db: fireDb } = await import('../services/firebase');
             await updateDoc(doc(fireDb, 'projects', notification.projectId), {
-                [`calendarShareAccepted.${profile.uid}`]: true,
+                [`calendarInvites.${profile.uid}.status`]: 'accepted',
                 updatedAt: serverTimestamp(),
             });
             addToast('캘린더 공유를 확인했습니다. Gmail에서 초대를 수락해주세요.', 'success');
@@ -733,24 +754,7 @@ export default function MainPage() {
         }
     };
 
-    // 시스템 알림 수집 (각 프로젝트의 notifications 배열에서)
-    const systemNotifications = projects.reduce((acc, project) => {
-        if (project.notifications && Array.isArray(project.notifications)) {
-            project.notifications.forEach((noti, idx) => {
-                // 본인이 생성한 activity 알림 제외
-                if (noti.type === 'activity' && noti.actorId === profile?.uid) return;
-                acc.push({
-                    ...noti,
-                    projectId: project.id,
-                    projectName: noti.projectName || project.name,
-                    idx,
-                });
-            });
-        }
-        return acc;
-    }, []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    const requestCount = invitations.length + sentInvitations.length + calendarShareRequests.length + calendarSharedNotifications.length + systemNotifications.length + directMessages.length;
+    const requestCount = invitations.length + sentInvitations.length + calendarShareRequests.length + calendarSharedNotifications.length + directMessages.length;
 
     const getStatusBadge = (status) => {
         switch (status) {
@@ -1301,6 +1305,16 @@ export default function MainPage() {
                                                 {project.name}
                                             </h3>
                                             <div className="project-card-badges">
+                                                {project.lastMessageAt?.toDate &&
+                                                 (!chatLastReadMap[project.id] || project.lastMessageAt.toDate() > chatLastReadMap[project.id]) && (
+                                                    <span className="unread-dot" title="읽지 않은 채팅">💬</span>
+                                                )}
+                                                {project.lastItemUpdatedAt?.toDate && (() => {
+                                                    const lv = localStorage.getItem(`itemLastViewed_${project.id}`);
+                                                    return !lv || project.lastItemUpdatedAt.toDate() > new Date(lv);
+                                                })() && (
+                                                    <span className="unread-dot" title="변경된 체크리스트">❗</span>
+                                                )}
                                                 {project.ownerId === profile?.uid && (
                                                     <button
                                                         className="card-edit-btn"
@@ -1642,108 +1656,8 @@ export default function MainPage() {
                             </div>
                         )}
 
-                        {/* 시스템 알림 */}
-                        {systemNotifications.length > 0 && (
-                            <div className="request-section">
-                                <div className="flex-row-between">
-                                    <h3 className="request-section-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>🔔 시스템 알림</h3>
-                                    <button
-                                        className="btn btn-sm btn-secondary"
-                                        onClick={async () => {
-                                            if (!window.confirm('시스템 알림을 모두 닫으시겠습니까?')) return;
-                                            try {
-                                                const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
-                                                const { db: fireDb } = await import('../services/firebase');
-                                                // 프로젝트별로 그룹핑 후 일괄 삭제
-                                                const byProject = {};
-                                                systemNotifications.forEach(noti => {
-                                                    const project = projects.find(p => p.id === noti.projectId);
-                                                    if (project?.notifications?.[noti.idx]) {
-                                                        if (!byProject[noti.projectId]) byProject[noti.projectId] = [];
-                                                        byProject[noti.projectId].push(project.notifications[noti.idx]);
-                                                    }
-                                                });
-                                                await Promise.allSettled(
-                                                    Object.entries(byProject).map(([pid, items]) =>
-                                                        updateDoc(doc(fireDb, 'projects', pid), {
-                                                            notifications: arrayRemove(...items),
-                                                        })
-                                                    )
-                                                );
-                                                addToast('시스템 알림을 모두 닫았습니다.', 'success');
-                                            } catch (e) {
-                                                addToast('삭제에 실패했습니다.', 'error');
-                                            }
-                                        }}
-                                    >
-                                        모두 닫기
-                                    </button>
-                                </div>
-                                {systemNotifications.map((noti, i) => (
-                                    <div key={`sys-${noti.projectId}-${i}`} className="request-card card">
-                                        <div className="invitation-info">
-                                            <h3 className="invitation-project">{noti.projectName}</h3>
-                                            <p className="invitation-from">{noti.text}</p>
-                                            <div className="flex-row-center margin-t-sm">
-                                                {noti.createdAt && (
-                                                    <span className="invitation-time margin-l-auto">{formatTime(new Date(noti.createdAt))}</span>
-                                                )}
-                                                <button
-                                                    className="btn btn-primary btn-sm"
-                                                    onClick={async () => {
-                                                        // 공통 알림 제거 로직
-                                                        const removeNoti = async () => {
-                                                            try {
-                                                                const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
-                                                                const { db: fireDb } = await import('../services/firebase');
-                                                                const project = projects.find(p => p.id === noti.projectId);
-                                                                if (project?.notifications?.[noti.idx]) {
-                                                                    await updateDoc(doc(fireDb, 'projects', noti.projectId), {
-                                                                        notifications: arrayRemove(project.notifications[noti.idx]),
-                                                                    });
-                                                                }
-                                                            } catch (e) {
-                                                                addToast('삭제에 실패했습니다.', 'error');
-                                                            }
-                                                        };
-                                                        if (noti.action === 'delete') {
-                                                            await removeNoti();
-                                                        } else {
-                                                            removeNoti();
-                                                            navigate(`/project/${noti.projectId}${noti.itemId ? `?openItem=${noti.itemId}` : ''}`);
-                                                        }
-                                                    }}
-                                                >
-                                                    확인
-                                                </button>
-                                                <button
-                                                    className="btn btn-secondary btn-sm"
-                                                    onClick={async () => {
-                                                        try {
-                                                            const { updateDoc, doc, arrayRemove } = await import('firebase/firestore');
-                                                            const { db: fireDb } = await import('../services/firebase');
-                                                            const project = projects.find(p => p.id === noti.projectId);
-                                                            if (project?.notifications?.[noti.idx]) {
-                                                                await updateDoc(doc(fireDb, 'projects', noti.projectId), {
-                                                                    notifications: arrayRemove(project.notifications[noti.idx]),
-                                                                });
-                                                            }
-                                                        } catch (e) {
-                                                            addToast('삭제에 실패했습니다.', 'error');
-                                                        }
-                                                    }}
-                                                >
-                                                    닫기
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
                         {/* 빈 상태 */}
-                        {invitations.length === 0 && sentInvitations.length === 0 && calendarShareRequests.length === 0 && calendarSharedNotifications.length === 0 && systemNotifications.length === 0 && directMessages.length === 0 && (
+                        {invitations.length === 0 && sentInvitations.length === 0 && calendarShareRequests.length === 0 && calendarSharedNotifications.length === 0 && directMessages.length === 0 && (
                             <div className="empty-state">
                                 <div className="empty-state-icon">✉️</div>
                                 <div className="empty-state-title">메세지가 없습니다</div>

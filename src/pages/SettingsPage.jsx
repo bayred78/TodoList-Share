@@ -91,6 +91,7 @@ export default function SettingsPage() {
             updated.itemCreate = false;
             updated.itemChange = false;
             updated.chat = false;
+            updated.comment = false;
             updated.dm = false;
             updated.invitation = false;
             updated.dueDate = false;
@@ -100,13 +101,14 @@ export default function SettingsPage() {
             updated.itemCreate = true;
             updated.itemChange = true;
             updated.chat = true;
+            updated.comment = true;
             updated.dm = true;
             updated.invitation = true;
             updated.dueDate = canUseDueDate;
         }
         // 개별 하나라도 ON이면 전체도 ON
         if (key !== 'enabled') {
-            const anyOn = updated.itemCreate || updated.itemChange || updated.chat || updated.dm || updated.invitation || updated.dueDate;
+            const anyOn = updated.itemCreate || updated.itemChange || updated.chat || updated.comment || updated.dm || updated.invitation || updated.dueDate;
             updated.enabled = anyOn;
         }
         setNotiSettings(updated);
@@ -331,6 +333,13 @@ export default function SettingsPage() {
                             <span>💬 채팅</span>
                             <label className="toggle-switch">
                                 <input type="checkbox" checked={notiSettings.chat} onChange={() => handleNotiToggle('chat')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div className="noti-setting-row">
+                            <span>💬 댓글</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.comment} onChange={() => handleNotiToggle('comment')} disabled={notiSaving} />
                                 <span className="toggle-slider"></span>
                             </label>
                         </div>

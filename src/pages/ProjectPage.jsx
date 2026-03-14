@@ -10,7 +10,7 @@ import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 import { getNotificationSettings, setChatNotiMuted, setActiveChatProjectId } from '../services/notificationService';
-import { sendMessage, subscribeToRecentMessages, loadOlderMessages, updateLastRead, getCachedMessages, setCachedMessages, sendDirectMessage } from '../services/chatService';
+import { sendMessage, subscribeToRecentMessages, loadOlderMessages, updateLastRead, getLastRead, getCachedMessages, setCachedMessages, sendDirectMessage } from '../services/chatService';
 import { inviteUser } from '../services/invitationService';
 import { findUserByNicknameOrEmail } from '../services/userService';
 import { getUserProfile } from '../services/authService';
@@ -480,6 +480,34 @@ export default function ProjectPage() {
     const { profile, refreshProfile } = useAuthStore();
     const addToast = useToastStore((s) => s.addToast);
 
+    // 아이템별 읽음 시간 관리 (뱃지용)
+    const getItemReadMap = (pid) => { try { return JSON.parse(localStorage.getItem(`itemRead_${pid}`) || '{}'); } catch { return {}; } };
+    const [itemReadVer, setItemReadVer] = useState(0); // 뱃지 리렌더 트리거
+    const itemReadMap = useMemo(() => getItemReadMap(projectId), [projectId, itemReadVer]);
+    const markItemAsRead = (pid, itemId) => {
+        const map = getItemReadMap(pid);
+        map[itemId] = new Date().toISOString();
+        localStorage.setItem(`itemRead_${pid}`, JSON.stringify(map));
+        setItemReadVer(v => v + 1);
+        // 모든 아이템 읽음 → 카드 뱃지 갱신
+        if (items.length > 0) {
+            const allRead = items.every(i => {
+                if (!i.updatedAt?.toDate) return true;
+                const lr = map[i.id];
+                return lr && i.updatedAt.toDate() <= new Date(lr);
+            });
+            if (allRead) {
+                localStorage.setItem(`itemLastViewed_${pid}`, new Date().toISOString());
+            }
+        }
+    };
+    const isItemUnread = (item) => {
+        if (!item.updatedAt?.toDate) return false;
+        const lastRead = itemReadMap[item.id];
+        if (!lastRead) return true;
+        return item.updatedAt.toDate() > new Date(lastRead);
+    };
+
     const [project, setProject] = useState(null);
     const [items, setItems] = useState([]);
     const [activeTab, setActiveTab] = useState('checklist');
@@ -643,6 +671,7 @@ export default function ProjectPage() {
     const [chatUploading, setChatUploading] = useState(false);
     const [loadingOlder, setLoadingOlder] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    const [chatLastReadAt, setChatLastReadAt] = useState(null); // 채팅 뱃지용
     const chatEndRef = React.useRef(null);
     const chatContainerRef = React.useRef(null);
     const chatFileInputRef = React.useRef(null);
@@ -855,8 +884,25 @@ export default function ProjectPage() {
     useEffect(() => {
         if (activeTab === 'chat' && profile) {
             updateLastRead(projectId, profile.uid);
+            setChatLastReadAt(new Date()); // 뱃지 즉시 초기화
         }
-    }, [activeTab, profile, projectId]);
+    }, [activeTab, profile, projectId, project?.lastMessageAt?.seconds]);
+
+    // 채팅 마지막 읽은 시간 로드 (뱃지용)
+    useEffect(() => {
+        if (!profile?.uid || !projectId) return;
+        (async () => {
+            const lastRead = await getLastRead(projectId, profile.uid);
+            setChatLastReadAt(lastRead?.toDate?.() || null);
+        })();
+    }, [profile?.uid, projectId]);
+
+    // 채팅 뱃지: project.lastMessageAt vs chatLastReadAt 직접 비교 (채팅 구독 불필요)
+    const hasUnreadChat = (() => {
+        if (!project?.lastMessageAt?.toDate) return false;
+        const lastMsg = project.lastMessageAt.toDate();
+        return !chatLastReadAt || lastMsg > chatLastReadAt;
+    })();
 
     // 채팅 메시지 변경 시 스크롤 제어
     // 의존성: 마지막 메시지 ID → 새 메시지가 올 때만 트리거 (길이가 같아도 감지)
@@ -905,41 +951,42 @@ export default function ProjectPage() {
     useEffect(() => {
         if (project) {
             setCalendarId(getProjectCalendarId(project));
-            // 캘린더 공유 상태 로드
-            if (project.calendarSharedWith) {
-                setCalendarSharedMembers(project.calendarSharedWith);
+            // 캘린더 상태 로드 (calendarInvites에서 파생)
+            const invites = project.calendarInvites || {};
+            const shared = {};
+            const requested = {};
+            for (const [uid, data] of Object.entries(invites)) {
+                if (data?.direction === 'admin-to-member') {
+                    shared[uid] = data.status === 'accepted' ? true : data.status === 'pending' ? 'pending' : false;
+                } else if (data?.direction === 'member-to-admin' && data?.status === 'pending') {
+                    requested[uid] = true;
+                }
             }
-            // 캘린더 공유 요청 상태 로드
-            if (project.calendarShareRequests) {
-                setCalendarShareRequested(project.calendarShareRequests);
-            }
+            setCalendarSharedMembers(shared);
+            setCalendarShareRequested(requested);
         }
     }, [project]);
 
     // 캘린더 자동 구독: 공유 상태가 pending이면 자동으로 내 캘린더에 추가
     useEffect(() => {
         if (!project || !profile || !myCalendarId) return;
-        const sharedStatus = project.calendarSharedWith?.[profile.uid];
-        if (sharedStatus === 'pending' || sharedStatus === true) {
-            // pending이면 자동 구독 시도
-            if (sharedStatus === 'pending') {
-                (async () => {
-                    try {
-                        const { subscribeToCalendar } = await import('../services/calendarService');
-                        await subscribeToCalendar(myCalendarId);
-                        // 구독 성공 → 상태 업데이트
-                        const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
-                        const { db } = await import('../services/firebase');
-                        await updateDoc(doc(db, 'projects', projectId), {
-                            [`calendarSharedWith.${profile.uid}`]: true,
-                            [`calendarShareAccepted.${profile.uid}`]: true,
-                            updatedAt: serverTimestamp(),
-                        });
-                    } catch (err) {
-                        console.error('캘린더 자동 구독 실패:', err);
-                    }
-                })();
-            }
+        const invite = project.calendarInvites?.[profile.uid];
+        if (invite?.direction === 'admin-to-member' && invite?.status === 'pending') {
+            (async () => {
+                try {
+                    const { subscribeToCalendar } = await import('../services/calendarService');
+                    await subscribeToCalendar(myCalendarId);
+                    // 구독 성공 → 상태 업데이트
+                    const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
+                    const { db } = await import('../services/firebase');
+                    await updateDoc(doc(db, 'projects', projectId), {
+                        [`calendarInvites.${profile.uid}`]: { direction: 'admin-to-member', status: 'accepted' },
+                        updatedAt: serverTimestamp(),
+                    });
+                } catch (err) {
+                    console.error('캘린더 자동 구독 실패:', err);
+                }
+            })();
         }
     }, [project, profile, myCalendarId, projectId]);
 
@@ -958,6 +1005,7 @@ export default function ProjectPage() {
         if (openItemId && items.length > 0) {
             const targetItem = items.find(i => i.id === openItemId);
             if (targetItem) {
+                markItemAsRead(projectId, targetItem.id);
                 const copy = { ...targetItem };
                 copy.contentBlocks = initContentBlocks(copy);
                 setEditItem(copy);
@@ -1331,6 +1379,7 @@ export default function ProjectPage() {
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
+            markItemAsRead(projectId, newItemId); // 본인 생성 → 확인 간주
             // 첨부 파일 업로드 (contentBlocks 기반)
             const pendingBlocks = newContentBlocks.filter(b => b.pendingFile);
             if (pendingBlocks.length > 0) {
@@ -1360,23 +1409,6 @@ export default function ProjectPage() {
                 });
                 newContentBlocks.filter(b => b.preview).forEach(b => URL.revokeObjectURL(b.preview));
             }
-            // 활동 알림 전송 (메인페이지 메세지탭에 표시)
-            try {
-                const { updateDoc, doc, arrayUnion } = await import('firebase/firestore');
-                const { db } = await import('../services/firebase');
-                await updateDoc(doc(db, 'projects', projectId), {
-                    notifications: arrayUnion({
-                        type: 'activity',
-                        action: 'create',
-                        text: `📋 "${newTitle.trim()}" 항목을 추가했습니다.`,
-                        actorId: profile.uid,
-                        actorName: getMemberName(profile.uid) || profile.nickname,
-                        projectName: project?.name || '',
-                        createdAt: new Date().toISOString(),
-                        itemId: newItemId,
-                    }),
-                });
-            } catch (e) { console.error('활동 알림 전송 실패:', e); }
             setNewTitle('');
             setNewContent('');
             setNewColor(null);
@@ -1411,6 +1443,7 @@ export default function ProjectPage() {
 
         try {
             const result = await toggleCheck(projectId, item.id, !item.checked, item, profile?.uid);
+            markItemAsRead(projectId, item.id); // 본인 토글 → 확인 간주
             // 반복 항목 체크 시 확인 모달 표시
             if (result?.isRepeat) {
                 setRepeatConfirmItem(item);
@@ -1438,6 +1471,8 @@ export default function ProjectPage() {
 
         try {
             await createRepeatItem(projectId, repeatConfirmItem);
+            // 본인이 생성 → 카드 뱃지 미표시
+            localStorage.setItem(`itemLastViewed_${projectId}`, new Date().toISOString());
             addToast('반복 항목이 새로 생성되었습니다.', 'info');
         } catch (error) {
             addToast('반복 항목 생성에 실패했습니다.', 'error');
@@ -1476,6 +1511,7 @@ export default function ProjectPage() {
                 if (allChecked && !item.checked) {
                     if (window.confirm('모든 참여자가 완료했습니다. 체크리스트를 완료 처리하시겠습니까?')) {
                         await toggleCheck(projectId, item.id, true, item, profile?.uid);
+                        markItemAsRead(projectId, item.id); // 본인 수정 → 확인 간주
                         addToast('체크리스트가 완료 처리되었습니다!', 'success');
                         // 반복 항목이면 확인 모달 표시
                         if (item.repeatType && item.repeatType !== 'none') {
@@ -1570,22 +1606,7 @@ export default function ProjectPage() {
         const deletedItem = items.find(i => i.id === itemId);
         try {
             await deleteTodoItem(projectId, itemId);
-            // 활동 알림 전송 (메인페이지 메세지탭에 표시)
-            try {
-                const { updateDoc, doc, arrayUnion } = await import('firebase/firestore');
-                const { db } = await import('../services/firebase');
-                await updateDoc(doc(db, 'projects', projectId), {
-                    notifications: arrayUnion({
-                        type: 'activity',
-                        action: 'delete',
-                        text: `🗑️ "${deletedItem?.title || '항목'}" 을(를) 삭제했습니다.`,
-                        actorId: profile.uid,
-                        actorName: getMemberName(profile.uid) || profile.nickname,
-                        projectName: project?.name || '',
-                        createdAt: new Date().toISOString(),
-                    }),
-                });
-            } catch (e) { console.error('활동 알림 전송 실패:', e); }
+            // 활동 알림은 Phase 5(활동 로그)에서 서브컬렉션으로 재구현 예정
             addToast('휴지통으로 이동했습니다. (7일 후 영구 삭제)', 'success');
         } catch (error) {
             addToast('삭제에 실패했습니다.', 'error');
@@ -1877,13 +1898,15 @@ export default function ProjectPage() {
             try {
                 const aclEmails = await getCalendarAclEmails(myCalendarId);
                 if (!aclEmails) return;
-                const sharedWith = project.calendarSharedWith || {};
+                const invites = project.calendarInvites || {};
                 const members = project.members || {};
                 const updates = {};
                 let hasChanges = false;
 
-                for (const [uid, status] of Object.entries(sharedWith)) {
-                    if (!status) continue; // false는 스킵
+                for (const [uid, data] of Object.entries(invites)) {
+                    if (data?.direction !== 'admin-to-member') continue;
+                    const status = data?.status;
+                    if (!status || status === 'rejected') continue;
                     const member = members[uid];
                     if (!member) continue;
                     try {
@@ -1892,12 +1915,10 @@ export default function ProjectPage() {
                             const emailLower = memberProfile.email.toLowerCase();
                             const inAcl = aclEmails.includes(emailLower);
                             if (status === 'pending' && inAcl) {
-                                // 참여자가 이메일에서 참여 완료 → true로 업데이트
-                                updates[`calendarSharedWith.${uid}`] = true;
+                                updates[`calendarInvites.${uid}.status`] = 'accepted';
                                 hasChanges = true;
-                            } else if (status === true && !inAcl) {
-                                // ACL에서 제거됨 → false로 동기화
-                                updates[`calendarSharedWith.${uid}`] = false;
+                            } else if (status === 'accepted' && !inAcl) {
+                                updates[`calendarInvites.${uid}.status`] = 'rejected';
                                 hasChanges = true;
                             }
                         }
@@ -2397,6 +2418,21 @@ export default function ProjectPage() {
             saveBlocks = htmlToBlocks(richEditorRef.current.innerHTML, editItem.contentBlocks);
         }
 
+        // ★ 변경 여부 확인 (미수정 시 저장 생략)
+        const noChanges = editItem.title === editItemOriginal?.title
+            && (editItem.content || '') === (editItemOriginal?.content || '')
+            && (editItem.color || null) === (editItemOriginal?.color || null)
+            && JSON.stringify(saveBlocks) === JSON.stringify(editItemOriginal?.contentBlocks || [])
+            && (editItem.dueDate || null) === (editItemOriginal?.dueDate || null)
+            && JSON.stringify(editItem.labels || []) === JSON.stringify(editItemOriginal?.labels || [])
+            && (editItem.repeatType || null) === (editItemOriginal?.repeatType || null)
+            && JSON.stringify(editItem.assignees || []) === JSON.stringify(editItemOriginal?.assignees || []);
+        if (noChanges) {
+            setShowEditModal(false);
+            setIsEditingContent(false);
+            return false;
+        }
+
         // ★ 편집 시 신규 마감일 추가 제한 (기존 마감일 수정은 허용)
         const hadDueDate = !!editItemOriginal?.dueDate;
         const hasDueDate = !!editItem.dueDate;
@@ -2499,6 +2535,7 @@ export default function ProjectPage() {
             }));
             setIsEditingContent(false);
             addToast('수정되었습니다.', 'success');
+            markItemAsRead(projectId, editItem.id); // 본인 수정 → 뱃지 미표시
         } catch (error) {
             if (error.code === 'VERSION_CONFLICT') {
                 const { content: conflictContent, images: conflictImages, files: conflictFiles } = extractFromBlocks(saveBlocks);
@@ -2576,7 +2613,7 @@ export default function ProjectPage() {
     const handleConflictSaveAsNew = async () => {
         if (!conflictData) return;
         try {
-            await addTodoItem(projectId, {
+            const newId = await addTodoItem(projectId, {
                 title: conflictData.myData.title + ' (사본)',
                 content: conflictData.myData.content,
                 images: conflictData.myData.images || [],
@@ -2590,6 +2627,7 @@ export default function ProjectPage() {
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
+            markItemAsRead(projectId, newId); // 본인 생성 → 확인 간주
             // 활동 알림 전송
             try {
                 const { updateDoc: ud, doc: d, arrayUnion: au } = await import('firebase/firestore');
@@ -2724,44 +2762,17 @@ export default function ProjectPage() {
                 const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
                 const { db } = await import('../services/firebase');
                 await updateDoc(doc(db, 'projects', projectId), {
-                    [`calendarSharedWith.${userId}`]: false,
-                    [`calendarShareAccepted.${userId}`]: false,
+                    [`calendarInvites.${userId}`]: { direction: 'admin-to-member', status: 'rejected' },
                     updatedAt: serverTimestamp(),
                 });
-                // 참여자에게 해제 안내 (메인페이지 메세지탭에 표시)
-                try {
-                    const { arrayUnion } = await import('firebase/firestore');
-                    await updateDoc(doc(db, 'projects', projectId), {
-                        notifications: arrayUnion({
-                            text: `📅 [${member.displayName || member.nickname}]님의 캘린더 공유가 해제되었습니다.`,
-                            projectName: project.name,
-                            createdAt: new Date().toISOString(),
-                            type: 'calendar',
-                        }),
-                    });
-                } catch (e) { /* skip */ }
             } else {
                 await shareCalendarWithUser(myCalendarId, userProfile.email);
                 const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
                 const { db } = await import('../services/firebase');
                 await updateDoc(doc(db, 'projects', projectId), {
-                    [`calendarSharedWith.${userId}`]: 'pending',
-                    [`calendarShareRequests.${userId}`]: false,
-                    [`calendarShareAccepted.${userId}`]: false,
+                    [`calendarInvites.${userId}`]: { direction: 'admin-to-member', status: 'pending' },
                     updatedAt: serverTimestamp(),
                 });
-                // 참여자에게 안내 메시지 전송 (메인페이지 메세지탭에 표시)
-                try {
-                    const { arrayUnion } = await import('firebase/firestore');
-                    await updateDoc(doc(db, 'projects', projectId), {
-                        notifications: arrayUnion({
-                            text: `📅 [${member.displayName || member.nickname}]님의 캘린더 공유가 승인되었습니다! 캘린더 탭에서 공유된 캘린더를 확인하세요.`,
-                            projectName: project.name,
-                            createdAt: new Date().toISOString(),
-                            type: 'calendar',
-                        }),
-                    });
-                } catch (e) { /* 메시지 전송 실패해도 공유는 완료 */ }
             }
             lastShareTimeRef.current = Date.now();
         } catch (error) {
@@ -2780,7 +2791,7 @@ export default function ProjectPage() {
             const { updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
             const { db } = await import('../services/firebase');
             await updateDoc(doc(db, 'projects', projectId), {
-                [`calendarShareRequests.${profile.uid}`]: true,
+                [`calendarInvites.${profile.uid}`]: { direction: 'member-to-admin', status: 'pending' },
                 updatedAt: serverTimestamp(),
             });
             addToast('관리자에게 캘린더 공유를 요청했습니다.', 'success');
@@ -2908,9 +2919,12 @@ export default function ProjectPage() {
                         }}
                     >
                         ✅ 체크리스트{activeFilterCount > 0 && ` 🔍${activeFilterCount}`}
+
                     </button>
                     <button className={`tab-item ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => { setActiveTab('chat'); setShowFilterPanel(false); }}>
-                        💬 채팅
+                        💬 채팅{hasUnreadChat && activeTab !== 'chat' && (
+                            <span className="unread-dot">❗</span>
+                        )}
                     </button>
                     <button
                         className={`tab-item ${activeTab === 'calendar' ? 'active' : ''}`}
@@ -3522,6 +3536,7 @@ export default function ProjectPage() {
                                         </div>
 
                                         <div className="todo-content" onClick={() => {
+                                            markItemAsRead(projectId, item.id); // 뱃지 초기화
                                             if (userCanWrite && !item.locked) {
                                                 const copy = { ...item };
                                                 copy.contentBlocks = initContentBlocks(copy);
@@ -3540,6 +3555,7 @@ export default function ProjectPage() {
                                             }
                                         }}>
                                             <h4 className={`todo-title ${item.checked ? 'line-through' : ''}`}>
+
                                                 {(() => {
                                                     const dp = getDuePriority(item.dueDate);
                                                     return dp.level > 0 && !item.checked ? (
@@ -3695,6 +3711,9 @@ export default function ProjectPage() {
                                                 </span>
                                             )}
                                         </div>
+                                        {isItemUnread(item) && (
+                                            <span className="unread-dot">❗</span>
+                                        )}
                                     </div>
                                     {/* 외부 액션: 리스트 모드에서만 표시 */}
                                     {pageViewMode === 'list' && (

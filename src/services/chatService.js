@@ -91,7 +91,9 @@ export async function sendMessage(projectId, { text, senderId, senderNickname, .
         createdAt: serverTimestamp(),
     });
 
-    // 마지막 읽은 시간 업데이트
+    // 프로젝트 마지막 메시지 시간 기록 (뱃지용) — await로 기록 보장
+    await updateDoc(doc(db, 'projects', projectId), { lastMessageAt: serverTimestamp() });
+    // 마지막 읽은 시간 업데이트 (발신자 뱃지 미표시 보장: lastReadAt >= lastMessageAt)
     await updateLastRead(projectId, senderId);
 }
 

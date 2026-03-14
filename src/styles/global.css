@@ -750,14 +750,27 @@ ol {
   transition: all var(--transition-normal);
   text-align: center;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  position: relative;
 }
 
 .tab-item.active {
   background: var(--color-primary);
   color: var(--color-on-primary);
   box-shadow: var(--shadow-sm);
+}
+
+
+/* 읽지 않은 뱃지 (채팅/체크리스트 dot — pulse 애니메이션) */
+.unread-dot {
+  font-size: 1rem;
+  line-height: 1;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* ===== Bottom Navigation ===== */

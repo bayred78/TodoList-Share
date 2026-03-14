@@ -26,6 +26,8 @@ function serializeProjects(projects) {
         ...p,
         createdAt: serializeTimestamp(p.createdAt),
         updatedAt: serializeTimestamp(p.updatedAt),
+        lastMessageAt: serializeTimestamp(p.lastMessageAt),
+        lastItemUpdatedAt: serializeTimestamp(p.lastItemUpdatedAt),
     }));
 }
 
@@ -34,6 +36,8 @@ function deserializeProjects(projects) {
         ...p,
         createdAt: deserializeTimestamp(p.createdAt),
         updatedAt: deserializeTimestamp(p.updatedAt),
+        lastMessageAt: deserializeTimestamp(p.lastMessageAt),
+        lastItemUpdatedAt: deserializeTimestamp(p.lastItemUpdatedAt),
     }));
 }
 

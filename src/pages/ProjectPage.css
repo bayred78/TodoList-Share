@@ -103,10 +103,19 @@
     justify-content: space-between;
     gap: var(--spacing-sm);
     transition: all var(--transition-normal);
+    position: relative;
 }
 
 .todo-item.todo-checked {
     opacity: 0.6;
+}
+
+/* 아이템 unread 뱃지 (카드 우상단 오버레이) */
+.todo-item .unread-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 1;
 }
 
 .todo-item-main {

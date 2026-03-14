@@ -42,6 +42,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS = {
     itemCreate: true,    // 체크리스트 생성
     itemChange: true,    // 체크리스트 변경
     chat: true,          // 채팅
+    comment: true,       // 댓글
     dm: true,            // DM 메시지
     invitation: true,    // 초대
     dueDate: false,      // 마감일 예약 알림 (Pro/Team 전용)

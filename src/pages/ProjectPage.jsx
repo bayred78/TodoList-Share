@@ -757,6 +757,7 @@ export default function ProjectPage() {
     const [loadingOlder, setLoadingOlder] = useState(false);
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
     const [chatLastReadAt, setChatLastReadAt] = useState(null); // 채팅 뱃지용
+    const [chatBadgeReady, setChatBadgeReady] = useState(false); // 로딩 완료 플래그
     const chatEndRef = React.useRef(null);
     const chatContainerRef = React.useRef(null);
     const chatFileInputRef = React.useRef(null);
@@ -980,12 +981,15 @@ export default function ProjectPage() {
         (async () => {
             const lastRead = await getLastRead(projectId, profile.uid);
             setChatLastReadAt(lastRead?.toDate?.() || null);
+            setChatBadgeReady(true);
         })();
     }, [profile?.uid, projectId]);
 
     // 채팅 뱃지: project.lastMessageAt vs chatLastReadAt 직접 비교 (채팅 구독 불필요)
     const hasUnreadChat = (() => {
+        if (!chatBadgeReady) return false;
         if (!project?.lastMessageAt?.toDate) return false;
+        if (project.lastMessageBy === profile?.uid) return false;
         const lastMsg = project.lastMessageAt.toDate();
         return !chatLastReadAt || lastMsg > chatLastReadAt;
     })();

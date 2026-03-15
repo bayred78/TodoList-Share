@@ -95,8 +95,29 @@ export default function MainPage() {
 
     // 7일 체험 환영 팝업
     const [showWelcomeTrialModal, setShowWelcomeTrialModal] = useState(false);
-    const [chatLastReadMap, setChatLastReadMap] = useState({}); // 채팅 뱃지용
-    const [itemLastSeenMap, setItemLastSeenMap] = useState({}); // 체크리스트 뱃지용
+    const [chatLastReadMap, setChatLastReadMap] = useState(() => {
+        try {
+            const cached = JSON.parse(localStorage.getItem('badgeCache_chatLastRead') || '{}');
+            const result = {};
+            for (const [k, v] of Object.entries(cached)) { if (v) result[k] = new Date(v); }
+            return result;
+        } catch { return {}; }
+    });
+    const [itemLastSeenMap, setItemLastSeenMap] = useState(() => {
+        try {
+            const cached = JSON.parse(localStorage.getItem('badgeCache_itemLastSeen') || '{}');
+            const result = {};
+            for (const [k, v] of Object.entries(cached)) { if (v) result[k] = new Date(v); }
+            return result;
+        } catch { return {}; }
+    });
+
+    // 뱃지 표시 딘레이 (캐시/DB 로딩 대기)
+    const [badgeReady, setBadgeReady] = useState(false);
+    useEffect(() => {
+        const timer = setTimeout(() => setBadgeReady(true), 300);
+        return () => clearTimeout(timer);
+    }, []);
 
     // 실효 플랜 제한
     const effectiveLimits = useMemo(() => getUserLimits(profile), [profile]);
@@ -261,7 +282,7 @@ export default function MainPage() {
     }, [profile?.uid]);
 
     // ⑤ chatLastRead 로드 (채팅 뱃지용)
-    const projectBadgeKey = projects.map(p => `${p.id}:${p.lastMessageAt?.seconds||0}`).sort().join(',');
+    const projectBadgeKey = projects.map(p => `${p.id}:${p.lastMessageAt?.seconds || 0}`).sort().join(',');
     useEffect(() => {
         if (!profile?.uid || !projectBadgeKey) return;
         const ids = projectBadgeKey.split(',').map(s => s.split(':')[0]);
@@ -279,12 +300,17 @@ export default function MainPage() {
                     } catch (e) { /* skip */ }
                 })
             );
+            try {
+                const toCache = {};
+                for (const [k, v] of Object.entries(results)) { if (v) toCache[k] = v.toISOString(); }
+                localStorage.setItem('badgeCache_chatLastRead', JSON.stringify(toCache));
+            } catch { /* 캐시 실패 무시 */ }
             setChatLastReadMap(results);
         })();
     }, [projectBadgeKey, profile?.uid]);
 
     // ⑥ itemLastSeen 로드 (체크리스트 뱃지용)
-    const itemBadgeKey = projects.map(p => `${p.id}:${p.lastItemUpdatedAt?.seconds||0}`).sort().join(',');
+    const itemBadgeKey = projects.map(p => `${p.id}:${p.lastItemUpdatedAt?.seconds || 0}`).sort().join(',');
     useEffect(() => {
         if (!profile?.uid || !itemBadgeKey) return;
         const ids = itemBadgeKey.split(',').map(s => s.split(':')[0]);
@@ -302,6 +328,11 @@ export default function MainPage() {
                     } catch (e) { /* skip */ }
                 })
             );
+            try {
+                const toCache = {};
+                for (const [k, v] of Object.entries(results)) { if (v) toCache[k] = v.toISOString(); }
+                localStorage.setItem('badgeCache_itemLastSeen', JSON.stringify(toCache));
+            } catch { /* 캐시 실패 무시 */ }
             setItemLastSeenMap(results);
         })();
     }, [itemBadgeKey, profile?.uid]);
@@ -475,7 +506,7 @@ export default function MainPage() {
             await toggleCheck(item.projectId, item.id, !item.checked, item, profile?.uid);
             // 본인 토글 → 카드 뱃지 미표시 (서버 타임스탬프)
             import('../services/todoService').then(({ updateItemLastSeen }) => {
-                updateItemLastSeen(item.projectId, profile?.uid).catch(() => {});
+                updateItemLastSeen(item.projectId, profile?.uid).catch(() => { });
             });
             setSearchResults(prev => prev.map(r =>
                 r.id === item.id && r.projectId === item.projectId
@@ -1331,14 +1362,16 @@ export default function MainPage() {
                                                 {project.name}
                                             </h3>
                                             <div className="project-card-badges">
-                                                {project.lastMessageAt?.toDate &&
-                                                 (!chatLastReadMap[project.id] || project.lastMessageAt.toDate() > chatLastReadMap[project.id]) && (
-                                                    <span className="unread-dot" title="읽지 않은 채팅">💬</span>
-                                                )}
-                                                {project.lastItemUpdatedAt?.toDate &&
-                                                 (!itemLastSeenMap[project.id] || project.lastItemUpdatedAt.toDate() > itemLastSeenMap[project.id]) && (
-                                                    <span className="unread-dot" title="변경된 체크리스트">❗</span>
-                                                )}
+                                                {badgeReady && project.lastMessageAt?.toDate &&
+                                                    project.lastMessageBy !== profile?.uid &&
+                                                    (!chatLastReadMap[project.id] || project.lastMessageAt.toDate() > chatLastReadMap[project.id]) && (
+                                                        <span className="unread-dot" title="읽지 않은 채팅">❗</span>
+                                                    )}
+                                                {badgeReady && project.lastItemUpdatedAt?.toDate &&
+                                                    project.lastItemUpdatedBy !== profile?.uid &&
+                                                    (!itemLastSeenMap[project.id] || project.lastItemUpdatedAt.toDate() > itemLastSeenMap[project.id]) && (
+                                                        <span className="unread-dot" title="변경된 체크리스트">❗</span>
+                                                    )}
                                                 {project.ownerId === profile?.uid && (
                                                     <button
                                                         className="card-edit-btn"

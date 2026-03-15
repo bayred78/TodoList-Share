@@ -58,6 +58,17 @@ service cloud.firestore {
         // 쓰기 - 권한 확인 + 구독 상태 확인
         allow create, update, delete: if request.auth != null 
           && canWriteToProject(projectId);
+
+        // ===== 댓글 =====
+        match /comments/{commentId} {
+          allow read: if request.auth != null
+            && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members;
+          allow create: if request.auth != null
+            && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members;
+          allow delete: if request.auth != null
+            && (resource.data.authorId == request.auth.uid
+                || get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid].role == 'admin');
+        }
       }
 
       // ===== 채팅 메시지 =====

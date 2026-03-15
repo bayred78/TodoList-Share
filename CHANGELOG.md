@@ -4,6 +4,16 @@
 
 ---
 
+## 2026-03-16 00:58 — 체크리스트 댓글 기능 + 닉네임/활동명 구분 + orphan 정리
+- `commentService.js` [NEW]: 댓글 추가/구독/삭제 서비스
+- `firestore.rules`: comments 서브컬렉션 보안 규칙 (멤버 읽기/생성, 본인+관리자 삭제)
+- `ProjectPage.css`: 댓글 영역 CSS (디자인 토큰 기반)
+- `ProjectPage.jsx`: 댓글 실시간 구독, 전송, 삭제 UI + 활동명 우선 표시
+- `functions/index.js`: onCommentCreate 푸시 알림 + onItemCreate/Update 활동명 우선 + cleanupDeletedItems 댓글 정리
+- `todoService.js`: permanentDeleteItem 시 댓글 서브컬렉션 함께 삭제
+- Git 태그: `v260316-0058`
+- 복원: `git checkout v260316-0058`
+
 ## 2026-03-15 23:49 — 뱃지 서버 타임스탬프 재설계 + Capacitor SW 비활성화
 - `firestore.rules`: `itemLastSeen` subcollection 보안 규칙 추가
 - `todoService.js`: `setDoc` import, `updateItemLastSeen`/`getItemLastSeen` 함수 추가

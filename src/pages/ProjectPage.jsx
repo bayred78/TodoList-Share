@@ -24,6 +24,7 @@ import ImageViewer from '../components/common/ImageViewer';
 import { LABEL_COLORS, COLOR_MAP, normalizeColorId } from '../constants/colors';
 import { createSharedItem, getSharedItemsByItemId, deleteSharedItem, deleteAllSharesForItem } from '../services/shareService';
 import CalendarView from '../components/CalendarView';
+import { addComment, subscribeToComments, deleteComment } from '../services/commentService';
 import './ProjectPage.css';
 
 
@@ -572,6 +573,59 @@ export default function ProjectPage() {
     const [shareModalItem, setShareModalItem] = useState(null);
     const [shareLoading, setShareLoading] = useState(false);
     const [existingShares, setExistingShares] = useState([]);
+    const [comments, setComments] = useState([]);
+    const [commentText, setCommentText] = useState('');
+    const [commentSending, setCommentSending] = useState(false);
+
+    // 댓글 상대 시간
+    const formatRelativeTime = (date) => {
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        if (diff < 60) return '방금 전';
+        if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+        return `${Math.floor(diff / 86400)}일 전`;
+    };
+
+    // 댓글 실시간 구독 (아이템 선택 시 구독 → 해제 시 cleanup)
+    useEffect(() => {
+        if (!editItem?.id || !projectId) {
+            setComments([]);
+            return;
+        }
+        const unsub = subscribeToComments(projectId, editItem.id, setComments);
+        return () => unsub();
+    }, [editItem?.id, projectId]);
+
+    // 댓글 전송
+    const handleCommentSend = async () => {
+        if (!commentText.trim() || commentSending) return;
+        setCommentSending(true);
+        try {
+            await addComment(projectId, editItem.id, {
+                uid: profile?.uid,
+                nickname: getMemberName(profile?.uid) || profile?.nickname || '멤버',
+                text: commentText.trim(),
+            });
+            setCommentText('');
+        } catch (err) {
+            console.error('댓글 전송 실패:', err);
+            addToast('댓글 전송에 실패했습니다.', 'error');
+        } finally {
+            setCommentSending(false);
+        }
+    };
+
+    // 댓글 삭제 (본인 또는 관리자)
+    const handleCommentDelete = async (commentId) => {
+        if (!window.confirm('댓글을 삭제하시겠습니까?')) return;
+        try {
+            await deleteComment(projectId, editItem.id, commentId);
+        } catch (err) {
+            console.error('댓글 삭제 실패:', err);
+            addToast('댓글 삭제에 실패했습니다.', 'error');
+        }
+    };
 
     // 새 아이템 폼
     const [newTitle, setNewTitle] = useState('');
@@ -4819,6 +4873,42 @@ export default function ProjectPage() {
                                                 내용이 없습니다. ✏️ 편집 버튼을 눌러 내용을 추가하세요.
                                             </p>
                                         )}
+                                    </div>
+                                    {/* 💬 댓글 영역 */}
+                                    <div className="comment-section">
+                                        <div className="comment-divider">💬 댓글 ({comments.length})</div>
+                                        {comments.length === 0 ? (
+                                            <p className="comment-empty">아직 댓글이 없습니다</p>
+                                        ) : (
+                                            <div className="comment-list">
+                                                {comments.map(c => (
+                                                    <div key={c.id} className="comment-item">
+                                                        <div className="comment-header">
+                                                            <span className="comment-author">{c.authorNickname}</span>
+                                                            <span className="comment-time">
+                                                                {c.createdAt?.toDate ? formatRelativeTime(c.createdAt.toDate()) : ''}
+                                                            </span>
+                                                            {(c.authorId === profile?.uid || project?.members?.[profile?.uid]?.role === 'admin') && (
+                                                                <button className="comment-delete-btn" onClick={() => handleCommentDelete(c.id)}>🗑️</button>
+                                                            )}
+                                                        </div>
+                                                        <p className="comment-text">{c.text}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="comment-input-row">
+                                            <input
+                                                className="comment-input"
+                                                value={commentText}
+                                                onChange={e => setCommentText(e.target.value)}
+                                                placeholder="댓글을 입력하세요..."
+                                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCommentSend(); } }}
+                                            />
+                                            <button className="comment-send-btn" onClick={handleCommentSend} disabled={!commentText.trim() || commentSending}>
+                                                전송
+                                            </button>
+                                        </div>
                                     </div>
                                 </React.Fragment>
                             )}

@@ -2635,3 +2635,112 @@
     text-decoration: line-through;
     color: var(--color-text-muted);
 }
+
+/* ===== 댓글 영역 ===== */
+.comment-section {
+    margin-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--spacing-md);
+}
+.comment-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+}
+.comment-divider::before,
+.comment-divider::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid var(--color-border);
+}
+.comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    max-height: 300px;
+    overflow-y: auto;
+}
+.comment-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-elevated);
+    border-radius: var(--radius-md);
+}
+.comment-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+}
+.comment-author {
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+.comment-time {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+.comment-delete-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+}
+.comment-delete-btn:hover {
+    background: var(--color-danger);
+    color: var(--color-on-primary);
+}
+.comment-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    line-height: 1.5;
+    word-break: break-word;
+}
+.comment-input-row {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+.comment-input {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    outline: none;
+}
+.comment-input:focus {
+    border-color: var(--color-primary);
+}
+.comment-send-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.comment-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.comment-empty {
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-md);
+}

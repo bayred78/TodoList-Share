@@ -264,8 +264,13 @@ export async function restoreTodoItem(projectId, itemId, restoredBy = null) {
     await updateDoc(doc(db, 'projects', projectId), { lastItemUpdatedAt: serverTimestamp(), lastItemUpdatedBy: auth.currentUser?.uid || null });
 }
 
-// 영구 삭제
+// 영구 삭제 (comments 서브컬렉션도 정리)
 export async function permanentDeleteItem(projectId, itemId) {
+    // 댓글 서브컬렉션 삭제
+    const commentsSnap = await getDocs(collection(db, 'projects', projectId, 'items', itemId, 'comments'));
+    const deletePromises = commentsSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletePromises);
+    // 아이템 문서 삭제
     await deleteDoc(doc(db, 'projects', projectId, 'items', itemId));
 }
 

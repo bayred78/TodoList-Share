@@ -200,6 +200,11 @@ exports.cleanupDeletedItems = onSchedule({
 
                 let batch = db.batch();
                 for (const itemDoc of itemsSnap.docs) {
+                    // 댓글 서브컬렉션 삭제
+                    const commentsSnap = await itemDoc.ref.collection('comments').limit(500).get();
+                    for (const commentDoc of commentsSnap.docs) {
+                        batch.delete(commentDoc.ref);
+                    }
                     batch.delete(itemDoc.ref);
                 }
                 await batch.commit();
@@ -436,7 +441,8 @@ exports.onItemCreate = onDocumentCreated('projects/{projectId}/items/{itemId}', 
     // 프로젝트 이름 조회
     const projectDoc = await db.collection('projects').doc(projectId).get();
     const projectName = projectDoc.data()?.name || '페이지';
-    const creatorName = projectDoc.data()?.members?.[creatorUid]?.nickname || '멤버';
+    const creatorMember = projectDoc.data()?.members?.[creatorUid];
+    const creatorName = creatorMember?.displayName || creatorMember?.nickname || '멤버';
 
     const members = await getProjectMembersExcept(projectId, creatorUid);
 
@@ -541,7 +547,8 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
     const itemTitle = after.title || before.title || '항목';
     const projectDoc = await db.collection('projects').doc(projectId).get();
     const projectName = projectDoc.data()?.name || '페이지';
-    const updaterName = projectDoc.data()?.members?.[updaterUid]?.nickname || '멤버';
+    const updaterMember = projectDoc.data()?.members?.[updaterUid];
+    const updaterName = updaterMember?.displayName || updaterMember?.nickname || '멤버';
 
     const members = await getProjectMembersExcept(projectId, updaterUid);
 
@@ -698,3 +705,39 @@ exports.sendDueDateAlertWebhook = onRequest(async (req, res) => {
     }
     res.status(200).send('OK');
 });
+
+// ----- 8. 댓글 알림 (작성자 제외) -----
+exports.onCommentCreate = onDocumentCreated(
+    'projects/{projectId}/items/{itemId}/comments/{commentId}',
+    async (event) => {
+        const data = event.data?.data();
+        if (!data) return;
+
+        const projectId = event.params.projectId;
+        const itemId = event.params.itemId;
+        const authorUid = data.authorId;
+        const authorName = data.authorNickname || '멤버';
+        const commentText = data.text || '';
+        const preview = commentText.length > 50 ? commentText.substring(0, 50) + '...' : commentText;
+
+        // 아이템 제목 조회
+        const itemDoc = await db.collection('projects').doc(projectId)
+            .collection('items').doc(itemId).get();
+        const itemTitle = itemDoc.data()?.title || '항목';
+
+        // 프로젝트 이름 조회
+        const projectDoc = await db.collection('projects').doc(projectId).get();
+        const projectName = projectDoc.data()?.name || '페이지';
+
+        const members = await getProjectMembersExcept(projectId, authorUid);
+
+        const promises = members.map(uid =>
+            sendPushToUser(uid, 'comment', {
+                title: `💬 ${projectName}`,
+                body: `${authorName}님이 '${itemTitle}'에 댓글: ${preview}`,
+                data: { type: 'comment', projectId, itemId },
+            })
+        );
+        await Promise.all(promises);
+    }
+);

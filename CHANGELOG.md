@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-03-15 23:49 — 뱃지 서버 타임스탬프 재설계 + Capacitor SW 비활성화
+- `firestore.rules`: `itemLastSeen` subcollection 보안 규칙 추가
+- `todoService.js`: `setDoc` import, `updateItemLastSeen`/`getItemLastSeen` 함수 추가
+- `chatService.js`: `sendMessage`에 `lastMessageBy: senderId` 추가
+- `ProjectPage.jsx`: `myRecentEditsRef`(useRef Set) 기반 아이템 뱃지 재설계 — 본인 수정 시 뱃지 미표시, `useEffect([items])` 서버시간 자동 갱신, 채팅 탭 뱃지 `project.lastMessageAt` 서버시간 사용
+- `MainPage.jsx`: `itemLastSeenMap` state/useEffect 추가, 채팅/체크리스트 뱃지 조건을 서버vs서버 비교로 변경
+- `SettingsPage.jsx`: 버전 v1.0.6
+- `vite.config.js`: `injectRegister: null` (Capacitor SW 비활성화)
+- `index.html`: Capacitor 환경 SW 언등록 스크립트 추가
+- Git 태그: `v260315-2349`
+- 복원: `git checkout v260315-2349`
+
 ## 2026-03-15 08:34 — 뱃지 로직 안정화 + 레이아웃 최적화
 - `todoService.js`: `toggleCheck`, `createRepeatItem`, `createTemplateItems`에 `lastItemUpdatedAt` await 추가
 - `chatService.js`: `sendMessage`의 `lastMessageAt` await 처리

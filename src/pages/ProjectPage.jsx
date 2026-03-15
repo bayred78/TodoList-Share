@@ -484,32 +484,61 @@ export default function ProjectPage() {
     const getItemReadMap = (pid) => { try { return JSON.parse(localStorage.getItem(`itemRead_${pid}`) || '{}'); } catch { return {}; } };
     const [itemReadVer, setItemReadVer] = useState(0); // 뱃지 리렌더 트리거
     const itemReadMap = useMemo(() => getItemReadMap(projectId), [projectId, itemReadVer]);
+    const myRecentEditsRef = useRef(new Set()); // 내가 방금 수정한 아이템 추적
     const markItemAsRead = (pid, itemId) => {
         const map = getItemReadMap(pid);
-        map[itemId] = new Date().toISOString();
+        const targetItem = items.find(i => i.id === itemId);
+        const serverTime = targetItem?.updatedAt?.toDate?.()?.toISOString();
+        map[itemId] = serverTime || new Date(Date.now() + 10000).toISOString();
         localStorage.setItem(`itemRead_${pid}`, JSON.stringify(map));
         setItemReadVer(v => v + 1);
-        // 모든 아이템 읽음 → 카드 뱃지 갱신
-        if (items.length > 0) {
-            const allRead = items.every(i => {
-                if (!i.updatedAt?.toDate) return true;
-                const lr = map[i.id];
-                return lr && i.updatedAt.toDate() <= new Date(lr);
-            });
-            if (allRead) {
-                localStorage.setItem(`itemLastViewed_${pid}`, new Date().toISOString());
-            }
-        }
+        myRecentEditsRef.current.add(itemId);
     };
+
     const isItemUnread = (item) => {
         if (!item.updatedAt?.toDate) return false;
+        // 내가 방금 수정한 아이템 → 무조건 읽음 (렌더 중 side effect 없음)
+        if (myRecentEditsRef.current.has(item.id)) return false;
         const lastRead = itemReadMap[item.id];
         if (!lastRead) return true;
         return item.updatedAt.toDate() > new Date(lastRead);
     };
 
+    // 뱃지용: 프로젝트 진입/이탈 시 seenAt 서버 타임스탬프 기록
+    useEffect(() => {
+        if (!projectId || !profile?.uid) return;
+        import('../services/todoService').then(({ updateItemLastSeen }) => {
+            updateItemLastSeen(projectId, profile.uid).catch(() => {});
+        });
+        return () => {
+            if (projectId && profile?.uid) {
+                import('../services/todoService').then(({ updateItemLastSeen }) => {
+                    updateItemLastSeen(projectId, profile.uid).catch(() => {});
+                });
+            }
+        };
+    }, [projectId, profile?.uid]);
+
     const [project, setProject] = useState(null);
     const [items, setItems] = useState([]);
+    // onSnapshot으로 items 갱신 시 → 내가 수정한 아이템의 NEW 서버시간으로 localStorage 자동 갱신
+    useEffect(() => {
+        if (myRecentEditsRef.current.size === 0 || items.length === 0) return;
+        const map = getItemReadMap(projectId);
+        let changed = false;
+        for (const itemId of [...myRecentEditsRef.current]) {
+            const item = items.find(i => i.id === itemId);
+            if (item?.updatedAt?.toDate) {
+                map[itemId] = item.updatedAt.toDate().toISOString();
+                myRecentEditsRef.current.delete(itemId);
+                changed = true;
+            }
+        }
+        if (changed) {
+            localStorage.setItem(`itemRead_${projectId}`, JSON.stringify(map));
+            setItemReadVer(v => v + 1);
+        }
+    }, [items, projectId]);
     const [activeTab, setActiveTab] = useState('checklist');
     const [pageViewMode, setPageViewMode] = useState(() => localStorage.getItem('pageViewMode') || 'card');
     const [refreshKey, setRefreshKey] = useState(0);
@@ -539,6 +568,7 @@ export default function ProjectPage() {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [conflictData, setConflictData] = useState(null); // { serverData, myData }
     const [showItemMetaInfo, setShowItemMetaInfo] = useState(false);
+    const [showSubtaskPanel, setShowSubtaskPanel] = useState(true); // 기본: 펼침
     const [shareModalItem, setShareModalItem] = useState(null);
     const [shareLoading, setShareLoading] = useState(false);
     const [existingShares, setExistingShares] = useState([]);
@@ -554,6 +584,7 @@ export default function ProjectPage() {
     const [addOptionSheet, setAddOptionSheet] = useState(null); // 'color'|'schedule'|'label'|'assign'|'file'|null
     const [isCreatingItem, setIsCreatingItem] = useState(false); // 항목 생성 중 여부 (중복 연타 방지)
     const [newAssignees, setNewAssignees] = useState([]); // UID[]
+    const [newSubtasks, setNewSubtasks] = useState([]); // { id, title, checked }[]
     const [newImages, setNewImages] = useState([]); // { file: File, preview: string }[]
     const [newFiles, setNewFiles] = useState([]);   // File[]
     const [newContentBlocks, setNewContentBlocks] = useState([{ type: 'text', text: '', id: genBlockId('nt') }]);
@@ -884,7 +915,8 @@ export default function ProjectPage() {
     useEffect(() => {
         if (activeTab === 'chat' && profile) {
             updateLastRead(projectId, profile.uid);
-            setChatLastReadAt(new Date()); // 뱃지 즉시 초기화
+            // project의 서버 타임스탬프를 사용 (서버vs서버 비교 → 시계 차이 없음)
+            setChatLastReadAt(project?.lastMessageAt?.toDate?.() || new Date());
         }
     }, [activeTab, profile, projectId, project?.lastMessageAt?.seconds]);
 
@@ -1376,6 +1408,7 @@ export default function ProjectPage() {
                 labels: newLabels,
                 repeatType: newRepeatType !== 'none' ? newRepeatType : null,
                 assignees: newAssignees,
+                subtasks: newSubtasks,
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
@@ -1416,6 +1449,7 @@ export default function ProjectPage() {
             setNewLabels([]);
             setNewRepeatType('none');
             setNewAssignees([]);
+            setNewSubtasks([]);
             setNewImages([]);
             setNewFiles([]);
             setNewContentBlocks([{ type: 'text', text: '', id: genBlockId('nt') }]);
@@ -1471,8 +1505,7 @@ export default function ProjectPage() {
 
         try {
             await createRepeatItem(projectId, repeatConfirmItem);
-            // 본인이 생성 → 카드 뱃지 미표시
-            localStorage.setItem(`itemLastViewed_${projectId}`, new Date().toISOString());
+            markItemAsRead(projectId, repeatConfirmItem.id);
             addToast('반복 항목이 새로 생성되었습니다.', 'info');
         } catch (error) {
             addToast('반복 항목 생성에 실패했습니다.', 'error');
@@ -1501,6 +1534,7 @@ export default function ProjectPage() {
             }
 
             const updatedChecks = await updateMemberCheck(projectId, item.id, userId, newChecked);
+            markItemAsRead(projectId, item.id);
 
             // 모든 참여자가 체크했는지 확인 (assignees 기준, 없으면 전체 구성원)
             if (updatedChecks && project?.members) {
@@ -1605,7 +1639,8 @@ export default function ProjectPage() {
         if (!confirm('휴지통으로 이동하시겠습니까?')) return;
         const deletedItem = items.find(i => i.id === itemId);
         try {
-            await deleteTodoItem(projectId, itemId);
+            await deleteTodoItem(projectId, itemId, profile?.uid);
+            markItemAsRead(projectId, itemId);
             // 활동 알림은 Phase 5(활동 로그)에서 서브컬렉션으로 재구현 예정
             addToast('휴지통으로 이동했습니다. (7일 후 영구 삭제)', 'success');
         } catch (error) {
@@ -1627,7 +1662,8 @@ export default function ProjectPage() {
         }
 
         try {
-            await restoreTodoItem(projectId, itemId);
+            await restoreTodoItem(projectId, itemId, profile?.uid);
+            markItemAsRead(projectId, itemId);
             addToast('복원되었습니다!', 'success');
         } catch (error) {
             addToast('복원에 실패했습니다.', 'error');
@@ -1687,7 +1723,8 @@ export default function ProjectPage() {
         if (!confirm(`${trashSelected.length}개 항목을 복원합니다.`)) return;
         try {
             for (const id of trashSelected) {
-                await restoreTodoItem(projectId, id);
+                await restoreTodoItem(projectId, id, profile?.uid);
+                markItemAsRead(projectId, id);
             }
             addToast(`${trashSelected.length}개 항목이 복원되었습니다!`, 'success');
             setTrashSelected([]);
@@ -2426,7 +2463,8 @@ export default function ProjectPage() {
             && (editItem.dueDate || null) === (editItemOriginal?.dueDate || null)
             && JSON.stringify(editItem.labels || []) === JSON.stringify(editItemOriginal?.labels || [])
             && (editItem.repeatType || null) === (editItemOriginal?.repeatType || null)
-            && JSON.stringify(editItem.assignees || []) === JSON.stringify(editItemOriginal?.assignees || []);
+            && JSON.stringify(editItem.assignees || []) === JSON.stringify(editItemOriginal?.assignees || [])
+            && JSON.stringify(editItem.subtasks || []) === JSON.stringify(editItemOriginal?.subtasks || []);
         if (noChanges) {
             setShowEditModal(false);
             setIsEditingContent(false);
@@ -2504,6 +2542,7 @@ export default function ProjectPage() {
                 labels: editItem.labels || [],
                 repeatType: editItem.repeatType || null,
                 assignees: editItem.assignees || [],
+                subtasks: editItem.subtasks || [],
                 updatedBy: profile?.uid,
             }, { expectedVersion: currentVersion });
             // 활동 알림 전송 (메인페이지 메세지탭에 표시)
@@ -2624,6 +2663,7 @@ export default function ProjectPage() {
                 labels: conflictData.myData.labels || [],
                 repeatType: conflictData.myData.repeatType || null,
                 assignees: conflictData.myData.assignees || [],
+                subtasks: conflictData.myData.subtasks || [],
                 createdBy: profile.uid,
                 createdByNickname: getMemberName(profile.uid) || profile.nickname,
             });
@@ -3621,7 +3661,7 @@ export default function ProjectPage() {
                                                         {/* 🔒 잠금 */}
                                                         <button
                                                             className="todo-list-action-btn"
-                                                            onClick={async (e) => { e.stopPropagation(); try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); } catch { addToast('잠금 상태 변경에 실패했습니다.', 'error'); } }}
+                                                            onClick={async (e) => { e.stopPropagation(); try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); markItemAsRead(projectId, item.id); } catch { addToast('잠금 상태 변경에 실패했습니다.', 'error'); } }}
                                                             title={item.locked ? '잠금 해제' : '잠금'}
                                                         >{item.locked ? '🔒' : '🔓'}</button>
                                                         {/* ⭐ 즐겨찾기 */}
@@ -3684,6 +3724,7 @@ export default function ProjectPage() {
                                                         {/* Row 1: 작성자 + 첨부파일 + (2열/상세: 액션 오른쪽 끝) */}
                                                         <div className="todo-meta-row">
                                                             <span className="todo-author">{getMemberName(item.createdBy) || item.createdByNickname}</span>
+                                                            {(item.subtasks || []).length > 0 && <span className="subtask-icon" title={`서브체크 ${(item.subtasks||[]).filter(s=>s.checked).length}/${(item.subtasks||[]).length}`}>✅</span>}
                                                             {attachIcons}
                                                             {isRow1Actions && actionBtns}
                                                         </div>
@@ -3743,7 +3784,7 @@ export default function ProjectPage() {
                                                         className="todo-list-action-btn"
                                                         onClick={async (e) => {
                                                             e.stopPropagation();
-                                                            try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); }
+                                                            try { await updateTodoItem(projectId, item.id, { locked: !item.locked }); markItemAsRead(projectId, item.id); }
                                                             catch { addToast('잠금 상태 변경에 실패했습니다.', 'error'); }
                                                         }}
                                                         title={item.locked ? '잠금 해제' : '잠금'}
@@ -3842,7 +3883,7 @@ export default function ProjectPage() {
             {showAddModal && (
                 <div className="fullscreen-editor">
                     <div className="fullscreen-editor-header">
-                        <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); newContentBlocks.filter(b => b.preview).forEach(b => URL.revokeObjectURL(b.preview)); setNewImages([]); setNewFiles([]); setNewContentBlocks([{ type: 'text', text: '', id: genBlockId('nt') }]); setNewAssignees([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
+                        <button className="fullscreen-editor-back" onClick={() => { newImages.forEach(img => URL.revokeObjectURL(img.preview)); newContentBlocks.filter(b => b.preview).forEach(b => URL.revokeObjectURL(b.preview)); setNewImages([]); setNewFiles([]); setNewContentBlocks([{ type: 'text', text: '', id: genBlockId('nt') }]); setNewAssignees([]); setNewSubtasks([]); setAddOptionSheet(null); setShowAddModal(false); }}>←</button>
                         <div className="fullscreen-editor-actions">
                             <button className="btn btn-primary btn-sm" onClick={handleAddItem} disabled={isCreatingItem}>
                                 {isCreatingItem ? '추가 중...' : '추가'}
@@ -3890,6 +3931,14 @@ export default function ProjectPage() {
                         >
                             <span>👥</span><span className="edit-toolbar-label">참여</span>
                             {newAssignees.length > 0 && <span className="edit-toolbar-count">{newAssignees.length}</span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`edit-toolbar-btn ${addOptionSheet === 'subtask' ? 'active' : ''}`}
+                            onClick={() => setAddOptionSheet(addOptionSheet === 'subtask' ? null : 'subtask')}
+                        >
+                            <span>✅</span><span className="edit-toolbar-label">서브체크</span>
+                            {newSubtasks.length > 0 && <span className="edit-toolbar-count">{newSubtasks.length}</span>}
                         </button>
                         <button
                             type="button"
@@ -4098,6 +4147,37 @@ export default function ProjectPage() {
                         </div>
                     )}
 
+                    {/* 옵션 시트: 서브체크 */}
+                    {addOptionSheet === 'subtask' && (
+                        <div className="subtask-panel">
+                            <div className="subtask-list">
+                                {newSubtasks.map((st, idx) => (
+                                    <div key={st.id} className="subtask-item">
+                                        <button type="button" className={`subtask-check ${st.checked ? 'checked' : ''}`} onClick={() => {
+                                            setNewSubtasks(prev => prev.map((s, i) => i === idx ? { ...s, checked: !s.checked } : s));
+                                        }}>{st.checked ? '✓' : ''}</button>
+                                        <input
+                                            className="subtask-input"
+                                            value={st.title}
+                                            onChange={(e) => setNewSubtasks(prev => prev.map((s, i) => i === idx ? { ...s, title: e.target.value } : s))}
+                                            placeholder="서브체크 항목"
+                                        />
+                                        <button type="button" className="subtask-delete" onClick={() => setNewSubtasks(prev => prev.filter((_, i) => i !== idx))}>🗑️</button>
+                                    </div>
+                                ))}
+                            </div>
+                            <button type="button" className="subtask-add-btn" onClick={() => {
+                                if (newSubtasks.length >= effectiveLimits.freeSubtaskLimit) {
+                                    setUpgradeReason('freeSubtask');
+                                    setShowUpgradeModal(true);
+                                    return;
+                                }
+                                setNewSubtasks(prev => [...prev, { id: `st_${Date.now()}`, title: '', checked: false }]);
+                            }}>+ 서브체크 추가</button>
+                            <span className="subtask-limit-text">{newSubtasks.length}/{effectiveLimits.freeSubtaskLimit === Infinity ? '∞' : effectiveLimits.freeSubtaskLimit}</span>
+                        </div>
+                    )}
+
                     {/* 옵션 시트: 파일 첨부 */}
                     {addOptionSheet === 'file' && (
                         <div className="edit-option-sheet">
@@ -4185,7 +4265,8 @@ export default function ProjectPage() {
                                                 || (editItem.dueDate || null) !== (editItemOriginal.dueDate || null)
                                                 || JSON.stringify(editItem.labels || []) !== JSON.stringify(editItemOriginal.labels || [])
                                                 || (editItem.repeatType || null) !== (editItemOriginal.repeatType || null)
-                                                || JSON.stringify(editItem.assignees || []) !== JSON.stringify(editItemOriginal.assignees || []);
+                                                || JSON.stringify(editItem.assignees || []) !== JSON.stringify(editItemOriginal.assignees || [])
+                                                || JSON.stringify(editItem.subtasks || []) !== JSON.stringify(editItemOriginal?.subtasks || []);
                                             if (hasChanges) {
                                                 setShowUnsavedModal(true);
                                                 return;
@@ -4328,6 +4409,15 @@ export default function ProjectPage() {
                                 >
                                     <span>👥</span><span className="edit-toolbar-label">참여</span>
                                     {(editItem.assignees || []).length > 0 && <span className="edit-toolbar-count">{(editItem.assignees || []).length}</span>}
+                                </button>
+                                {/* ✅ 서브체크 버튼 */}
+                                <button
+                                    type="button"
+                                    className={`edit-toolbar-btn ${editOptionSheet === 'subtask' ? 'active' : ''}`}
+                                    onClick={() => setEditOptionSheet(editOptionSheet === 'subtask' ? null : 'subtask')}
+                                >
+                                    <span>✅</span><span className="edit-toolbar-label">서브체크</span>
+                                    {(editItem.subtasks || []).length > 0 && <span className="edit-toolbar-count">{(editItem.subtasks || []).length}</span>}
                                 </button>
                                 {/* 📎 파일 첨부 버튼 — 플랜 제한 없음 */}
                                 <button
@@ -4517,6 +4607,52 @@ export default function ProjectPage() {
                             </div>
                         )}
 
+                        {/* 옵션 시트: 서브체크 */}
+                        {editOptionSheet === 'subtask' && (
+                            <div className="subtask-panel">
+                                <div className="subtask-list">
+                                    {(editItem.subtasks || []).map((st, idx) => (
+                                        <div key={st.id} className="subtask-item">
+                                            <button type="button" className={`subtask-check ${st.checked ? 'checked' : ''}`} onClick={() => {
+                                                setEditItem(prev => ({
+                                                    ...prev,
+                                                    subtasks: prev.subtasks.map((s, i) => i === idx ? { ...s, checked: !s.checked } : s)
+                                                }));
+                                            }}>{st.checked ? '✓' : ''}</button>
+                                            <input
+                                                className="subtask-input"
+                                                value={st.title}
+                                                onChange={(e) => setEditItem(prev => ({
+                                                    ...prev,
+                                                    subtasks: prev.subtasks.map((s, i) => i === idx ? { ...s, title: e.target.value } : s)
+                                                }))}
+                                                placeholder="서브체크 항목"
+                                            />
+                                            <button type="button" className="subtask-delete" onClick={() => {
+                                                setEditItem(prev => ({
+                                                    ...prev,
+                                                    subtasks: prev.subtasks.filter((_, i) => i !== idx)
+                                                }));
+                                            }}>🗑️</button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button type="button" className="subtask-add-btn" onClick={() => {
+                                    const current = editItem.subtasks || [];
+                                    if (current.length >= effectiveLimits.freeSubtaskLimit) {
+                                        setUpgradeReason('freeSubtask');
+                                        setShowUpgradeModal(true);
+                                        return;
+                                    }
+                                    setEditItem(prev => ({
+                                        ...prev,
+                                        subtasks: [...(prev.subtasks || []), { id: `st_${Date.now()}`, title: '', checked: false }]
+                                    }));
+                                }}>+ 서브체크 추가</button>
+                                <span className="subtask-limit-text">{(editItem.subtasks || []).length}/{effectiveLimits.freeSubtaskLimit === Infinity ? '∞' : effectiveLimits.freeSubtaskLimit}</span>
+                            </div>
+                        )}
+
                         {/* 옵션 시트: 파일 첨부 */}
                         {editOptionSheet === 'file' && (
                             <div className="edit-option-sheet">
@@ -4569,11 +4705,17 @@ export default function ProjectPage() {
                             ) : (
                                 <React.Fragment key="view-mode">
                                     {/* 상세 옵션 정보창 (읽기 모드 전용) */}
-                                    <div className="item-meta-toggle">
+                                    <div className="item-meta-toggle" style={{ marginTop: 'calc(-1 * var(--spacing-md))', marginLeft: 'calc(-1 * var(--spacing-md))', marginRight: 'calc(-1 * var(--spacing-md))' }}>
                                         <button className="item-meta-toggle-btn" onClick={() => setShowItemMetaInfo(!showItemMetaInfo)}>
                                             <span>ℹ️ 상세 옵션 정보</span>
                                             <span>{showItemMetaInfo ? '▲' : '▼'}</span>
                                         </button>
+                                        {(editItem.subtasks || []).length > 0 && (
+                                            <button className="item-meta-toggle-btn" onClick={() => setShowSubtaskPanel(!showSubtaskPanel)}>
+                                                <span>✅ 서브체크 ({(editItem.subtasks||[]).filter(s=>s.checked).length}/{(editItem.subtasks||[]).length})</span>
+                                                <span>{showSubtaskPanel ? '▲' : '▼'}</span>
+                                            </button>
+                                        )}
                                     </div>
                                     {showItemMetaInfo && (
                                         <div className="item-meta-panel">
@@ -4626,6 +4768,28 @@ export default function ProjectPage() {
                                                         ))
                                                     ) : <span style={{ color: 'var(--color-text-muted)' }}>전체 (지정 안됨)</span>}
                                                 </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* 서브체크 목록 (보기 모드) — 접기/펼치기 */}
+                                    {showSubtaskPanel && (editItem.subtasks || []).length > 0 && (
+                                        <div className="subtask-view-panel">
+                                            <div className="subtask-list">
+                                                {(editItem.subtasks || []).map((st, idx) => (
+                                                    <div key={st.id} className="subtask-item">
+                                                        <button type="button" className={`subtask-check ${st.checked ? 'checked' : ''}`} onClick={async () => {
+                                                            const newSubs = (editItem.subtasks || []).map((s, i) =>
+                                                                i === idx ? { ...s, checked: !s.checked } : s
+                                                            );
+                                                            setEditItem(prev => ({ ...prev, subtasks: newSubs }));
+                                                            try {
+                                                                await updateTodoItem(projectId, editItem.id, { subtasks: newSubs, updatedBy: profile?.uid });
+                                                                markItemAsRead(projectId, editItem.id);
+                                                            } catch (err) { console.error('서브체크 토글 실패:', err); }
+                                                        }}>{st.checked ? '✓' : ''}</button>
+                                                        <span className={st.checked ? 'subtask-title-done' : ''}>{st.title}</span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     )}

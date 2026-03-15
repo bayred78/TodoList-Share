@@ -25,5 +25,21 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Capacitor 네이티브 앱에서는 SW 불필요 — 웹에서만 등록
+      if ('serviceWorker' in navigator) {
+        var isNative = window.location.protocol === 'capacitor:' ||
+                       window.location.hostname === 'localhost';
+        if (isNative) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+          });
+        } else {
+          window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          });
+        }
+      }
+    </script>
   </body>
 </html>

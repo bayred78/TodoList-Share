@@ -2461,6 +2461,8 @@
 /* 아이템 메타 정보창 (접이식) */
 .item-meta-toggle {
     display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
     justify-content: center;
     padding: var(--spacing-xs) var(--spacing-md);
     border-bottom: 1px solid var(--color-border);
@@ -2513,4 +2515,123 @@
     gap: var(--spacing-xs);
     align-items: center;
     min-width: 0;
+}
+
+/* ===== 서브체크 (Phase 4-1) ===== */
+.subtask-panel {
+    padding: var(--spacing-sm) 0;
+}
+
+.subtask-view-panel {
+    background-color: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--spacing-md);
+}
+
+.subtask-view-header {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-xs);
+}
+
+.subtask-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.subtask-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.subtask-check {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    border: 2px solid var(--color-border-hover);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-on-primary);
+    background: none;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    padding: 0;
+}
+
+.subtask-check.checked {
+    background: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.subtask-input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.subtask-input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+}
+
+.subtask-delete {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    padding: 2px;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
+}
+
+.subtask-delete:hover {
+    opacity: 1;
+}
+
+.subtask-add-btn {
+    background: none;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-primary);
+    cursor: pointer;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-xs);
+    width: 100%;
+    transition: background var(--transition-fast);
+}
+
+.subtask-add-btn:hover {
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.subtask-limit-text {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+    display: block;
+    text-align: right;
+}
+
+.subtask-icon {
+    font-size: var(--font-size-xs);
+    margin-left: var(--spacing-xs);
+    opacity: 0.8;
+}
+
+.subtask-title-done {
+    text-decoration: line-through;
+    color: var(--color-text-muted);
 }

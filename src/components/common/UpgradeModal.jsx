@@ -36,6 +36,7 @@ export default function UpgradeModal({ isOpen, onClose, currentPlan = 'free', re
         freeDueDate: '무료 플랜에서는 마감일을 3개까지 설정할 수 있습니다. 업그레이드하면 무제한!',
         freeLabel: '무료 플랜에서는 라벨을 3개 항목까지 설정할 수 있습니다. 업그레이드하면 무제한!',
         dueDateAlert: '마감일 알림 예약은 Pro 이상 구독이 필요합니다.',
+        freeSubtask: '무료 플랜에서는 서브체크를 3개까지 추가할 수 있습니다. 업그레이드하면 10개!',
     };
 
     return (

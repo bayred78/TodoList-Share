@@ -39,8 +39,8 @@ async function loadPushPlugin() {
 // ===== 기본 알림 설정 =====
 export const DEFAULT_NOTIFICATION_SETTINGS = {
     enabled: true,       // 전체 ON/OFF
-    itemCreate: true,    // 체크리스트 생성
-    itemChange: true,    // 체크리스트 변경
+    itemUpdate: true,    // 체크리스트 생성·편집
+    itemComplete: true,  // 체크리스트 완료 (체크/서브체크/확인체크)
     chat: true,          // 채팅
     comment: true,       // 댓글
     dm: true,            // DM 메시지
@@ -129,10 +129,14 @@ export async function saveNotificationSettings(userId, settings) {
 
 // ===== 알림 설정 조회 =====
 export function getNotificationSettings(profile) {
-    return {
-        ...DEFAULT_NOTIFICATION_SETTINGS,
-        ...(profile?.notificationSettings || {}),
-    };
+    const raw = profile?.notificationSettings || {};
+    const merged = { ...DEFAULT_NOTIFICATION_SETTINGS, ...raw };
+    // 기존 itemCreate/itemChange → itemUpdate/itemComplete 마이그레이션
+    if ('itemCreate' in raw || 'itemChange' in raw) {
+        if (!('itemUpdate' in raw)) merged.itemUpdate = raw.itemCreate ?? raw.itemChange ?? true;
+        if (!('itemComplete' in raw)) merged.itemComplete = raw.itemChange ?? true;
+    }
+    return merged;
 }
 
 // 페이지별 채팅 알림 뮤트 저장

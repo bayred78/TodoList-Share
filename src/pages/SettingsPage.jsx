@@ -88,8 +88,8 @@ export default function SettingsPage() {
         const updated = { ...notiSettings, [key]: !notiSettings[key] };
         // 전체 OFF 시 개별도 모두 OFF
         if (key === 'enabled' && !updated.enabled) {
-            updated.itemCreate = false;
-            updated.itemChange = false;
+            updated.itemUpdate = false;
+            updated.itemComplete = false;
             updated.chat = false;
             updated.comment = false;
             updated.dm = false;
@@ -98,8 +98,8 @@ export default function SettingsPage() {
         }
         // 전체 ON 시 개별도 모두 ON
         if (key === 'enabled' && updated.enabled) {
-            updated.itemCreate = true;
-            updated.itemChange = true;
+            updated.itemUpdate = true;
+            updated.itemComplete = true;
             updated.chat = true;
             updated.comment = true;
             updated.dm = true;
@@ -108,7 +108,7 @@ export default function SettingsPage() {
         }
         // 개별 하나라도 ON이면 전체도 ON
         if (key !== 'enabled') {
-            const anyOn = updated.itemCreate || updated.itemChange || updated.chat || updated.comment || updated.dm || updated.invitation || updated.dueDate;
+            const anyOn = updated.itemUpdate || updated.itemComplete || updated.chat || updated.comment || updated.dm || updated.invitation || updated.dueDate;
             updated.enabled = anyOn;
         }
         setNotiSettings(updated);
@@ -316,23 +316,16 @@ export default function SettingsPage() {
                             </label>
                         </div>
                         <div className="noti-setting-row">
-                            <span>📝 체크리스트 생성</span>
+                            <span>📝 체크리스트 생성·편집</span>
                             <label className="toggle-switch">
-                                <input type="checkbox" checked={notiSettings.itemCreate} onChange={() => handleNotiToggle('itemCreate')} disabled={notiSaving} />
+                                <input type="checkbox" checked={notiSettings.itemUpdate} onChange={() => handleNotiToggle('itemUpdate')} disabled={notiSaving} />
                                 <span className="toggle-slider"></span>
                             </label>
                         </div>
                         <div className="noti-setting-row">
-                            <span>✏️ 체크리스트 변경</span>
+                            <span>✅ 체크리스트 완료</span>
                             <label className="toggle-switch">
-                                <input type="checkbox" checked={notiSettings.itemChange} onChange={() => handleNotiToggle('itemChange')} disabled={notiSaving} />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div className="noti-setting-row">
-                            <span>💬 채팅</span>
-                            <label className="toggle-switch">
-                                <input type="checkbox" checked={notiSettings.chat} onChange={() => handleNotiToggle('chat')} disabled={notiSaving} />
+                                <input type="checkbox" checked={notiSettings.itemComplete} onChange={() => handleNotiToggle('itemComplete')} disabled={notiSaving} />
                                 <span className="toggle-slider"></span>
                             </label>
                         </div>
@@ -340,6 +333,13 @@ export default function SettingsPage() {
                             <span>💬 댓글</span>
                             <label className="toggle-switch">
                                 <input type="checkbox" checked={notiSettings.comment} onChange={() => handleNotiToggle('comment')} disabled={notiSaving} />
+                                <span className="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div className="noti-setting-row">
+                            <span>💬 채팅</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={notiSettings.chat} onChange={() => handleNotiToggle('chat')} disabled={notiSaving} />
                                 <span className="toggle-slider"></span>
                             </label>
                         </div>
@@ -509,7 +509,7 @@ export default function SettingsPage() {
                             }
                         }}
                     >
-                        TodoList Share v1.0.0
+                        TodoList Share v1.0.6
                     </p>
                     {devMode && (
                         <button

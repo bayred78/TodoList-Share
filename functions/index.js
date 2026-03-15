@@ -364,7 +364,7 @@ const { getMessaging } = require('firebase-admin/messaging');
 /**
  * 헬퍼: 특정 사용자에게 FCM 알림 발송
  * @param {string} uid - 대상 사용자 UID
- * @param {string} category - 알림 카테고리 (itemCreate, itemChange, chat, dm, invitation)
+ * @param {string} category - 알림 카테고리 (itemUpdate, itemComplete, chat, dm, invitation)
  * @param {object} payload - { title, body, data }
  */
 async function sendPushToUser(uid, category, payload) {
@@ -441,10 +441,10 @@ exports.onItemCreate = onDocumentCreated('projects/{projectId}/items/{itemId}', 
     const members = await getProjectMembersExcept(projectId, creatorUid);
 
     const promises = members.map(uid =>
-        sendPushToUser(uid, 'itemCreate', {
+        sendPushToUser(uid, 'itemUpdate', {
             title: `📝 ${projectName}`,
             body: `${creatorName}님이 '${itemTitle}'을(를) 추가했습니다`,
-            data: { type: 'itemCreate', projectId },
+            data: { type: 'itemUpdate', projectId },
         })
     );
     await Promise.all(promises);
@@ -472,12 +472,23 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
     if (!before || !after) return;
 
     const projectId = event.params.projectId;
-    const updaterUid = after.updatedBy || after.createdBy;
+    // memberChecks 변경 시 변경된 UID가 실제 변경자
+    let updaterUid = after.updatedBy || after.createdBy;
+    if (JSON.stringify(before.memberChecks || {}) !== JSON.stringify(after.memberChecks || {})) {
+        const changedUid = Object.keys(after.memberChecks || {}).find(k => (before.memberChecks || {})[k] !== (after.memberChecks || {})[k]);
+        if (changedUid) updaterUid = changedUid;
+    }
 
     // 의미 있는 변경 감지
     let action = '';
+    let category = 'itemUpdate'; // 기본: 편집 알림
+
     if (before.checked !== after.checked) {
         action = after.checked ? '완료' : '미완료로 변경';
+        category = 'itemComplete';
+    } else if (JSON.stringify(before.memberChecks || {}) !== JSON.stringify(after.memberChecks || {})) {
+        action = '확인체크';
+        category = 'itemComplete';
     } else if (before.title !== after.title) {
         action = '수정';
     } else if (after.deleted && !before.deleted) {
@@ -486,7 +497,6 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
         // 마감일 변경 → 등록된 사용자 전원 자동 재예약
         const alertUsers = after.dueDateAlertUsers || {};
         await Promise.all(Object.keys(alertUsers).map(async (alertUid) => {
-            // Task 이름 방식 미사용 → 직접 큐 삭제 불가. Firestore 기록으로 취소 여부 판단
             if (!after.dueDate) {
                 await event.data.after.ref.update({ [`dueDateAlertUsers.${alertUid}`]: FieldValue.delete() });
                 return;
@@ -497,7 +507,6 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
             const { scheduledAt: newScheduledAt } = await scheduleTasksForUser(projectId, alertUid, event.params.itemId, after.title || '항목', dueDateMs, rules);
             await event.data.after.ref.update({ [`dueDateAlertUsers.${alertUid}`]: newScheduledAt });
         }));
-        // 알림 본문
         if (after.dueDate) {
             const d = after.dueDate.toDate();
             const pad = (n) => String(n).padStart(2, '0');
@@ -513,6 +522,18 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
         || (before.repeatType || null) !== (after.repeatType || null)
         || JSON.stringify(before.assignees || []) !== JSON.stringify(after.assignees || [])) {
         action = '옵션 수정';
+    } else if (JSON.stringify(before.subtasks || []) !== JSON.stringify(after.subtasks || [])) {
+        // subtasks: checked만 변경 → itemComplete, 구조 변경 → itemUpdate
+        const bSubs = before.subtasks || [];
+        const aSubs = after.subtasks || [];
+        const onlyCheckedChanged = bSubs.length === aSubs.length
+            && bSubs.every((bs, i) => bs.id === aSubs[i].id && bs.title === aSubs[i].title);
+        if (onlyCheckedChanged) {
+            action = '서브체크 완료';
+            category = 'itemComplete';
+        } else {
+            action = '서브체크 수정';
+        }
     } else {
         return;
     }
@@ -525,10 +546,10 @@ exports.onItemUpdate = onDocumentUpdated('projects/{projectId}/items/{itemId}', 
     const members = await getProjectMembersExcept(projectId, updaterUid);
 
     const promises = members.map(uid =>
-        sendPushToUser(uid, 'itemChange', {
+        sendPushToUser(uid, category, {
             title: `✏️ ${projectName}`,
             body: `${updaterName}님이 '${itemTitle}'을(를) ${action}했습니다`,
-            data: { type: 'itemChange', projectId },
+            data: { type: category, projectId },
         })
     );
     await Promise.all(promises);

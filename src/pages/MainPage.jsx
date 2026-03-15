@@ -96,6 +96,7 @@ export default function MainPage() {
     // 7일 체험 환영 팝업
     const [showWelcomeTrialModal, setShowWelcomeTrialModal] = useState(false);
     const [chatLastReadMap, setChatLastReadMap] = useState({}); // 채팅 뱃지용
+    const [itemLastSeenMap, setItemLastSeenMap] = useState({}); // 체크리스트 뱃지용
 
     // 실효 플랜 제한
     const effectiveLimits = useMemo(() => getUserLimits(profile), [profile]);
@@ -282,6 +283,29 @@ export default function MainPage() {
         })();
     }, [projectBadgeKey, profile?.uid]);
 
+    // ⑥ itemLastSeen 로드 (체크리스트 뱃지용)
+    const itemBadgeKey = projects.map(p => `${p.id}:${p.lastItemUpdatedAt?.seconds||0}`).sort().join(',');
+    useEffect(() => {
+        if (!profile?.uid || !itemBadgeKey) return;
+        const ids = itemBadgeKey.split(',').map(s => s.split(':')[0]);
+        (async () => {
+            const { doc: docRef, getDoc } = await import('firebase/firestore');
+            const { db: fireDb } = await import('../services/firebase');
+            const results = {};
+            await Promise.allSettled(
+                ids.map(async (pid) => {
+                    try {
+                        const snap = await getDoc(docRef(fireDb, 'projects', pid, 'itemLastSeen', profile.uid));
+                        if (snap.exists()) {
+                            results[pid] = snap.data().seenAt?.toDate?.() || null;
+                        }
+                    } catch (e) { /* skip */ }
+                })
+            );
+            setItemLastSeenMap(results);
+        })();
+    }, [itemBadgeKey, profile?.uid]);
+
     // UpgradeModal state
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [upgradeReason, setUpgradeReason] = useState('');
@@ -448,9 +472,11 @@ export default function MainPage() {
 
     const handleSearchToggle = async (item) => {
         try {
-            await toggleCheck(item.projectId, item.id, !item.checked, item);
-            // 본인 토글 → 카드 뱃지 미표시
-            localStorage.setItem(`itemLastViewed_${item.projectId}`, new Date().toISOString());
+            await toggleCheck(item.projectId, item.id, !item.checked, item, profile?.uid);
+            // 본인 토글 → 카드 뱃지 미표시 (서버 타임스탬프)
+            import('../services/todoService').then(({ updateItemLastSeen }) => {
+                updateItemLastSeen(item.projectId, profile?.uid).catch(() => {});
+            });
             setSearchResults(prev => prev.map(r =>
                 r.id === item.id && r.projectId === item.projectId
                     ? { ...r, checked: !r.checked }
@@ -1309,10 +1335,8 @@ export default function MainPage() {
                                                  (!chatLastReadMap[project.id] || project.lastMessageAt.toDate() > chatLastReadMap[project.id]) && (
                                                     <span className="unread-dot" title="읽지 않은 채팅">💬</span>
                                                 )}
-                                                {project.lastItemUpdatedAt?.toDate && (() => {
-                                                    const lv = localStorage.getItem(`itemLastViewed_${project.id}`);
-                                                    return !lv || project.lastItemUpdatedAt.toDate() > new Date(lv);
-                                                })() && (
+                                                {project.lastItemUpdatedAt?.toDate &&
+                                                 (!itemLastSeenMap[project.id] || project.lastItemUpdatedAt.toDate() > itemLastSeenMap[project.id]) && (
                                                     <span className="unread-dot" title="변경된 체크리스트">❗</span>
                                                 )}
                                                 {project.ownerId === profile?.uid && (
